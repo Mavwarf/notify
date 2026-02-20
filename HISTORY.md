@@ -2,6 +2,13 @@
 
 ## 2026-02-20
 
+### GitHub Actions Release Workflow
+Added automated release pipeline triggered by version tags (`v*`).
+Builds static binaries (`CGO_ENABLED=0`) for all 5 platform targets
+(linux/amd64, linux/arm64, windows/amd64, darwin/amd64, darwin/arm64),
+runs tests first, then creates a GitHub Release with all binaries,
+`THIRD_PARTY_LICENSES`, and the example config attached.
+
 ### Config Structure Reorganization
 Config file now uses explicit `"config"` and `"profiles"` top-level
 sections instead of a flat layout. Global options (AFK threshold,

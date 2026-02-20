@@ -23,6 +23,21 @@ Or notify yourself when a deployment completes:
 kubectl rollout status deploy/api; notify done
 ```
 
+## Installation
+
+### Pre-built binaries
+
+Download the latest binary for your platform from
+[GitHub Releases](https://github.com/Mavwarf/notify/releases).
+Place the binary somewhere on your `PATH` and copy
+`notify-config.example.json` as `notify-config.json` next to it.
+
+### From source
+
+```bash
+go install github.com/Mavwarf/notify/cmd/notify@latest
+```
+
 ## Design
 
 - **Written in Go** for easy cross-compilation and single-binary distribution.
