@@ -10,10 +10,11 @@
     "default": {
       "ready": {
         "steps": [
-          { "type": "sound", "sound": "success" },
+          { "type": "sound", "sound": "success", "when": "hours:8-22" },
           { "type": "say", "text": "{command} finished in {Duration}", "when": "run" },
           { "type": "say", "text": "Ready!", "when": "direct" },
           { "type": "toast", "message": "{Profile} is ready", "when": "afk" },
+          { "type": "toast", "message": "{Profile} is ready", "when": "hours:22-8" },
           { "type": "discord", "text": "{Profile} is ready", "when": "afk" }
         ]
       },

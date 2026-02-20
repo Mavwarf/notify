@@ -2,7 +2,11 @@ package runner
 
 import (
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/Mavwarf/notify/internal/audio"
 	"github.com/Mavwarf/notify/internal/config"
@@ -21,32 +25,68 @@ func sequential(typ string) bool {
 // FilterSteps returns only the steps that should run given the current
 // AFK state and invocation mode. Steps with When="" always run;
 // "afk"/"present" filter on idle state; "run"/"direct" filter on
-// whether the invocation came from `notify run`.
+// whether the invocation came from `notify run`; "hours:X-Y" filters
+// on the current hour (24h local time).
 func FilterSteps(steps []config.Step, afk, run bool) []config.Step {
+	now := time.Now()
 	out := make([]config.Step, 0, len(steps))
 	for _, s := range steps {
-		switch s.When {
-		case "afk":
-			if afk {
-				out = append(out, s)
-			}
-		case "present":
-			if !afk {
-				out = append(out, s)
-			}
-		case "run":
-			if run {
-				out = append(out, s)
-			}
-		case "direct":
-			if !run {
-				out = append(out, s)
-			}
-		default:
+		if matchWhen(s.When, afk, run, now) {
 			out = append(out, s)
 		}
 	}
 	return out
+}
+
+// matchWhen evaluates a single "when" condition string against the
+// current state. Unknown conditions return false (fail-closed) with a
+// warning printed to stderr.
+func matchWhen(when string, afk, run bool, now time.Time) bool {
+	switch when {
+	case "":
+		return true
+	case "afk":
+		return afk
+	case "present":
+		return !afk
+	case "run":
+		return run
+	case "direct":
+		return !run
+	default:
+		if strings.HasPrefix(when, "hours:") {
+			return matchHours(when[6:], now)
+		}
+		fmt.Fprintf(os.Stderr, "warning: unknown when condition %q, skipping step\n", when)
+		return false
+	}
+}
+
+// matchHours parses a spec like "8-22" and returns true if now's hour
+// falls within the range. Cross-midnight ranges ("22-8") are supported.
+// Same start and end ("8-8") is a zero-width window and never matches.
+// Returns false (skip step) on parse errors.
+func matchHours(spec string, now time.Time) bool {
+	parts := strings.SplitN(spec, "-", 2)
+	if len(parts) != 2 {
+		fmt.Fprintf(os.Stderr, "warning: invalid hours spec %q, skipping step\n", spec)
+		return false
+	}
+	start, err1 := strconv.Atoi(parts[0])
+	end, err2 := strconv.Atoi(parts[1])
+	if err1 != nil || err2 != nil || start < 0 || start > 23 || end < 0 || end > 23 {
+		fmt.Fprintf(os.Stderr, "warning: invalid hours spec %q, skipping step\n", spec)
+		return false
+	}
+	h := now.Hour()
+	if start == end {
+		return false
+	}
+	if start < end {
+		return h >= start && h < end
+	}
+	// Cross-midnight: e.g. 22-8 → hour >= 22 OR hour < 8
+	return h >= start || h < end
 }
 
 // Execute runs the steps in the given action.

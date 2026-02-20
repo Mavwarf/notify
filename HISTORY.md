@@ -2,6 +2,14 @@
 
 ## 2026-02-20
 
+### Quiet Hours (`hours:X-Y`)
+New time-based `"when"` condition suppresses steps outside a given hour
+range. `"hours:8-22"` runs the step only between 8am and 10pm;
+`"hours:22-8"` handles cross-midnight ranges. Invalid specs are
+fail-closed (step skipped with stderr warning). Pairs naturally with
+AFK detection — suppress sound at night while keeping toast/discord
+active, all within one profile.
+
 ### Command Wrapper (`notify run`)
 New `notify run [profile] -- <command...>` subcommand wraps an arbitrary
 command, captures its exit code and duration, then automatically triggers

@@ -55,6 +55,8 @@ go install github.com/Mavwarf/notify/cmd/notify@latest
 - **AFK detection** — conditionally run steps based on whether the user is
   at their desk or away. Play a sound when present, send a Discord message
   when AFK.
+- **Quiet hours** — time-based `"hours:X-Y"` condition suppresses loud steps
+  at night and routes to silent channels instead.
 - **Cross-platform** — uses [oto](https://github.com/ebitengine/oto) for
   native audio output on Windows (WASAPI), macOS (Core Audio), and
   Linux (ALSA).
@@ -136,10 +138,11 @@ notify help                            # Show help
     "default": {
       "ready": {
         "steps": [
-          { "type": "sound", "sound": "success" },
+          { "type": "sound", "sound": "success", "when": "hours:8-22" },
           { "type": "say", "text": "{command} finished in {Duration}", "when": "run" },
           { "type": "say", "text": "Ready!", "when": "direct" },
           { "type": "toast", "message": "Ready!", "when": "afk" },
+          { "type": "toast", "message": "Ready!", "when": "hours:22-8" },
           { "type": "discord", "text": "Ready!", "when": "afk" }
         ]
       }
@@ -227,13 +230,14 @@ Steps can be conditionally filtered with a `"when"` condition.
 AFK conditions use idle time (no keyboard/mouse input); invocation
 conditions distinguish `notify run` from direct calls:
 
-| `when` value | Step runs when... |
-|--------------|-------------------|
-| *(omitted)*  | Always (default, backwards compatible) |
-| `"present"`  | User is **active** (idle time below threshold) |
-| `"afk"`      | User is **away** (idle time at or above threshold) |
-| `"run"`      | Invoked via `notify run` (command wrapper) |
-| `"direct"`   | Invoked directly (not via `notify run`) |
+| `when` value   | Step runs when... |
+|----------------|-------------------|
+| *(omitted)*    | Always (default, backwards compatible) |
+| `"present"`    | User is **active** (idle time below threshold) |
+| `"afk"`        | User is **away** (idle time at or above threshold) |
+| `"run"`        | Invoked via `notify run` (command wrapper) |
+| `"direct"`     | Invoked directly (not via `notify run`) |
+| `"hours:X-Y"`  | Current hour is within range (24h local time) |
 
 Set the threshold (in seconds) in `"config"`. Default is 300 (5 minutes):
 
@@ -261,6 +265,24 @@ Idle detection is platform-native:
 
 If idle time cannot be determined (e.g. `xprintidle` not installed), notify
 fails open and treats the user as present.
+
+### Quiet hours
+
+Use `"hours:X-Y"` to restrict steps to certain hours of the day (24-hour
+local time). Useful for suppressing loud notifications at night:
+
+```json
+{
+  "steps": [
+    { "type": "sound", "sound": "success", "when": "hours:8-22" },
+    { "type": "toast", "message": "Build done!", "when": "hours:22-8" }
+  ]
+}
+```
+
+- `hours:8-22` — runs when the hour is >= 8 and < 22
+- `hours:22-8` — cross-midnight: runs when hour >= 22 **or** < 8
+- Invalid specs are skipped (fail-closed) with a stderr warning
 
 ### Lookup logic
 

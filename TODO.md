@@ -1,20 +1,5 @@
 # TODO
 
-### Quiet Hours
-
-A time-based `"when"` condition so you can suppress loud notifications
-at night without changing your config or creating separate profiles:
-
-```json
-{ "type": "sound", "sound": "success", "when": "hours:8-22" },
-{ "type": "toast", "message": "Done!", "when": "hours:22-8" }
-```
-
-Useful when you run late-night builds or have CI hooks that fire
-overnight — you still get notified (via toast or remote action), but
-without waking up the house. Pairs naturally with AFK detection: you
-might be present at 11pm but still prefer silent notifications.
-
 ### Cooldown / Rate Limiting
 
 Per-action cooldown to prevent notification spam from watch loops
