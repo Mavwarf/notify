@@ -11,7 +11,8 @@
       "ready": {
         "steps": [
           { "type": "sound", "sound": "success" },
-          { "type": "say", "text": "Ready!", "when": "present" },
+          { "type": "say", "text": "{command} finished in {Duration}", "when": "run" },
+          { "type": "say", "text": "Ready!", "when": "direct" },
           { "type": "toast", "message": "{Profile} is ready", "when": "afk" },
           { "type": "discord", "text": "{Profile} is ready", "when": "afk" }
         ]

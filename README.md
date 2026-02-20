@@ -14,12 +14,13 @@ Long-running terminal commands finish silently. `notify` gives you instant
 feedback:
 
 ```bash
-make build && notify ready || notify error
+notify run -- make build
 ```
 
-Or notify yourself when a deployment completes:
+Or chain it manually for more control:
 
 ```bash
+make build && notify ready || notify error
 kubectl rollout status deploy/api; notify done
 ```
 
@@ -82,7 +83,7 @@ internal/
   eventlog/
     eventlog.go          Append-only invocation log (~/.notify.log)
   tmpl/
-    tmpl.go              Template variable expansion ({profile}, {Profile})
+    tmpl.go              Template variable expansion ({profile}, {command}, etc.)
   shell/
     escape_windows.go    PowerShell string escaping
   speech/
@@ -99,6 +100,7 @@ internal/
 
 ```bash
 notify [options] [profile] <action>
+notify run [options] [profile] -- <command...>
 notify list                            # List all profiles and actions
 notify version                         # Show version and build date
 notify help                            # Show help
@@ -135,7 +137,8 @@ notify help                            # Show help
       "ready": {
         "steps": [
           { "type": "sound", "sound": "success" },
-          { "type": "say", "text": "Ready!", "when": "present" },
+          { "type": "say", "text": "{command} finished in {Duration}", "when": "run" },
+          { "type": "say", "text": "Ready!", "when": "direct" },
           { "type": "toast", "message": "Ready!", "when": "afk" },
           { "type": "discord", "text": "Ready!", "when": "afk" }
         ]
@@ -165,9 +168,12 @@ notify help                            # Show help
 - Toast `title` defaults to the profile name if omitted.
 - **Template variables:** use `{profile}` in `say` text, `toast` title/message,
   or `discord` text to inject the runtime profile name, or `{Profile}` for
-  title case (e.g. `boss` → `Boss`). This is especially useful with the
-  default fallback — a single action definition can produce different messages
-  depending on which profile name was passed on the CLI.
+  title case (e.g. `boss` → `Boss`). When using `notify run`, `{command}`,
+  `{duration}` (compact: `2m15s`), and `{Duration}` (spoken: `2 minutes and
+  15 seconds`) are also available. Use `{Duration}` in `say` steps for
+  natural speech output. This is especially useful with the default fallback —
+  a single action definition can produce different messages depending on which
+  profile name was passed on the CLI.
 - `sound` and `say` steps run sequentially (shared audio pipeline).
   All other steps (`toast`, `discord`, etc.) fire in parallel immediately.
 
@@ -211,19 +217,23 @@ Especially useful with `"when": "afk"` to reach you when you're away:
 { "type": "discord", "text": "{Profile} build is ready", "when": "afk" }
 ```
 
-The `text` field supports template variables (`{profile}`, `{Profile}`).
+The `text` field supports template variables (`{profile}`, `{Profile}`,
+and `{command}`/`{duration}` in `run` mode).
 Discord steps run in parallel (they don't block the audio pipeline).
 
 ### AFK detection
 
-`notify` checks how long the user has been idle (no keyboard/mouse input)
-and uses that to filter steps with a `"when"` condition:
+Steps can be conditionally filtered with a `"when"` condition.
+AFK conditions use idle time (no keyboard/mouse input); invocation
+conditions distinguish `notify run` from direct calls:
 
 | `when` value | Step runs when... |
 |--------------|-------------------|
 | *(omitted)*  | Always (default, backwards compatible) |
 | `"present"`  | User is **active** (idle time below threshold) |
 | `"afk"`      | User is **away** (idle time at or above threshold) |
+| `"run"`      | Invoked via `notify run` (command wrapper) |
+| `"direct"`   | Invoked directly (not via `notify run`) |
 
 Set the threshold (in seconds) in `"config"`. Default is 300 (5 minutes):
 
@@ -258,6 +268,39 @@ fails open and treats the user as present.
 2. If not found, fall back to `profiles["default"][action]`
 3. If neither exists, error
 
+### Command wrapper (`notify run`)
+
+Wrap any command to get automatic notifications on completion:
+
+```bash
+notify run -- make build              # default profile, "ready" or "error"
+notify run boss -- cargo test         # boss profile
+notify run -v 50 -- npm run build     # with volume override
+```
+
+`notify run` executes the command, measures its duration, then triggers
+`ready` on exit code 0 or `error` on non-zero. The `--` separator is
+required to distinguish notify options from the wrapped command.
+
+Additional template variables are available in `run` mode:
+
+| Variable     | Description                          | Example                        |
+|--------------|--------------------------------------|--------------------------------|
+| `{command}`  | The wrapped command string           | `make build`                   |
+| `{duration}` | Compact elapsed time                 | `2m15s`                        |
+| `{Duration}` | Spoken elapsed time (for TTS)        | `2 minutes and 15 seconds`     |
+
+Use `{Duration}` in `say` steps for natural speech, `{duration}` in
+toast/discord for compact display.
+
+Steps can be limited to `run` mode with `"when": "run"`, or excluded
+from it with `"when": "direct"`:
+
+```json
+{ "type": "say", "text": "{command} finished in {Duration}", "when": "run" },
+{ "type": "say", "text": "Ready!", "when": "direct" }
+```
+
 ### Examples
 
 ```bash
@@ -266,6 +309,8 @@ notify default ready              # Same as above (explicit default)
 notify boss ready                 # Sound + speech + toast notification
 notify -v 50 ready                # Run at 50% volume
 notify -c myconfig.json dev done  # Use a specific config file
+notify run -- make build          # Wrap a command, auto ready/error
+notify run boss -- cargo test     # Wrap with a specific profile
 ```
 
 ### Event log
@@ -285,9 +330,10 @@ AFK detection are omitted). A blank line separates each invocation:
 2026-02-20T14:35:12+01:00    step[2] toast  title="AFK" message="Ready!"
 ```
 
-Template variables (`{profile}`, `{Profile}`) are expanded in the log so you
-see the actual text that was spoken or displayed. Logging is best-effort —
-errors are printed to stderr but never fail the command.
+Template variables (`{profile}`, `{Profile}`, `{command}`, `{duration}`, etc.)
+are expanded in the log so you see the actual text that was spoken or
+displayed. Logging is best-effort — errors are printed to stderr but never
+fail the command.
 
 ## Building
 

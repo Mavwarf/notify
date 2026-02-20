@@ -1,28 +1,5 @@
 # TODO
 
-### Command Wrapper (`notify run`)
-
-Today you have to manually wire notify into your commands:
-
-```bash
-make build && notify ready || notify error
-```
-
-With `notify run`, you just prefix the command:
-
-```bash
-notify run make build
-```
-
-It runs the command, captures exit code and duration, then automatically
-triggers the `ready` action on success (exit 0) or `error` on failure.
-New template variables `{command}` and `{duration}` let you include
-context in your notifications — e.g. `"Build finished in {duration}"`.
-
-This removes the friction of remembering to chain notify into every
-command and makes it practical for ad-hoc use: just prefix any
-long-running command and walk away.
-
 ### Quiet Hours
 
 A time-based `"when"` condition so you can suppress loud notifications

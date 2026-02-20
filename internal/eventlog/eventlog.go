@@ -14,7 +14,7 @@ import (
 // Log appends to ~/.notify.log a summary line followed by one detail line
 // per step. Errors are printed to stderr but never returned — logging is
 // best-effort.
-func Log(profile, action string, steps []config.Step, afk bool) {
+func Log(action string, steps []config.Step, afk bool, vars tmpl.Vars) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "eventlog: %v\n", err)
@@ -38,11 +38,11 @@ func Log(profile, action string, steps []config.Step, afk bool) {
 
 	// Summary line.
 	fmt.Fprintf(f, "%s  profile=%s  action=%s  steps=%s  afk=%t\n",
-		ts, profile, action, strings.Join(types, ","), afk)
+		ts, vars.Profile, action, strings.Join(types, ","), afk)
 
 	// Detail line per step.
 	for i, s := range steps {
-		detail := stepDetail(s, profile)
+		detail := stepDetail(s, vars)
 		fmt.Fprintf(f, "%s    step[%d] %s  %s\n", ts, i+1, s.Type, detail)
 	}
 
@@ -51,20 +51,20 @@ func Log(profile, action string, steps []config.Step, afk bool) {
 }
 
 // stepDetail returns a human-readable description of what a step does.
-func stepDetail(s config.Step, profile string) string {
+func stepDetail(s config.Step, vars tmpl.Vars) string {
 	switch s.Type {
 	case "sound":
 		return fmt.Sprintf("sound=%s", s.Sound)
 	case "say":
-		return fmt.Sprintf("text=%q", tmpl.Expand(s.Text, profile))
+		return fmt.Sprintf("text=%q", tmpl.Expand(s.Text, vars))
 	case "toast":
 		title := s.Title
 		if title == "" {
-			title = profile
+			title = vars.Profile
 		}
-		return fmt.Sprintf("title=%q message=%q", tmpl.Expand(title, profile), tmpl.Expand(s.Message, profile))
+		return fmt.Sprintf("title=%q message=%q", tmpl.Expand(title, vars), tmpl.Expand(s.Message, vars))
 	case "discord":
-		return fmt.Sprintf("text=%q", tmpl.Expand(s.Text, profile))
+		return fmt.Sprintf("text=%q", tmpl.Expand(s.Text, vars))
 	default:
 		return ""
 	}

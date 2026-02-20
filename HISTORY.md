@@ -2,6 +2,21 @@
 
 ## 2026-02-20
 
+### Command Wrapper (`notify run`)
+New `notify run [profile] -- <command...>` subcommand wraps an arbitrary
+command, captures its exit code and duration, then automatically triggers
+the `ready` action on success (exit 0) or `error` on failure. Three new
+template variables: `{command}` (the wrapped command), `{duration}`
+(compact: `2m15s`), and `{Duration}` (spoken: `2 minutes and 15 seconds`
+— ideal for TTS). The `--` separator is required to distinguish notify
+flags from the wrapped command. The wrapped command's exit code is
+preserved as notify's own exit code.
+
+New `"when"` conditions `"run"` and `"direct"` let steps target a
+specific invocation mode — use `"when": "run"` for steps that only
+make sense with command context (like speaking the duration), and
+`"when": "direct"` for steps that should only run in normal invocations.
+
 ### CI and Collaboration
 Added CI workflow that runs `go vet`, tests, and cross-platform build
 checks on every push and PR to `main`. Added `CONTRIBUTING.md` with
