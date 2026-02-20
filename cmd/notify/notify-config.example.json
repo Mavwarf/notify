@@ -1,0 +1,70 @@
+{
+  "config": {
+    "afk_threshold_seconds": 300,
+    "default_volume": 100,
+    "credentials": {
+      "discord_webhook": "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN"
+    }
+  },
+  "profiles": {
+    "default": {
+      "ready": {
+        "steps": [
+          { "type": "sound", "sound": "success" },
+          { "type": "say", "text": "Ready!", "when": "present" },
+          { "type": "toast", "message": "{Profile} is ready", "when": "afk" },
+          { "type": "discord", "text": "{Profile} is ready", "when": "afk" }
+        ]
+      },
+      "done": {
+        "steps": [
+          { "type": "sound", "sound": "blip" }
+        ]
+      },
+      "error": {
+        "steps": [
+          { "type": "sound", "sound": "error" },
+          { "type": "say", "text": "Something went wrong", "when": "present" },
+          { "type": "toast", "message": "Error occurred" }
+        ]
+      },
+      "warning": {
+        "steps": [
+          { "type": "sound", "sound": "warning" }
+        ]
+      }
+    },
+    "boss": {
+      "ready": {
+        "steps": [
+          { "type": "sound", "sound": "notification", "volume": 90 },
+          { "type": "say", "text": "Boss is ready" },
+          { "type": "toast", "message": "Ready to go" }
+        ]
+      },
+      "done": {
+        "steps": [
+          { "type": "sound", "sound": "success", "volume": 80 },
+          { "type": "toast", "message": "Task complete" }
+        ]
+      }
+    },
+    "quiet": {
+      "ready": {
+        "steps": [
+          { "type": "sound", "sound": "blip", "volume": 30 }
+        ]
+      },
+      "done": {
+        "steps": [
+          { "type": "sound", "sound": "blip", "volume": 30 }
+        ]
+      },
+      "error": {
+        "steps": [
+          { "type": "toast", "message": "Error occurred" }
+        ]
+      }
+    }
+  }
+}

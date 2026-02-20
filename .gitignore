@@ -1,0 +1,25 @@
+# Build output
+output/
+
+# Go
+*.exe
+
+# Claude Code (local permissions)
+.claude/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# CMake
+build/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
