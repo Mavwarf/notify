@@ -74,7 +74,7 @@ jobs:
             export CC=aarch64-linux-gnu-gcc
             export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig/
           fi
-          go build -o ${{ matrix.binary }} ./cmd/notify
+          go build -ldflags "-X main.version=${{ github.ref_name }} -X main.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" -o ${{ matrix.binary }} ./cmd/notify
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.binary }}

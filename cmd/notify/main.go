@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"sort"
 	"strconv"
 
@@ -10,6 +11,11 @@ import (
 	"github.com/Mavwarf/notify/internal/eventlog"
 	"github.com/Mavwarf/notify/internal/idle"
 	"github.com/Mavwarf/notify/internal/runner"
+)
+
+var (
+	version   = "dev"
+	buildDate = "unknown"
 )
 
 func main() {
@@ -55,6 +61,8 @@ func main() {
 	switch filtered[0] {
 	case "help", "-h", "--help":
 		printUsage()
+	case "version", "-V", "--version":
+		printVersion()
 	case "list", "-l", "--list":
 		listProfiles(configPath)
 	default:
@@ -135,9 +143,13 @@ func listProfiles(configPath string) {
 	}
 }
 
-func printUsage() {
-	fmt.Println(`notify - Run notification actions from a config file
+func printVersion() {
+	fmt.Printf("notify %s (%s) %s/%s\n", version, buildDate, runtime.GOOS, runtime.GOARCH)
+}
 
+func printUsage() {
+	fmt.Printf("notify %s - Run notification actions from a config file\n", version)
+	fmt.Println(`
 Usage:
   notify [options] [profile] <action>
 
@@ -147,6 +159,7 @@ Options:
 
 Commands:
   list, -l, --list       List all profiles and actions
+  version, -V             Show version and build date
   help, -h, --help       Show this help message
 
 Config resolution:
@@ -159,5 +172,9 @@ Examples:
   notify default ready             Same as above (explicit default)
   notify boss ready                Run "ready" from the boss profile
   notify -v 50 ready               Run at 50% volume
-  notify -c my.json default ready  Use a specific config file`)
+  notify -c my.json default ready  Use a specific config file
+
+Created by Thomas Häuser
+https://mavwarf.netlify.app/
+https://github.com/Mavwarf/notify`)
 }
