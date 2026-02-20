@@ -28,29 +28,50 @@ jobs:
           - goos: linux
             goarch: amd64
             binary: notify-linux-amd64
+            cgo: "1"
           - goos: linux
             goarch: arm64
             binary: notify-linux-arm64
+            cgo: "1"
           - goos: windows
             goarch: amd64
             binary: notify-windows-amd64.exe
+            cgo: "0"
           - goos: darwin
             goarch: amd64
             binary: notify-darwin-amd64
+            cgo: "0"
           - goos: darwin
             goarch: arm64
             binary: notify-darwin-arm64
+            cgo: "0"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: "1.24"
+      - name: Install ALSA headers (amd64)
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+      - name: Install ALSA headers (arm64 cross)
+        if: matrix.goos == 'linux' && matrix.goarch == 'arm64'
+        run: |
+          sudo dpkg --add-architecture arm64
+          echo "deb [arch=arm64] http://ports.ubuntu.com/ noble main universe" | sudo tee /etc/apt/sources.list.d/arm64-ports.list
+          echo "deb [arch=arm64] http://ports.ubuntu.com/ noble-updates main universe" | sudo tee -a /etc/apt/sources.list.d/arm64-ports.list
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu libasound2-dev:arm64
       - name: Build
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: "0"
-        run: go build -o ${{ matrix.binary }} ./cmd/notify
+          CGO_ENABLED: ${{ matrix.cgo }}
+        run: |
+          if [ "${{ matrix.goos }}" = "linux" ] && [ "${{ matrix.goarch }}" = "arm64" ]; then
+            export CC=aarch64-linux-gnu-gcc
+            export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig/
+          fi
+          go build -o ${{ matrix.binary }} ./cmd/notify
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.binary }}
