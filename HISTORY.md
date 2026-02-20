@@ -2,12 +2,26 @@
 
 ## 2026-02-20
 
+### CI and Collaboration
+Added CI workflow that runs `go vet`, tests, and cross-platform build
+checks on every push and PR to `main`. Added `CONTRIBUTING.md` with
+setup instructions and PR guidelines. Added issue templates for bug
+reports and feature requests.
+
+### Version Command
+`notify version` (also `-V`, `--version`) prints version, build date,
+and platform. Version and build date are injected via `-ldflags` in CI;
+local builds show `dev`. Help output now shows the version in its
+header and author credit with links at the bottom.
+
 ### GitHub Actions Release Workflow
 Added automated release pipeline triggered by version tags (`v*`).
-Builds static binaries (`CGO_ENABLED=0`) for all 5 platform targets
-(linux/amd64, linux/arm64, windows/amd64, darwin/amd64, darwin/arm64),
-runs tests first, then creates a GitHub Release with all binaries,
-`THIRD_PARTY_LICENSES`, and the example config attached.
+Builds binaries for all 5 platform targets (linux/amd64, linux/arm64,
+windows/amd64, darwin/amd64, darwin/arm64), runs tests first, then
+creates a GitHub Release with all binaries, `THIRD_PARTY_LICENSES`,
+and the example config attached. Linux builds use `CGO_ENABLED=1`
+with ALSA headers (oto requires CGO on Linux); Windows and macOS
+builds use `CGO_ENABLED=0` (oto uses purego on these platforms).
 
 ### Config Structure Reorganization
 Config file now uses explicit `"config"` and `"profiles"` top-level

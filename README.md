@@ -100,6 +100,7 @@ internal/
 ```bash
 notify [options] [profile] <action>
 notify list                            # List all profiles and actions
+notify version                         # Show version and build date
 notify help                            # Show help
 ```
 
@@ -347,6 +348,11 @@ cmake --install build --prefix /usr/local
 | Text-to-speech | System.Speech (built-in) | `say` (built-in) | `espeak-ng` or `espeak` |
 | Toast notifications | Toast API (Win 10+) | `osascript` (built-in) | `notify-send` (`libnotify`) |
 | Discord webhook | `net/http` (built-in) | `net/http` (built-in) | `net/http` (built-in) |
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions and
+guidelines.
 
 ## License
 
