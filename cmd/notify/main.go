@@ -26,6 +26,7 @@ func main() {
 	args := os.Args[1:]
 	volume := -1
 	configPath := ""
+	logFlag := false
 
 	// Parse flags
 	filtered := args[:0]
@@ -52,6 +53,8 @@ func main() {
 				fmt.Fprintf(os.Stderr, "Error: --config requires a file path\n")
 				os.Exit(1)
 			}
+		case "--log", "-L":
+			logFlag = true
 		default:
 			filtered = append(filtered, args[i])
 		}
@@ -70,13 +73,13 @@ func main() {
 	case "list", "-l", "--list":
 		listProfiles(configPath)
 	case "run":
-		runWrapped(filtered[1:], configPath, volume)
+		runWrapped(filtered[1:], configPath, volume, logFlag)
 	default:
-		runAction(filtered, configPath, volume)
+		runAction(filtered, configPath, volume, logFlag)
 	}
 }
 
-func runAction(args []string, configPath string, volume int) {
+func runAction(args []string, configPath string, volume int, logFlag bool) {
 	var profile, action string
 	switch len(args) {
 	case 1:
@@ -116,14 +119,16 @@ func runAction(args []string, configPath string, volume int) {
 	vars := tmpl.Vars{Profile: profile}
 	filtered := runner.FilterSteps(act.Steps, afk, false)
 	err = runner.Execute(act, volume, cfg.Options.Credentials.DiscordWebhook, vars, afk, false)
-	eventlog.Log(action, filtered, afk, vars)
+	if cfg.Options.Log || logFlag {
+		eventlog.Log(action, filtered, afk, vars)
+	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func runWrapped(args []string, configPath string, volume int) {
+func runWrapped(args []string, configPath string, volume int, logFlag bool) {
 	// Find "--" separator.
 	sepIdx := -1
 	for i, a := range args {
@@ -208,7 +213,9 @@ func runWrapped(args []string, configPath string, volume int) {
 	}
 	filtered := runner.FilterSteps(act.Steps, afk, true)
 	err = runner.Execute(act, volume, cfg.Options.Credentials.DiscordWebhook, vars, afk, true)
-	eventlog.Log(action, filtered, afk, vars)
+	if cfg.Options.Log || logFlag {
+		eventlog.Log(action, filtered, afk, vars)
+	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 	}
@@ -310,6 +317,7 @@ Usage:
 Options:
   --volume, -v <0-100>   Override volume (default: config or 100)
   --config, -c <path>    Path to notify-config.json
+  --log, -L              Write invocation to ~/.notify.log
 
 Commands:
   run                    Wrap a command; notify ready on success, error on failure

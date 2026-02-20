@@ -114,6 +114,7 @@ notify help                            # Show help
 |--------------------|------------------------------------------|
 | `--volume`, `-v`   | Override volume, 0-100 (default: config or 100) |
 | `--config`, `-c`   | Path to notify-config.json               |
+| `--log`, `-L`      | Write invocation to `~/.notify.log`      |
 
 ### Config file
 
@@ -130,6 +131,7 @@ notify help                            # Show help
   "config": {
     "afk_threshold_seconds": 300,
     "default_volume": 100,
+    "log": false,
     "credentials": {
       "discord_webhook": "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN"
     }
@@ -177,6 +179,8 @@ notify help                            # Show help
   natural speech output. This is especially useful with the default fallback —
   a single action definition can produce different messages depending on which
   profile name was passed on the CLI.
+- **Event logging:** set `"log": true` to append every invocation to
+  `~/.notify.log` (or use `--log` on the CLI). Off by default.
 - `sound` and `say` steps run sequentially (shared audio pipeline).
   All other steps (`toast`, `discord`, etc.) fire in parallel immediately.
 
@@ -331,15 +335,18 @@ notify default ready              # Same as above (explicit default)
 notify boss ready                 # Sound + speech + toast notification
 notify -v 50 ready                # Run at 50% volume
 notify -c myconfig.json dev done  # Use a specific config file
+notify --log ready                # Log this invocation to ~/.notify.log
 notify run -- make build          # Wrap a command, auto ready/error
 notify run boss -- cargo test     # Wrap with a specific profile
 ```
 
 ### Event log
 
-Every `notify` invocation is logged to `~/.notify.log` for history and
-debugging. Only steps that actually ran are logged (steps filtered out by
-AFK detection are omitted). A blank line separates each invocation:
+Event logging is opt-in. Enable it with `--log` (or `-L`) on the command
+line, or set `"log": true` in the config `"config"` block. When enabled,
+each invocation is appended to `~/.notify.log` for history and debugging.
+Only steps that actually ran are logged (steps filtered out by AFK
+detection are omitted). A blank line separates each invocation:
 
 ```
 2026-02-20T14:30:05+01:00  profile=boss  action=ready  steps=sound,say,toast  afk=false

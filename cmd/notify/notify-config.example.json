@@ -2,6 +2,7 @@
   "config": {
     "afk_threshold_seconds": 300,
     "default_volume": 100,
+    "log": false,
     "credentials": {
       "discord_webhook": "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN"
     }

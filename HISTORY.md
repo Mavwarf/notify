@@ -2,6 +2,11 @@
 
 ## 2026-02-20
 
+### Opt-in Event Logging
+Event logging is now opt-in instead of writing `~/.notify.log` on every
+invocation. Enable with `--log` (`-L`) on the CLI or `"log": true` in
+the config `"config"` block. Without either, no log file is written.
+
 ### Quiet Hours (`hours:X-Y`)
 New time-based `"when"` condition suppresses steps outside a given hour
 range. `"hours:8-22"` runs the step only between 8am and 10pm;

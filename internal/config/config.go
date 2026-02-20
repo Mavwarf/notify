@@ -23,6 +23,7 @@ type Credentials struct {
 type Options struct {
 	AFKThresholdSeconds int         `json:"afk_threshold_seconds,omitempty"`
 	DefaultVolume       int         `json:"default_volume,omitempty"`
+	Log                 bool        `json:"log,omitempty"`
 	Credentials         Credentials `json:"credentials,omitempty"`
 }
 
