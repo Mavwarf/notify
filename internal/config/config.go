@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/Mavwarf/notify/internal/paths"
 )
@@ -64,6 +66,100 @@ type Step struct {
 	Message string `json:"message,omitempty"` // type=toast
 	Volume  *int   `json:"volume,omitempty"`  // per-step override, nil = use default
 	When    string `json:"when,omitempty"`    // "afk" | "present" | "" (always)
+}
+
+// validStepTypes is the set of recognized step types.
+var validStepTypes = map[string]bool{
+	"sound": true, "say": true, "toast": true, "discord": true,
+}
+
+// Validate checks a parsed Config for common mistakes and returns a
+// multi-line error listing all problems found, or nil if valid.
+func Validate(cfg Config) error {
+	var errs []string
+
+	// Global options.
+	if cfg.Options.DefaultVolume < 0 || cfg.Options.DefaultVolume > 100 {
+		errs = append(errs, fmt.Sprintf("config: default_volume %d out of range 0-100", cfg.Options.DefaultVolume))
+	}
+	if cfg.Options.AFKThresholdSeconds < 0 {
+		errs = append(errs, fmt.Sprintf("config: afk_threshold_seconds %d must not be negative", cfg.Options.AFKThresholdSeconds))
+	}
+	if cfg.Options.CooldownSeconds < 0 {
+		errs = append(errs, fmt.Sprintf("config: cooldown_seconds %d must not be negative", cfg.Options.CooldownSeconds))
+	}
+
+	// Profiles and steps.
+	for pName, profile := range cfg.Profiles {
+		for aName, action := range profile {
+			prefix := fmt.Sprintf("profiles.%s.%s", pName, aName)
+			if len(action.Steps) == 0 {
+				errs = append(errs, fmt.Sprintf("%s: action has no steps", prefix))
+			}
+			if action.CooldownSeconds < 0 {
+				errs = append(errs, fmt.Sprintf("%s: cooldown_seconds %d must not be negative", prefix, action.CooldownSeconds))
+			}
+			for i, s := range action.Steps {
+				sp := fmt.Sprintf("%s.steps[%d]", prefix, i)
+				if !validStepTypes[s.Type] {
+					errs = append(errs, fmt.Sprintf("%s: unknown type %q", sp, s.Type))
+				}
+				if err := validateWhen(s.When); err != nil {
+					errs = append(errs, fmt.Sprintf("%s: %v", sp, err))
+				}
+				if s.Volume != nil && (*s.Volume < 0 || *s.Volume > 100) {
+					errs = append(errs, fmt.Sprintf("%s: volume %d out of range 0-100", sp, *s.Volume))
+				}
+				// Required fields per type.
+				switch s.Type {
+				case "sound":
+					if s.Sound == "" {
+						errs = append(errs, fmt.Sprintf("%s: sound step requires \"sound\" field", sp))
+					}
+				case "say":
+					if s.Text == "" {
+						errs = append(errs, fmt.Sprintf("%s: say step requires \"text\" field", sp))
+					}
+				case "discord":
+					if s.Text == "" {
+						errs = append(errs, fmt.Sprintf("%s: discord step requires \"text\" field", sp))
+					}
+				}
+			}
+		}
+	}
+
+	if len(errs) == 0 {
+		return nil
+	}
+	return fmt.Errorf("config validation:\n  %s", strings.Join(errs, "\n  "))
+}
+
+// validateWhen checks that a when condition string is recognized.
+func validateWhen(when string) error {
+	switch when {
+	case "", "afk", "present", "run", "direct":
+		return nil
+	default:
+		if strings.HasPrefix(when, "hours:") {
+			return validateHoursSpec(when[6:])
+		}
+		return fmt.Errorf("unknown when condition %q", when)
+	}
+}
+
+// validateHoursSpec checks that a hours spec like "8-22" is well-formed.
+func validateHoursSpec(spec string) error {
+	parts := strings.SplitN(spec, "-", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid hours spec %q (expected X-Y)", spec)
+	}
+	start, err1 := strconv.Atoi(parts[0])
+	end, err2 := strconv.Atoi(parts[1])
+	if err1 != nil || err2 != nil || start < 0 || start > 23 || end < 0 || end > 23 {
+		return fmt.Errorf("invalid hours spec %q (hours must be 0-23)", spec)
+	}
+	return nil
 }
 
 // Load reads and parses a config file. It tries, in order:

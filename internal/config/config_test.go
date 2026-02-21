@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -277,6 +278,208 @@ func TestUnmarshalCooldownSeconds(t *testing.T) {
 	act := cfg.Profiles["default"]["ready"]
 	if act.CooldownSeconds != 30 {
 		t.Errorf("CooldownSeconds = %d, want 30", act.CooldownSeconds)
+	}
+}
+
+// --- Validate tests ---
+
+func TestValidateValidConfig(t *testing.T) {
+	cfg := Config{
+		Options: Options{
+			AFKThresholdSeconds: 300,
+			DefaultVolume:       80,
+			CooldownSeconds:     30,
+		},
+		Profiles: map[string]Profile{
+			"default": {
+				"ready": Action{
+					Steps: []Step{
+						{Type: "sound", Sound: "blip"},
+						{Type: "say", Text: "Ready!", When: "present"},
+						{Type: "toast", Message: "Done", When: "afk"},
+						{Type: "discord", Text: "Done", When: "hours:8-22"},
+					},
+				},
+			},
+		},
+	}
+	if err := Validate(cfg); err != nil {
+		t.Errorf("expected valid config, got: %v", err)
+	}
+}
+
+func TestValidateUnknownStepType(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"default": {
+				"ready": Action{Steps: []Step{{Type: "email", Text: "hi"}}},
+			},
+		},
+	}
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for unknown step type")
+	}
+	if !strings.Contains(err.Error(), `unknown type "email"`) {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateUnknownWhenCondition(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"default": {
+				"ready": Action{Steps: []Step{{Type: "sound", Sound: "blip", When: "never"}}},
+			},
+		},
+	}
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for unknown when condition")
+	}
+	if !strings.Contains(err.Error(), `unknown when condition "never"`) {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateInvalidHoursSpec(t *testing.T) {
+	tests := []struct {
+		when string
+	}{
+		{"hours:abc"},
+		{"hours:25-8"},
+		{"hours:8"},
+	}
+	for _, tt := range tests {
+		cfg := Config{
+			Profiles: map[string]Profile{
+				"default": {
+					"ready": Action{Steps: []Step{{Type: "sound", Sound: "blip", When: tt.when}}},
+				},
+			},
+		}
+		if err := Validate(cfg); err == nil {
+			t.Errorf("expected error for when=%q", tt.when)
+		}
+	}
+}
+
+func TestValidateValidHoursSpec(t *testing.T) {
+	tests := []string{"hours:0-23", "hours:8-22", "hours:22-8"}
+	for _, when := range tests {
+		cfg := Config{
+			Profiles: map[string]Profile{
+				"default": {
+					"ready": Action{Steps: []Step{{Type: "sound", Sound: "blip", When: when}}},
+				},
+			},
+		}
+		if err := Validate(cfg); err != nil {
+			t.Errorf("expected valid for when=%q, got: %v", when, err)
+		}
+	}
+}
+
+func TestValidateMissingRequiredFields(t *testing.T) {
+	tests := []struct {
+		name string
+		step Step
+		want string
+	}{
+		{"sound without sound", Step{Type: "sound"}, "requires \"sound\" field"},
+		{"say without text", Step{Type: "say"}, "requires \"text\" field"},
+		{"discord without text", Step{Type: "discord"}, "requires \"text\" field"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := Config{
+				Profiles: map[string]Profile{
+					"default": {"ready": Action{Steps: []Step{tt.step}}},
+				},
+			}
+			err := Validate(cfg)
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if !strings.Contains(err.Error(), tt.want) {
+				t.Errorf("expected %q in error, got: %v", tt.want, err)
+			}
+		})
+	}
+}
+
+func TestValidateEmptyAction(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"default": {"ready": Action{Steps: []Step{}}},
+		},
+	}
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for empty action")
+	}
+	if !strings.Contains(err.Error(), "has no steps") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateVolumeOutOfRange(t *testing.T) {
+	vol := 150
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"default": {
+				"ready": Action{Steps: []Step{{Type: "sound", Sound: "blip", Volume: &vol}}},
+			},
+		},
+	}
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for volume out of range")
+	}
+	if !strings.Contains(err.Error(), "volume 150 out of range") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateDefaultVolumeOutOfRange(t *testing.T) {
+	cfg := Config{
+		Options: Options{DefaultVolume: 200},
+		Profiles: map[string]Profile{
+			"default": {"ready": Action{Steps: []Step{{Type: "sound", Sound: "blip"}}}},
+		},
+	}
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for default_volume out of range")
+	}
+	if !strings.Contains(err.Error(), "default_volume 200 out of range") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateMultipleErrors(t *testing.T) {
+	cfg := Config{
+		Options: Options{DefaultVolume: 200},
+		Profiles: map[string]Profile{
+			"default": {
+				"ready": Action{Steps: []Step{{Type: "bogus", When: "never"}}},
+			},
+		},
+	}
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected errors")
+	}
+	// Should report all three: default_volume, unknown type, unknown when.
+	msg := err.Error()
+	if !strings.Contains(msg, "default_volume") {
+		t.Errorf("missing default_volume error in: %s", msg)
+	}
+	if !strings.Contains(msg, "unknown type") {
+		t.Errorf("missing unknown type error in: %s", msg)
+	}
+	if !strings.Contains(msg, "unknown when") {
+		t.Errorf("missing unknown when error in: %s", msg)
 	}
 }
 

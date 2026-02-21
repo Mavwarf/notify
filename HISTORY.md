@@ -2,6 +2,16 @@
 
 ## 2026-02-21
 
+### Config Validation
+New `Validate()` function in the config package catches common mistakes
+at load time instead of failing silently at runtime. Checks: unknown
+step types, invalid `when` conditions (including malformed `hours:X-Y`
+specs), missing required fields per step type (`sound` for sound steps,
+`text` for say/discord), volume ranges (0-100) on both per-step and
+global default, negative cooldown/AFK thresholds, and empty actions.
+Collects all problems into a single multi-line error. Called
+automatically after config load in all code paths.
+
 ### Path Resolution Consolidation
 Extracted shared `internal/paths` package consolidating triplicated
 platform-specific path resolution logic from config, cooldown, and

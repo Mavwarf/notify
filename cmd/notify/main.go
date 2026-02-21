@@ -101,6 +101,10 @@ func runAction(args []string, configPath string, volume int, logFlag bool, coold
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
+	if err := config.Validate(cfg); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
 
 	volume = resolveVolume(volume, cfg)
 
@@ -195,6 +199,10 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, cool
 	// Load config and run notification.
 	cfg, err := config.Load(configPath)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(exitCode)
+	}
+	if err := config.Validate(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(exitCode)
 	}
@@ -331,6 +339,10 @@ func formatDurationSay(d time.Duration) string {
 func listProfiles(configPath string) {
 	cfg, err := config.Load(configPath)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	if err := config.Validate(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
