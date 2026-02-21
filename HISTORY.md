@@ -2,6 +2,23 @@
 
 ## 2026-02-21
 
+### Dry-Run Command (`notify test`)
+New `notify test [profile]` command loads config, validates it, detects
+AFK state, then shows what would happen for every action in the profile
+without actually firing notifications. Each step is marked RUN or SKIP
+based on current `when` conditions. Useful for debugging new configs.
+
+### Credential Completeness Validation
+Config validation now checks that `discord` steps have
+`credentials.discord_webhook` set, and `telegram` steps have both
+`credentials.telegram_token` and `credentials.telegram_chat_id` set.
+Catches missing credentials at config load time instead of at execution.
+
+### `detectAFK` Testability
+The idle detection function is now a package-level variable, allowing
+unit tests to inject mock idle times. Three new tests cover AFK, present,
+and error (fail-open) scenarios.
+
 ### Telegram Notifications
 New `telegram` step type sends messages via the Telegram Bot API.
 Requires `telegram_token` and `telegram_chat_id` in the config

@@ -289,6 +289,11 @@ func TestValidateValidConfig(t *testing.T) {
 			AFKThresholdSeconds: 300,
 			DefaultVolume:       80,
 			CooldownSeconds:     30,
+			Credentials: Credentials{
+				DiscordWebhook: "https://example.com",
+				TelegramToken:  "tok",
+				TelegramChatID: "123",
+			},
 		},
 		Profiles: map[string]Profile{
 			"default": {
@@ -298,6 +303,7 @@ func TestValidateValidConfig(t *testing.T) {
 						{Type: "say", Text: "Ready!", When: "present"},
 						{Type: "toast", Message: "Done", When: "afk"},
 						{Type: "discord", Text: "Done", When: "hours:8-22"},
+						{Type: "telegram", Text: "Done", When: "afk"},
 					},
 				},
 			},
@@ -481,6 +487,73 @@ func TestValidateMultipleErrors(t *testing.T) {
 	}
 	if !strings.Contains(msg, "unknown when") {
 		t.Errorf("missing unknown when error in: %s", msg)
+	}
+}
+
+func TestValidateDiscordMissingCredentials(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"default": {"ready": Action{Steps: []Step{{Type: "discord", Text: "hi"}}}},
+		},
+	}
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for missing discord credentials")
+	}
+	if !strings.Contains(err.Error(), "credentials.discord_webhook") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateDiscordWithCredentials(t *testing.T) {
+	cfg := Config{
+		Options: Options{Credentials: Credentials{DiscordWebhook: "https://example.com"}},
+		Profiles: map[string]Profile{
+			"default": {"ready": Action{Steps: []Step{{Type: "discord", Text: "hi"}}}},
+		},
+	}
+	if err := Validate(cfg); err != nil {
+		t.Errorf("expected valid, got: %v", err)
+	}
+}
+
+func TestValidateTelegramMissingCredentials(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"default": {"ready": Action{Steps: []Step{{Type: "telegram", Text: "hi"}}}},
+		},
+	}
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for missing telegram credentials")
+	}
+	if !strings.Contains(err.Error(), "credentials.telegram_token") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateTelegramPartialCredentials(t *testing.T) {
+	cfg := Config{
+		Options: Options{Credentials: Credentials{TelegramToken: "tok"}},
+		Profiles: map[string]Profile{
+			"default": {"ready": Action{Steps: []Step{{Type: "telegram", Text: "hi"}}}},
+		},
+	}
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for missing telegram_chat_id")
+	}
+}
+
+func TestValidateTelegramWithCredentials(t *testing.T) {
+	cfg := Config{
+		Options: Options{Credentials: Credentials{TelegramToken: "tok", TelegramChatID: "123"}},
+		Profiles: map[string]Profile{
+			"default": {"ready": Action{Steps: []Step{{Type: "telegram", Text: "hi"}}}},
+		},
+	}
+	if err := Validate(cfg); err != nil {
+		t.Errorf("expected valid, got: %v", err)
 	}
 }
 

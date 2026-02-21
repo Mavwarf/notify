@@ -76,6 +76,8 @@ func main() {
 		printVersion()
 	case "list", "-l", "--list":
 		listProfiles(configPath)
+	case "test":
+		dryRun(filtered[1:], configPath)
 	case "run":
 		runWrapped(filtered[1:], configPath, volume, logFlag, cooldownFlag)
 	default:
@@ -268,10 +270,13 @@ func resolveCooldown(act *config.Action, cfg config.Config, flag bool) (bool, in
 	return enabled, sec
 }
 
+// idleFunc is the function used to get idle time. Replaced in tests.
+var idleFunc = idle.IdleSeconds
+
 // detectAFK returns true when the user has been idle longer than the
 // configured threshold. Fails open (returns false on error).
 func detectAFK(cfg config.Config) bool {
-	idleSec, err := idle.IdleSeconds()
+	idleSec, err := idleFunc()
 	if err != nil {
 		return false
 	}
@@ -367,6 +372,96 @@ func listProfiles(configPath string) {
 	}
 }
 
+func dryRun(args []string, configPath string) {
+	profile := "default"
+	if len(args) > 0 {
+		profile = args[0]
+	}
+
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	if err := config.Validate(cfg); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Config:  OK\n")
+	fmt.Printf("Profile: %s\n", profile)
+	fmt.Printf("Volume:  %d\n", cfg.Options.DefaultVolume)
+
+	afk := detectAFK(cfg)
+	if afk {
+		fmt.Printf("AFK:     yes (threshold %ds)\n", cfg.Options.AFKThresholdSeconds)
+	} else {
+		fmt.Printf("AFK:     no (threshold %ds)\n", cfg.Options.AFKThresholdSeconds)
+	}
+
+	p, ok := cfg.Profiles[profile]
+	if !ok {
+		fmt.Fprintf(os.Stderr, "Error: profile %q not found\n", profile)
+		os.Exit(1)
+	}
+
+	actionNames := make([]string, 0, len(p))
+	for name := range p {
+		actionNames = append(actionNames, name)
+	}
+	sort.Strings(actionNames)
+
+	fmt.Printf("\nActions:\n")
+	for _, aName := range actionNames {
+		act := p[aName]
+		filtered := runner.FilterSteps(act.Steps, afk, false)
+		fmt.Printf("\n  %s (%d/%d steps would run):\n", aName, len(filtered), len(act.Steps))
+		for i, s := range act.Steps {
+			marker := "  "
+			if !stepInList(s, filtered) {
+				marker = "  SKIP "
+			} else {
+				marker = "  RUN  "
+			}
+			detail := stepSummary(s)
+			fmt.Printf("    %s[%d] %-10s %s\n", marker, i+1, s.Type, detail)
+		}
+	}
+}
+
+func stepInList(s config.Step, list []config.Step) bool {
+	for _, l := range list {
+		if l == s {
+			return true
+		}
+	}
+	return false
+}
+
+func stepSummary(s config.Step) string {
+	parts := []string{}
+	switch s.Type {
+	case "sound":
+		parts = append(parts, fmt.Sprintf("sound=%s", s.Sound))
+	case "say":
+		parts = append(parts, fmt.Sprintf("text=%q", s.Text))
+	case "toast":
+		if s.Title != "" {
+			parts = append(parts, fmt.Sprintf("title=%q", s.Title))
+		}
+		parts = append(parts, fmt.Sprintf("message=%q", s.Message))
+	case "discord", "telegram":
+		parts = append(parts, fmt.Sprintf("text=%q", s.Text))
+	}
+	if s.When != "" {
+		parts = append(parts, fmt.Sprintf("when=%s", s.When))
+	}
+	if s.Volume != nil {
+		parts = append(parts, fmt.Sprintf("volume=%d", *s.Volume))
+	}
+	return strings.Join(parts, "  ")
+}
+
 func printVersion() {
 	fmt.Printf("notify %s (%s) %s/%s\n", version, buildDate, runtime.GOOS, runtime.GOARCH)
 }
@@ -386,6 +481,7 @@ Options:
 
 Commands:
   run                    Wrap a command; notify ready on success, error on failure
+  test [profile]         Dry-run: show what would happen without sending
   list, -l, --list       List all profiles and actions
   version, -V             Show version and build date
   help, -h, --help       Show this help message

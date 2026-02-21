@@ -122,9 +122,19 @@ func Validate(cfg Config) error {
 					if s.Text == "" {
 						errs = append(errs, fmt.Sprintf("%s: say step requires \"text\" field", sp))
 					}
-				case "discord", "telegram":
+				case "discord":
 					if s.Text == "" {
-						errs = append(errs, fmt.Sprintf("%s: %s step requires \"text\" field", sp, s.Type))
+						errs = append(errs, fmt.Sprintf("%s: discord step requires \"text\" field", sp))
+					}
+					if cfg.Options.Credentials.DiscordWebhook == "" {
+						errs = append(errs, fmt.Sprintf("%s: discord step requires credentials.discord_webhook", sp))
+					}
+				case "telegram":
+					if s.Text == "" {
+						errs = append(errs, fmt.Sprintf("%s: telegram step requires \"text\" field", sp))
+					}
+					if cfg.Options.Credentials.TelegramToken == "" || cfg.Options.Credentials.TelegramChatID == "" {
+						errs = append(errs, fmt.Sprintf("%s: telegram step requires credentials.telegram_token and telegram_chat_id", sp))
 					}
 				}
 			}

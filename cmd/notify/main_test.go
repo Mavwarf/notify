@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/Mavwarf/notify/internal/config"
@@ -74,5 +75,38 @@ func TestShouldLogBothDisabled(t *testing.T) {
 	cfg := config.Config{}
 	if shouldLog(cfg, false) {
 		t.Error("expected false when both disabled")
+	}
+}
+
+func TestDetectAFKIdle(t *testing.T) {
+	orig := idleFunc
+	t.Cleanup(func() { idleFunc = orig })
+
+	idleFunc = func() (float64, error) { return 600, nil }
+	cfg := config.Config{Options: config.Options{AFKThresholdSeconds: 300}}
+	if !detectAFK(cfg) {
+		t.Error("expected AFK when idle 600s >= threshold 300s")
+	}
+}
+
+func TestDetectAFKPresent(t *testing.T) {
+	orig := idleFunc
+	t.Cleanup(func() { idleFunc = orig })
+
+	idleFunc = func() (float64, error) { return 10, nil }
+	cfg := config.Config{Options: config.Options{AFKThresholdSeconds: 300}}
+	if detectAFK(cfg) {
+		t.Error("expected present when idle 10s < threshold 300s")
+	}
+}
+
+func TestDetectAFKErrorFailsOpen(t *testing.T) {
+	orig := idleFunc
+	t.Cleanup(func() { idleFunc = orig })
+
+	idleFunc = func() (float64, error) { return 0, fmt.Errorf("no idle detection") }
+	cfg := config.Config{Options: config.Options{AFKThresholdSeconds: 300}}
+	if detectAFK(cfg) {
+		t.Error("expected present (fail-open) on error")
 	}
 }
