@@ -186,7 +186,7 @@ func Load(explicitPath string) (Config, error) {
 	// Next to binary
 	exe, err := os.Executable()
 	if err == nil {
-		p := filepath.Join(filepath.Dir(exe), "notify-config.json")
+		p := filepath.Join(filepath.Dir(exe), paths.ConfigFileName)
 		if _, err := os.Stat(p); err == nil {
 			return readConfig(p)
 		}
