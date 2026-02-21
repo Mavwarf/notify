@@ -6,22 +6,30 @@ Generate TTS as an audio file instead of (or in addition to) playing it
 through speakers. All platform TTS engines support file output:
 
 - Windows: `SpeechSynthesizer.SetOutputToWaveFile()`
-- macOS: `say -o output.aiff`
+- macOS: `say -o output.aiff` (then `afconvert` to WAV)
 - Linux: `espeak-ng --stdout > output.wav`
 
-This enables uploading voice messages to Discord (multipart POST via
-webhook API), attaching audio to Slack/Telegram/email, or piping to
-any external tool.
+**Plan:** Add `speech.SayToFile(text, volume, path)` on each platform,
+then `discord.SendVoice(webhookURL, wavPath, text)` using multipart POST.
+New `discord_voice` step type generates TTS to temp file, uploads to
+Discord, and cleans up.
 
-Two possible approaches:
+### Telegram Voice Messages
 
-- **Built-in**: A `discord_voice` step type that generates TTS and
-  uploads the WAV to Discord in one go.
-- **Generic**: A `"say"` option like `"output": "file"` that writes
-  a WAV, then let other steps or external tools consume it.
+Send TTS audio to Telegram chats. Telegram's `sendVoice` requires
+OGG/OPUS format for the voice bubble UX; `sendAudio` accepts WAV but
+displays as an audio player instead.
 
-Generic approach is more flexible but more complex. Could start with
-the built-in approach and generalize later.
+Two approaches:
+
+- **`telegram_audio`**: Use `sendAudio` with WAV — no conversion needed,
+  plays inline but not as a voice bubble.
+- **`telegram_voice`**: Convert WAV → OGG/OPUS via `ffmpeg`, then use
+  `sendVoice` for native voice bubble. Requires `ffmpeg` as external
+  dependency.
+
+Start with `telegram_audio` (no deps), add `telegram_voice` later as
+opt-in when `ffmpeg` is available.
 
 ### More Remote Notification Actions
 
