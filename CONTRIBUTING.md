@@ -37,6 +37,7 @@ cmd/notify/          CLI entry point
 internal/
   audio/             Sound synthesis and playback
   config/            Config loading and resolution
+  cooldown/          Per-action rate limiting
   discord/           Discord webhook integration
   eventlog/          Invocation logging
   idle/              Platform-specific AFK detection

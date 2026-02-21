@@ -24,6 +24,8 @@ type Options struct {
 	AFKThresholdSeconds int         `json:"afk_threshold_seconds,omitempty"`
 	DefaultVolume       int         `json:"default_volume,omitempty"`
 	Log                 bool        `json:"log,omitempty"`
+	Cooldown            bool        `json:"cooldown,omitempty"`
+	CooldownSeconds     int         `json:"cooldown_seconds,omitempty"`
 	Credentials         Credentials `json:"credentials,omitempty"`
 }
 
@@ -48,7 +50,8 @@ type Profile map[string]Action
 
 // Action holds an ordered list of steps to execute.
 type Action struct {
-	Steps []Step `json:"steps"`
+	CooldownSeconds int    `json:"cooldown_seconds,omitempty"`
+	Steps           []Step `json:"steps"`
 }
 
 // Step is a single unit of work within an action.

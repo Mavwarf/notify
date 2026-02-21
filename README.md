@@ -74,6 +74,8 @@ internal/
     player.go            Playback engine (generated tones)
   config/
     config.go            Config loading and profile/action resolution
+  cooldown/
+    cooldown.go          Per-action rate limiting with file-based state
   discord/
     discord.go           Discord webhook integration (POST to channel)
   idle/
@@ -83,7 +85,7 @@ internal/
   runner/
     runner.go            Step executor (dispatches to audio/speech/toast/discord)
   eventlog/
-    eventlog.go          Append-only invocation log (~/.notify.log)
+    eventlog.go          Append-only invocation log (notify.log)
   tmpl/
     tmpl.go              Template variable expansion ({profile}, {command}, etc.)
   shell/
@@ -114,7 +116,8 @@ notify help                            # Show help
 |--------------------|------------------------------------------|
 | `--volume`, `-v`   | Override volume, 0-100 (default: config or 100) |
 | `--config`, `-c`   | Path to notify-config.json               |
-| `--log`, `-L`      | Write invocation to `~/.notify.log`      |
+| `--log`, `-L`      | Write invocation to notify.log         |
+| `--cooldown`, `-C` | Enable per-action cooldown (rate limiting) |
 
 ### Config file
 
@@ -132,6 +135,8 @@ notify help                            # Show help
     "afk_threshold_seconds": 300,
     "default_volume": 100,
     "log": false,
+    "cooldown": false,
+    "cooldown_seconds": 30,
     "credentials": {
       "discord_webhook": "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN"
     }
@@ -151,6 +156,7 @@ notify help                            # Show help
     },
     "boss": {
       "ready": {
+        "cooldown_seconds": 10,
         "steps": [
           { "type": "sound", "sound": "notification", "volume": 90 },
           { "type": "say", "text": "Boss is ready" },
@@ -180,7 +186,11 @@ notify help                            # Show help
   a single action definition can produce different messages depending on which
   profile name was passed on the CLI.
 - **Event logging:** set `"log": true` to append every invocation to
-  `~/.notify.log` (or use `--log` on the CLI). Off by default.
+  `notify.log` (or use `--log` on the CLI). Off by default.
+- **Cooldown:** set `"cooldown": true` (or use `--cooldown`) to enable
+  rate limiting. Set a global default with `"cooldown_seconds"` in `"config"`,
+  or override per-action. Actions silently skip if the same profile+action
+  was triggered within the cooldown window.
 - `sound` and `say` steps run sequentially (shared audio pipeline).
   All other steps (`toast`, `discord`, etc.) fire in parallel immediately.
 
@@ -335,7 +345,8 @@ notify default ready              # Same as above (explicit default)
 notify boss ready                 # Sound + speech + toast notification
 notify -v 50 ready                # Run at 50% volume
 notify -c myconfig.json dev done  # Use a specific config file
-notify --log ready                # Log this invocation to ~/.notify.log
+notify --log ready                # Log this invocation to notify.log
+notify --cooldown ready           # Enable cooldown for this invocation
 notify run -- make build          # Wrap a command, auto ready/error
 notify run boss -- cargo test     # Wrap with a specific profile
 ```
@@ -344,7 +355,8 @@ notify run boss -- cargo test     # Wrap with a specific profile
 
 Event logging is opt-in. Enable it with `--log` (or `-L`) on the command
 line, or set `"log": true` in the config `"config"` block. When enabled,
-each invocation is appended to `~/.notify.log` for history and debugging.
+each invocation is appended to `notify.log` in the notify data directory
+(`%APPDATA%\notify\` on Windows, `~/.config/notify/` on Linux/macOS).
 Only steps that actually ran are logged (steps filtered out by AFK
 detection are omitted). A blank line separates each invocation:
 
@@ -357,12 +369,55 @@ detection are omitted). A blank line separates each invocation:
 2026-02-20T14:35:12+01:00  profile=default  action=ready  steps=sound,toast  afk=true
 2026-02-20T14:35:12+01:00    step[1] sound  sound=success
 2026-02-20T14:35:12+01:00    step[2] toast  title="AFK" message="Ready!"
+
+2026-02-20T14:35:15+01:00  profile=default  action=ready  cooldown=skipped (30s)
 ```
 
 Template variables (`{profile}`, `{Profile}`, `{command}`, `{duration}`, etc.)
 are expanded in the log so you see the actual text that was spoken or
 displayed. Logging is best-effort — errors are printed to stderr but never
 fail the command.
+
+### Cooldown / rate limiting
+
+Watch loops (`nodemon`, `cargo watch`, `fswatch`) can trigger dozens of
+rebuilds per minute. Without cooldown, each rebuild fires a notification.
+Cooldown silently skips duplicate notifications within a configurable window.
+
+**Cooldown is opt-in** (off by default). Enable it with `--cooldown` (or `-C`)
+on the command line, or set `"cooldown": true` in the config `"config"` block.
+
+Set a global default duration in `"config"`, and optionally override per-action:
+
+```json
+{
+  "config": { "cooldown": true, "cooldown_seconds": 30 },
+  "profiles": {
+    "default": {
+      "ready": {
+        "steps": [
+          { "type": "sound", "sound": "success" },
+          { "type": "say", "text": "Ready!" }
+        ]
+      },
+      "error": {
+        "cooldown_seconds": 10,
+        "steps": [
+          { "type": "sound", "sound": "error" }
+        ]
+      }
+    }
+  }
+}
+```
+
+**Duration priority:** per-action `cooldown_seconds` > config `cooldown_seconds`.
+In the example above, `ready` uses the global 30s default while `error` overrides
+to 10s. If the same `profile/action` was triggered within the cooldown window,
+the invocation exits immediately — no sound, no speech, no toast.
+Cooldown state is stored in `%APPDATA%\notify\cooldown.json` (Windows)
+or `~/.config/notify/cooldown.json` (Linux/macOS). Missing or corrupt
+state files are treated as "not on cooldown" (fail-open).
 
 ## Building
 

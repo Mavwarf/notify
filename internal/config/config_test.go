@@ -217,6 +217,69 @@ func TestUnmarshalNoCredentials(t *testing.T) {
 	}
 }
 
+func TestUnmarshalCooldown(t *testing.T) {
+	data := []byte(`{
+		"config": { "cooldown": true },
+		"profiles": {
+			"default": {
+				"done": { "steps": [{"type": "sound", "sound": "blip"}] }
+			}
+		}
+	}`)
+
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	if !cfg.Options.Cooldown {
+		t.Error("Cooldown = false, want true")
+	}
+}
+
+func TestUnmarshalDefaultCooldownSeconds(t *testing.T) {
+	data := []byte(`{
+		"config": { "cooldown": true, "cooldown_seconds": 15 },
+		"profiles": {
+			"default": {
+				"done": { "steps": [{"type": "sound", "sound": "blip"}] }
+			}
+		}
+	}`)
+
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	if cfg.Options.CooldownSeconds != 15 {
+		t.Errorf("CooldownSeconds = %d, want 15", cfg.Options.CooldownSeconds)
+	}
+}
+
+func TestUnmarshalCooldownSeconds(t *testing.T) {
+	data := []byte(`{
+		"profiles": {
+			"default": {
+				"ready": {
+					"cooldown_seconds": 30,
+					"steps": [{"type": "sound", "sound": "success"}]
+				}
+			}
+		}
+	}`)
+
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	act := cfg.Profiles["default"]["ready"]
+	if act.CooldownSeconds != 30 {
+		t.Errorf("CooldownSeconds = %d, want 30", act.CooldownSeconds)
+	}
+}
+
 func TestResolveDirectMatch(t *testing.T) {
 	cfg := Config{
 		Profiles: map[string]Profile{

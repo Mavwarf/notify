@@ -1,9 +1,26 @@
 # History
 
+## 2026-02-21
+
+### Cooldown / Rate Limiting
+Per-action cooldown prevents notification spam from watch loops and file
+watchers. Cooldown is opt-in: enable with `--cooldown` (`-C`) on the CLI
+or `"cooldown": true` in the config `"config"` block. Set a global default
+duration with `"cooldown_seconds"` in config, or override per-action.
+When enabled, if the same profile+action was triggered within the cooldown
+window, the invocation exits silently. Cooldown state is stored in
+`cooldown.json` in the notify data directory. Skipped and recorded cooldown
+events are logged when event logging is enabled.
+
+### Log File Location
+The event log (`notify.log`) and cooldown state (`cooldown.json`) now
+live in the notify data directory (`%APPDATA%\notify\` on Windows,
+`~/.config/notify/` on Linux/macOS) instead of the home directory.
+
 ## 2026-02-20
 
 ### Opt-in Event Logging
-Event logging is now opt-in instead of writing `~/.notify.log` on every
+Event logging is now opt-in instead of always writing a log on every
 invocation. Enable with `--log` (`-L`) on the CLI or `"log": true` in
 the config `"config"` block. Without either, no log file is written.
 
@@ -101,9 +118,10 @@ Renamed config from generic `config.json` to `notify-config.json` to
 avoid conflicts with other tools.
 
 ### Event Log
-Added append-only invocation log at `~/.notify.log` with summary and
-per-step detail lines. Template variables are expanded in log output.
-Best-effort — errors print to stderr but never fail the command.
+Added append-only invocation log (`notify.log` in the notify data
+directory) with summary and per-step detail lines. Template variables
+are expanded in log output. Best-effort — errors print to stderr but
+never fail the command.
 
 ### Default Profile
 Profile argument is now optional; omitting it defaults to `"default"`.

@@ -1,23 +1,5 @@
 # TODO
 
-### Cooldown / Rate Limiting
-
-Per-action cooldown to prevent notification spam from watch loops
-and file watchers:
-
-```json
-"ready": {
-  "cooldown_seconds": 30,
-  "steps": [...]
-}
-```
-
-If the same profile+action was triggered within the cooldown window,
-the invocation silently exits. Essential for tools like `nodemon`,
-`cargo watch`, `fswatch`, or CI pipelines that can trigger dozens of
-rebuilds per minute — you want one notification when the build breaks,
-not thirty.
-
 ### TTS Audio Export / Discord Voice Messages
 
 Generate TTS as an audio file instead of (or in addition to) playing it

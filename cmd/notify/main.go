@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Mavwarf/notify/internal/config"
+	"github.com/Mavwarf/notify/internal/cooldown"
 	"github.com/Mavwarf/notify/internal/eventlog"
 	"github.com/Mavwarf/notify/internal/idle"
 	"github.com/Mavwarf/notify/internal/runner"
@@ -27,6 +28,7 @@ func main() {
 	volume := -1
 	configPath := ""
 	logFlag := false
+	cooldownFlag := false
 
 	// Parse flags
 	filtered := args[:0]
@@ -55,6 +57,8 @@ func main() {
 			}
 		case "--log", "-L":
 			logFlag = true
+		case "--cooldown", "-C":
+			cooldownFlag = true
 		default:
 			filtered = append(filtered, args[i])
 		}
@@ -73,13 +77,13 @@ func main() {
 	case "list", "-l", "--list":
 		listProfiles(configPath)
 	case "run":
-		runWrapped(filtered[1:], configPath, volume, logFlag)
+		runWrapped(filtered[1:], configPath, volume, logFlag, cooldownFlag)
 	default:
-		runAction(filtered, configPath, volume, logFlag)
+		runAction(filtered, configPath, volume, logFlag, cooldownFlag)
 	}
 }
 
-func runAction(args []string, configPath string, volume int, logFlag bool) {
+func runAction(args []string, configPath string, volume int, logFlag bool, cooldownFlag bool) {
 	var profile, action string
 	switch len(args) {
 	case 1:
@@ -109,6 +113,19 @@ func runAction(args []string, configPath string, volume int, logFlag bool) {
 		os.Exit(1)
 	}
 
+	// Cooldown: per-action overrides global default.
+	cooldownEnabled := cfg.Options.Cooldown || cooldownFlag
+	cdSec := act.CooldownSeconds
+	if cdSec == 0 {
+		cdSec = cfg.Options.CooldownSeconds
+	}
+	if cooldownEnabled && cdSec > 0 && cooldown.Check(profile, action, cdSec) {
+		if cfg.Options.Log || logFlag {
+			eventlog.LogCooldown(profile, action, cdSec)
+		}
+		return
+	}
+
 	// AFK detection — fail-open (treat as present on error).
 	afk := false
 	idleSec, err := idle.IdleSeconds()
@@ -119,6 +136,12 @@ func runAction(args []string, configPath string, volume int, logFlag bool) {
 	vars := tmpl.Vars{Profile: profile}
 	filtered := runner.FilterSteps(act.Steps, afk, false)
 	err = runner.Execute(act, volume, cfg.Options.Credentials.DiscordWebhook, vars, afk, false)
+	if cooldownEnabled && cdSec > 0 {
+		cooldown.Record(profile, action)
+		if cfg.Options.Log || logFlag {
+			eventlog.LogCooldownRecord(profile, action, cdSec)
+		}
+	}
 	if cfg.Options.Log || logFlag {
 		eventlog.Log(action, filtered, afk, vars)
 	}
@@ -128,7 +151,7 @@ func runAction(args []string, configPath string, volume int, logFlag bool) {
 	}
 }
 
-func runWrapped(args []string, configPath string, volume int, logFlag bool) {
+func runWrapped(args []string, configPath string, volume int, logFlag bool, cooldownFlag bool) {
 	// Find "--" separator.
 	sepIdx := -1
 	for i, a := range args {
@@ -199,6 +222,19 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool) {
 		os.Exit(exitCode)
 	}
 
+	// Cooldown: per-action overrides global default.
+	cooldownEnabled := cfg.Options.Cooldown || cooldownFlag
+	cdSec := act.CooldownSeconds
+	if cdSec == 0 {
+		cdSec = cfg.Options.CooldownSeconds
+	}
+	if cooldownEnabled && cdSec > 0 && cooldown.Check(profile, action, cdSec) {
+		if cfg.Options.Log || logFlag {
+			eventlog.LogCooldown(profile, action, cdSec)
+		}
+		os.Exit(exitCode)
+	}
+
 	afk := false
 	idleSec, err := idle.IdleSeconds()
 	if err == nil {
@@ -213,6 +249,12 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool) {
 	}
 	filtered := runner.FilterSteps(act.Steps, afk, true)
 	err = runner.Execute(act, volume, cfg.Options.Credentials.DiscordWebhook, vars, afk, true)
+	if cooldownEnabled && cdSec > 0 {
+		cooldown.Record(profile, action)
+		if cfg.Options.Log || logFlag {
+			eventlog.LogCooldownRecord(profile, action, cdSec)
+		}
+	}
 	if cfg.Options.Log || logFlag {
 		eventlog.Log(action, filtered, afk, vars)
 	}
@@ -317,7 +359,8 @@ Usage:
 Options:
   --volume, -v <0-100>   Override volume (default: config or 100)
   --config, -c <path>    Path to notify-config.json
-  --log, -L              Write invocation to ~/.notify.log
+  --log, -L              Write invocation to notify.log
+  --cooldown, -C         Enable per-action cooldown (rate limiting)
 
 Commands:
   run                    Wrap a command; notify ready on success, error on failure
