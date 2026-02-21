@@ -158,6 +158,22 @@ func execStep(step config.Step, defaultVolume int, creds config.Credentials, var
 			return fmt.Errorf("discord step requires credentials.discord_webhook in config")
 		}
 		return discord.Send(creds.DiscordWebhook, tmpl.Expand(step.Text, vars))
+	case "discord_voice":
+		if creds.DiscordWebhook == "" {
+			return fmt.Errorf("discord_voice step requires credentials.discord_webhook in config")
+		}
+		text := tmpl.Expand(step.Text, vars)
+		wavFile, err := os.CreateTemp("", "notify-voice-*.wav")
+		if err != nil {
+			return fmt.Errorf("discord_voice temp file: %w", err)
+		}
+		wavPath := wavFile.Name()
+		wavFile.Close()
+		if err := speech.SayToFile(text, vol, wavPath); err != nil {
+			return fmt.Errorf("discord_voice tts: %w", err)
+		}
+		defer os.Remove(wavPath)
+		return discord.SendVoice(creds.DiscordWebhook, wavPath, text)
 	case "telegram":
 		if creds.TelegramToken == "" || creds.TelegramChatID == "" {
 			return fmt.Errorf("telegram step requires credentials.telegram_token and telegram_chat_id in config")

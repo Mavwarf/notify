@@ -2,6 +2,13 @@
 
 ## 2026-02-21
 
+### Discord Voice Messages (`discord_voice`)
+New `discord_voice` step type generates TTS audio and uploads it to Discord
+as a WAV file attachment. Uses platform-native TTS engines (`SayToFile`)
+to render speech to a temp file, then uploads via multipart POST with the
+text as a caption. Same `when` filtering and template variables as the
+existing `discord` step. Requires `credentials.discord_webhook` in config.
+
 ### Dry-Run Command (`notify test`)
 New `notify test [profile]` command loads config, validates it, detects
 AFK state, then shows what would happen for every action in the profile

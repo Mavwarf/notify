@@ -5,8 +5,8 @@ coffee — `notify` knows and reaches you the right way: a chime when you're
 present, a Discord or Telegram ping when you're not.
 
 A single binary, zero-dependency notification engine for the command line.
-Chain sounds, speech, toast popups, Discord, and Telegram messages into
-pipelines — all configured in one JSON file.
+Chain sounds, speech, toast popups, Discord messages, Discord voice messages,
+and Telegram messages into pipelines — all configured in one JSON file.
 
 ## What is this for?
 
@@ -52,6 +52,8 @@ go install github.com/Mavwarf/notify/cmd/notify@latest
   (Windows Toast API, macOS `osascript`, Linux `notify-send`).
 - **Discord webhooks** — post messages to a Discord channel via webhook,
   no external dependencies (just `net/http`).
+- **Discord voice messages** — generate TTS audio and upload as a WAV
+  file attachment to Discord. Same TTS engines as `say` steps.
 - **Telegram Bot API** — send messages to a Telegram chat via bot token,
   no external dependencies (just `net/http`).
 - **AFK detection** — conditionally run steps based on whether the user is
@@ -89,7 +91,7 @@ internal/
     idle_darwin.go       User idle time via ioreg HIDIdleTime
     idle_linux.go        User idle time via xprintidle
   runner/
-    runner.go            Step executor (dispatches to audio/speech/toast/discord/telegram)
+    runner.go            Step executor (dispatches to audio/speech/toast/discord/discord_voice/telegram)
   eventlog/
     eventlog.go          Append-only invocation log (notify.log)
   tmpl/
@@ -160,6 +162,7 @@ notify help                            # Show help
           { "type": "toast", "message": "Ready!", "when": "afk" },
           { "type": "toast", "message": "Ready!", "when": "hours:22-8" },
           { "type": "discord", "text": "Ready!", "when": "afk" },
+          { "type": "discord_voice", "text": "Ready!", "when": "afk" },
           { "type": "telegram", "text": "Ready!", "when": "afk" }
         ]
       }
@@ -184,12 +187,13 @@ notify help                            # Show help
   `"default"` is the fallback profile.
 - **Step types:** `sound` (play a built-in sound), `say` (text-to-speech),
   `toast` (desktop notification), `discord` (post to Discord channel via webhook),
-  `telegram` (send to Telegram chat via bot).
+  `discord_voice` (TTS audio uploaded to Discord as WAV), `telegram` (send to
+  Telegram chat via bot).
 - **Volume priority:** per-step `volume` > CLI `--volume` > config
   `"default_volume"` > 100.
 - Toast `title` defaults to the profile name if omitted.
 - **Template variables:** use `{profile}` in `say` text, `toast` title/message,
-  `discord`, or `telegram` text to inject the runtime profile name, or `{Profile}` for
+  `discord`, `discord_voice`, or `telegram` text to inject the runtime profile name, or `{Profile}` for
   title case (e.g. `boss` → `Boss`). When using `notify run`, `{command}`,
   `{duration}` (compact: `2m15s`), and `{Duration}` (spoken: `2 minutes and
   15 seconds`) are also available. Use `{Duration}` in `say` steps for
@@ -203,7 +207,8 @@ notify help                            # Show help
   or override per-action. Actions silently skip if the same profile+action
   was triggered within the cooldown window.
 - `sound` and `say` steps run sequentially (shared audio pipeline).
-  All other steps (`toast`, `discord`, `telegram`) fire in parallel immediately.
+  All other steps (`toast`, `discord`, `discord_voice`, `telegram`) fire in
+  parallel immediately.
 
 ### Available sounds
 
@@ -219,7 +224,7 @@ notify help                            # Show help
 
 ### Credentials
 
-Remote notification steps (`discord`, `telegram`) need credentials stored in
+Remote notification steps (`discord`, `discord_voice`, `telegram`) need credentials stored in
 the `"credentials"` object inside `"config"`:
 
 ```json
@@ -254,6 +259,20 @@ Especially useful with `"when": "afk"` to reach you when you're away:
 The `text` field supports template variables (`{profile}`, `{Profile}`,
 and `{command}`/`{duration}` in `run` mode).
 Discord steps run in parallel (they don't block the audio pipeline).
+
+### Discord voice messages
+
+The `discord_voice` step type generates TTS audio and uploads it to Discord
+as a WAV file attachment. The text is both spoken (rendered to audio) and
+sent as a caption alongside the file:
+
+```json
+{ "type": "discord_voice", "text": "{Profile} build is ready", "when": "afk" }
+```
+
+Uses the same platform-native TTS engines as `say` steps. Requires
+`discord_webhook` in `"credentials"`. Useful when you want an audible
+notification on your phone via Discord without needing to read the message.
 
 ### Telegram notifications
 

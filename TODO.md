@@ -1,19 +1,5 @@
 # TODO
 
-### TTS Audio Export / Discord Voice Messages
-
-Generate TTS as an audio file instead of (or in addition to) playing it
-through speakers. All platform TTS engines support file output:
-
-- Windows: `SpeechSynthesizer.SetOutputToWaveFile()`
-- macOS: `say -o output.aiff` (then `afconvert` to WAV)
-- Linux: `espeak-ng --stdout > output.wav`
-
-**Plan:** Add `speech.SayToFile(text, volume, path)` on each platform,
-then `discord.SendVoice(webhookURL, wavPath, text)` using multipart POST.
-New `discord_voice` step type generates TTS to temp file, uploads to
-Discord, and cleans up.
-
 ### Telegram Voice Messages
 
 Send TTS audio to Telegram chats. Telegram's `sendVoice` requires

@@ -21,6 +21,7 @@
           { "type": "toast", "message": "{Profile} is ready", "when": "afk" },
           { "type": "toast", "message": "{Profile} is ready", "when": "hours:22-8" },
           { "type": "discord", "text": "{Profile} is ready", "when": "afk" },
+          { "type": "discord_voice", "text": "{Profile} is ready", "when": "afk" },
           { "type": "telegram", "text": "{Profile} is ready", "when": "afk" }
         ]
       },
