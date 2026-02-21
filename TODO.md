@@ -18,6 +18,29 @@ the invocation silently exits. Essential for tools like `nodemon`,
 rebuilds per minute — you want one notification when the build breaks,
 not thirty.
 
+### TTS Audio Export / Discord Voice Messages
+
+Generate TTS as an audio file instead of (or in addition to) playing it
+through speakers. All platform TTS engines support file output:
+
+- Windows: `SpeechSynthesizer.SetOutputToWaveFile()`
+- macOS: `say -o output.aiff`
+- Linux: `espeak-ng --stdout > output.wav`
+
+This enables uploading voice messages to Discord (multipart POST via
+webhook API), attaching audio to Slack/Telegram/email, or piping to
+any external tool.
+
+Two possible approaches:
+
+- **Built-in**: A `discord_voice` step type that generates TTS and
+  uploads the WAV to Discord in one go.
+- **Generic**: A `"say"` option like `"output": "file"` that writes
+  a WAV, then let other steps or external tools consume it.
+
+Generic approach is more flexible but more complex. Could start with
+the built-in approach and generalize later.
+
 ### More Remote Notification Actions
 
 Additional step types beyond the existing `discord` webhook support:

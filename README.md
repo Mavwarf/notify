@@ -424,6 +424,11 @@ cmake --install build --prefix /usr/local
 | Toast notifications | Toast API (Win 10+) | `osascript` (built-in) | `notify-send` (`libnotify`) |
 | Discord webhook | `net/http` (built-in) | `net/http` (built-in) | `net/http` (built-in) |
 
+> **Note:** Development and testing has been done primarily on Windows.
+> macOS and Linux support is implemented but has not been extensively
+> tested yet. If you run into issues on these platforms, please
+> [open an issue](https://github.com/Mavwarf/notify/issues).
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions and
