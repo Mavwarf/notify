@@ -111,6 +111,7 @@ internal/
 ```bash
 notify [options] [profile] <action>
 notify run [options] [profile] -- <command...>
+notify test [profile]                  # Dry-run: show what would happen
 notify list                            # List all profiles and actions
 notify version                         # Show version and build date
 notify help                            # Show help
@@ -377,6 +378,8 @@ notify --log ready                # Log this invocation to notify.log
 notify --cooldown ready           # Enable cooldown for this invocation
 notify run -- make build          # Wrap a command, auto ready/error
 notify run boss -- cargo test     # Wrap with a specific profile
+notify test                       # Dry-run default profile
+notify test boss                  # Dry-run boss profile
 ```
 
 ### Event log
