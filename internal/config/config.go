@@ -61,13 +61,13 @@ type Action struct {
 
 // Step is a single unit of work within an action.
 type Step struct {
-	Type    string `json:"type"`              // "sound" | "say" | "toast" | "discord"
+	Type    string `json:"type"`              // "sound" | "say" | "toast" | "discord" | "telegram"
 	Sound   string `json:"sound,omitempty"`   // type=sound
-	Text    string `json:"text,omitempty"`    // type=say
+	Text    string `json:"text,omitempty"`    // type=say, discord, telegram
 	Title   string `json:"title,omitempty"`   // type=toast
 	Message string `json:"message,omitempty"` // type=toast
 	Volume  *int   `json:"volume,omitempty"`  // per-step override, nil = use default
-	When    string `json:"when,omitempty"`    // "afk" | "present" | "" (always)
+	When    string `json:"when,omitempty"`    // "" | "afk" | "present" | "run" | "direct" | "hours:X-Y"
 }
 
 // validStepTypes is the set of recognized step types.
