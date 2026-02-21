@@ -2,6 +2,15 @@
 
 ## 2026-02-21
 
+### Telegram Notifications
+New `telegram` step type sends messages via the Telegram Bot API.
+Requires `telegram_token` and `telegram_chat_id` in the config
+credentials block. Uses form-encoded POST to the `sendMessage` endpoint.
+Same template variables and `when` filtering as the existing `discord`
+step type. The `Execute` function now takes a `Credentials` struct
+instead of a single webhook URL, making it straightforward to add
+future remote notification platforms.
+
 ### Config Validation
 New `Validate()` function in the config package catches common mistakes
 at load time instead of failing silently at runtime. Checks: unknown

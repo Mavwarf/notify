@@ -20,6 +20,8 @@ const DefaultVolume = 100
 // Credentials holds secret values for remote notification actions.
 type Credentials struct {
 	DiscordWebhook string `json:"discord_webhook,omitempty"`
+	TelegramToken  string `json:"telegram_token,omitempty"`
+	TelegramChatID string `json:"telegram_chat_id,omitempty"`
 }
 
 // Options holds global settings parsed from the "config" key.
@@ -70,7 +72,7 @@ type Step struct {
 
 // validStepTypes is the set of recognized step types.
 var validStepTypes = map[string]bool{
-	"sound": true, "say": true, "toast": true, "discord": true,
+	"sound": true, "say": true, "toast": true, "discord": true, "telegram": true,
 }
 
 // Validate checks a parsed Config for common mistakes and returns a
@@ -120,9 +122,9 @@ func Validate(cfg Config) error {
 					if s.Text == "" {
 						errs = append(errs, fmt.Sprintf("%s: say step requires \"text\" field", sp))
 					}
-				case "discord":
+				case "discord", "telegram":
 					if s.Text == "" {
-						errs = append(errs, fmt.Sprintf("%s: discord step requires \"text\" field", sp))
+						errs = append(errs, fmt.Sprintf("%s: %s step requires \"text\" field", sp, s.Type))
 					}
 				}
 			}

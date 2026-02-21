@@ -6,7 +6,9 @@
     "cooldown": false,
     "cooldown_seconds": 30,
     "credentials": {
-      "discord_webhook": "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN"
+      "discord_webhook": "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN",
+      "telegram_token": "YOUR_BOT_TOKEN",
+      "telegram_chat_id": "YOUR_CHAT_ID"
     }
   },
   "profiles": {
@@ -18,7 +20,8 @@
           { "type": "say", "text": "Ready!", "when": "direct" },
           { "type": "toast", "message": "{Profile} is ready", "when": "afk" },
           { "type": "toast", "message": "{Profile} is ready", "when": "hours:22-8" },
-          { "type": "discord", "text": "{Profile} is ready", "when": "afk" }
+          { "type": "discord", "text": "{Profile} is ready", "when": "afk" },
+          { "type": "telegram", "text": "{Profile} is ready", "when": "afk" }
         ]
       },
       "done": {

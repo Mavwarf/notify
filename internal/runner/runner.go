@@ -12,6 +12,7 @@ import (
 	"github.com/Mavwarf/notify/internal/config"
 	"github.com/Mavwarf/notify/internal/discord"
 	"github.com/Mavwarf/notify/internal/speech"
+	"github.com/Mavwarf/notify/internal/telegram"
 	"github.com/Mavwarf/notify/internal/tmpl"
 	"github.com/Mavwarf/notify/internal/toast"
 )
@@ -93,7 +94,7 @@ func matchHours(spec string, now time.Time) bool {
 // Steps that don't use the audio pipeline (toast, etc.) are fired in
 // parallel at the start. Audio-pipeline steps (sound, say) run
 // sequentially in order.
-func Execute(action *config.Action, defaultVolume int, webhookURL string, vars tmpl.Vars, afk, run bool) error {
+func Execute(action *config.Action, defaultVolume int, creds config.Credentials, vars tmpl.Vars, afk, run bool) error {
 	steps := FilterSteps(action.Steps, afk, run)
 
 	var wg sync.WaitGroup
@@ -108,7 +109,7 @@ func Execute(action *config.Action, defaultVolume int, webhookURL string, vars t
 		wg.Add(1)
 		go func(idx int, s config.Step) {
 			defer wg.Done()
-			if err := execStep(s, defaultVolume, webhookURL, vars); err != nil {
+			if err := execStep(s, defaultVolume, creds, vars); err != nil {
 				mu.Lock()
 				parallelErrs = append(parallelErrs, fmt.Errorf("step %d (%s): %w", idx+1, s.Type, err))
 				mu.Unlock()
@@ -121,7 +122,7 @@ func Execute(action *config.Action, defaultVolume int, webhookURL string, vars t
 		if !sequential(step.Type) {
 			continue
 		}
-		if err := execStep(step, defaultVolume, webhookURL, vars); err != nil {
+		if err := execStep(step, defaultVolume, creds, vars); err != nil {
 			return fmt.Errorf("step %d (%s): %w", i+1, step.Type, err)
 		}
 	}
@@ -135,7 +136,7 @@ func Execute(action *config.Action, defaultVolume int, webhookURL string, vars t
 	return nil
 }
 
-func execStep(step config.Step, defaultVolume int, webhookURL string, vars tmpl.Vars) error {
+func execStep(step config.Step, defaultVolume int, creds config.Credentials, vars tmpl.Vars) error {
 	vol := defaultVolume
 	if step.Volume != nil {
 		vol = *step.Volume
@@ -153,10 +154,15 @@ func execStep(step config.Step, defaultVolume int, webhookURL string, vars tmpl.
 		}
 		return toast.Show(tmpl.Expand(title, vars), tmpl.Expand(step.Message, vars))
 	case "discord":
-		if webhookURL == "" {
+		if creds.DiscordWebhook == "" {
 			return fmt.Errorf("discord step requires credentials.discord_webhook in config")
 		}
-		return discord.Send(webhookURL, tmpl.Expand(step.Text, vars))
+		return discord.Send(creds.DiscordWebhook, tmpl.Expand(step.Text, vars))
+	case "telegram":
+		if creds.TelegramToken == "" || creds.TelegramChatID == "" {
+			return fmt.Errorf("telegram step requires credentials.telegram_token and telegram_chat_id in config")
+		}
+		return telegram.Send(creds.TelegramToken, creds.TelegramChatID, tmpl.Expand(step.Text, vars))
 	default:
 		return fmt.Errorf("unknown step type: %q", step.Type)
 	}

@@ -104,7 +104,7 @@ func stepDetail(s config.Step, vars tmpl.Vars) string {
 			title = vars.Profile
 		}
 		return fmt.Sprintf("title=%q message=%q", tmpl.Expand(title, vars), tmpl.Expand(s.Message, vars))
-	case "discord":
+	case "discord", "telegram":
 		return fmt.Sprintf("text=%q", tmpl.Expand(s.Text, vars))
 	default:
 		return ""

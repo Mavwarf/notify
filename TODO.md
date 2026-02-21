@@ -25,14 +25,13 @@ the built-in approach and generalize later.
 
 ### More Remote Notification Actions
 
-Additional step types beyond the existing `discord` webhook support:
+Additional step types beyond `discord` and `telegram`:
 
 | Type       | Description                          | Platform notes |
 |------------|--------------------------------------|----------------|
 | `slack`    | POST to Slack webhook                | All (net/http) |
-| `telegram` | POST to Telegram Bot API             | All (net/http) |
 | `email`    | Send email via SMTP                  | All (net/smtp) |
 | `signal`   | Send via signal-cli                  | Needs signal-cli |
 
 Would extend `"config"` → `"credentials"` with additional webhook URLs
-and API tokens. Same pattern as the existing discord integration.
+and API tokens. Same pattern as the existing discord/telegram integration.

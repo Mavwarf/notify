@@ -126,7 +126,7 @@ func runAction(args []string, configPath string, volume int, logFlag bool, coold
 
 	vars := tmpl.Vars{Profile: profile}
 	filtered := runner.FilterSteps(act.Steps, afk, false)
-	err = runner.Execute(act, volume, cfg.Options.Credentials.DiscordWebhook, vars, afk, false)
+	err = runner.Execute(act, volume, cfg.Options.Credentials, vars, afk, false)
 	if cdEnabled && cdSec > 0 {
 		cooldown.Record(profile, action)
 		if shouldLog(cfg, logFlag) {
@@ -232,7 +232,7 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, cool
 		DurationSay: formatDurationSay(elapsed),
 	}
 	filtered := runner.FilterSteps(act.Steps, afk, true)
-	err = runner.Execute(act, volume, cfg.Options.Credentials.DiscordWebhook, vars, afk, true)
+	err = runner.Execute(act, volume, cfg.Options.Credentials, vars, afk, true)
 	if cdEnabled && cdSec > 0 {
 		cooldown.Record(profile, action)
 		if shouldLog(cfg, logFlag) {

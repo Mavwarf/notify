@@ -389,6 +389,7 @@ func TestValidateMissingRequiredFields(t *testing.T) {
 		{"sound without sound", Step{Type: "sound"}, "requires \"sound\" field"},
 		{"say without text", Step{Type: "say"}, "requires \"text\" field"},
 		{"discord without text", Step{Type: "discord"}, "requires \"text\" field"},
+		{"telegram without text", Step{Type: "telegram"}, "requires \"text\" field"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
