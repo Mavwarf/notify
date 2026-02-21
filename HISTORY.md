@@ -2,6 +2,14 @@
 
 ## 2026-02-21
 
+### Path Resolution Consolidation
+Extracted shared `internal/paths` package consolidating triplicated
+platform-specific path resolution logic from config, cooldown, and
+eventlog into a single `DataDir()` function. Shared constants for file
+names and permissions replace scattered magic numbers. Extracted
+`resolveVolume`, `resolveCooldown`, `detectAFK`, and `shouldLog` helpers
+in `main.go` to eliminate duplication between `runAction` and `runWrapped`.
+
 ### Cooldown / Rate Limiting
 Per-action cooldown prevents notification spam from watch loops and file
 watchers. Cooldown is opt-in: enable with `--cooldown` (`-C`) on the CLI

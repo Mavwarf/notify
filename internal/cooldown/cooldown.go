@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"time"
+
+	"github.com/Mavwarf/notify/internal/paths"
 )
 
 // Check returns true if the given profile/action is still within its cooldown
@@ -33,7 +34,7 @@ func check(path, profile, action string, cooldownSeconds int) bool {
 		return false // corrupt → allow
 	}
 
-	key := profile + "/" + action
+	key := paths.CooldownKey(profile, action)
 	ts, ok := state[key]
 	if !ok {
 		return false
@@ -50,7 +51,7 @@ func check(path, profile, action string, cooldownSeconds int) bool {
 func record(path, profile, action string) {
 	// Ensure directory exists.
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, paths.DirPerm); err != nil {
 		fmt.Fprintf(os.Stderr, "cooldown: mkdir %s: %v\n", dir, err)
 		return
 	}
@@ -61,7 +62,7 @@ func record(path, profile, action string) {
 		_ = json.Unmarshal(data, &state) // ignore corrupt; overwrite
 	}
 
-	key := profile + "/" + action
+	key := paths.CooldownKey(profile, action)
 	state[key] = time.Now().Format(time.RFC3339)
 
 	data, err := json.MarshalIndent(state, "", "  ")
@@ -72,7 +73,7 @@ func record(path, profile, action string) {
 
 	// Atomic write: tmp file then rename.
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0644); err != nil {
+	if err := os.WriteFile(tmp, data, paths.FilePerm); err != nil {
 		fmt.Fprintf(os.Stderr, "cooldown: write %s: %v\n", tmp, err)
 		return
 	}
@@ -82,14 +83,5 @@ func record(path, profile, action string) {
 }
 
 func statePath() string {
-	if runtime.GOOS == "windows" {
-		if appdata := os.Getenv("APPDATA"); appdata != "" {
-			return filepath.Join(appdata, "notify", "cooldown.json")
-		}
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return filepath.Join(os.TempDir(), "notify-cooldown.json")
-	}
-	return filepath.Join(home, ".config", "notify", "cooldown.json")
+	return filepath.Join(paths.DataDir(), paths.CooldownFileName)
 }

@@ -102,10 +102,7 @@ func runAction(args []string, configPath string, volume int, logFlag bool, coold
 		os.Exit(1)
 	}
 
-	// Volume priority: CLI --volume > config default_volume > 100
-	if volume < 0 {
-		volume = cfg.Options.DefaultVolume
-	}
+	volume = resolveVolume(volume, cfg)
 
 	act, err := config.Resolve(cfg, profile, action)
 	if err != nil {
@@ -113,36 +110,26 @@ func runAction(args []string, configPath string, volume int, logFlag bool, coold
 		os.Exit(1)
 	}
 
-	// Cooldown: per-action overrides global default.
-	cooldownEnabled := cfg.Options.Cooldown || cooldownFlag
-	cdSec := act.CooldownSeconds
-	if cdSec == 0 {
-		cdSec = cfg.Options.CooldownSeconds
-	}
-	if cooldownEnabled && cdSec > 0 && cooldown.Check(profile, action, cdSec) {
-		if cfg.Options.Log || logFlag {
+	cdEnabled, cdSec := resolveCooldown(act, cfg, cooldownFlag)
+	if cdEnabled && cdSec > 0 && cooldown.Check(profile, action, cdSec) {
+		if shouldLog(cfg, logFlag) {
 			eventlog.LogCooldown(profile, action, cdSec)
 		}
 		return
 	}
 
-	// AFK detection — fail-open (treat as present on error).
-	afk := false
-	idleSec, err := idle.IdleSeconds()
-	if err == nil {
-		afk = idleSec >= float64(cfg.Options.AFKThresholdSeconds)
-	}
+	afk := detectAFK(cfg)
 
 	vars := tmpl.Vars{Profile: profile}
 	filtered := runner.FilterSteps(act.Steps, afk, false)
 	err = runner.Execute(act, volume, cfg.Options.Credentials.DiscordWebhook, vars, afk, false)
-	if cooldownEnabled && cdSec > 0 {
+	if cdEnabled && cdSec > 0 {
 		cooldown.Record(profile, action)
-		if cfg.Options.Log || logFlag {
+		if shouldLog(cfg, logFlag) {
 			eventlog.LogCooldownRecord(profile, action, cdSec)
 		}
 	}
-	if cfg.Options.Log || logFlag {
+	if shouldLog(cfg, logFlag) {
 		eventlog.Log(action, filtered, afk, vars)
 	}
 	if err != nil {
@@ -212,9 +199,7 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, cool
 		os.Exit(exitCode)
 	}
 
-	if volume < 0 {
-		volume = cfg.Options.DefaultVolume
-	}
+	volume = resolveVolume(volume, cfg)
 
 	act, err := config.Resolve(cfg, profile, action)
 	if err != nil {
@@ -222,24 +207,15 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, cool
 		os.Exit(exitCode)
 	}
 
-	// Cooldown: per-action overrides global default.
-	cooldownEnabled := cfg.Options.Cooldown || cooldownFlag
-	cdSec := act.CooldownSeconds
-	if cdSec == 0 {
-		cdSec = cfg.Options.CooldownSeconds
-	}
-	if cooldownEnabled && cdSec > 0 && cooldown.Check(profile, action, cdSec) {
-		if cfg.Options.Log || logFlag {
+	cdEnabled, cdSec := resolveCooldown(act, cfg, cooldownFlag)
+	if cdEnabled && cdSec > 0 && cooldown.Check(profile, action, cdSec) {
+		if shouldLog(cfg, logFlag) {
 			eventlog.LogCooldown(profile, action, cdSec)
 		}
 		os.Exit(exitCode)
 	}
 
-	afk := false
-	idleSec, err := idle.IdleSeconds()
-	if err == nil {
-		afk = idleSec >= float64(cfg.Options.AFKThresholdSeconds)
-	}
+	afk := detectAFK(cfg)
 
 	vars := tmpl.Vars{
 		Profile:     profile,
@@ -249,13 +225,13 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, cool
 	}
 	filtered := runner.FilterSteps(act.Steps, afk, true)
 	err = runner.Execute(act, volume, cfg.Options.Credentials.DiscordWebhook, vars, afk, true)
-	if cooldownEnabled && cdSec > 0 {
+	if cdEnabled && cdSec > 0 {
 		cooldown.Record(profile, action)
-		if cfg.Options.Log || logFlag {
+		if shouldLog(cfg, logFlag) {
 			eventlog.LogCooldownRecord(profile, action, cdSec)
 		}
 	}
-	if cfg.Options.Log || logFlag {
+	if shouldLog(cfg, logFlag) {
 		eventlog.Log(action, filtered, afk, vars)
 	}
 	if err != nil {
@@ -263,6 +239,40 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, cool
 	}
 
 	os.Exit(exitCode)
+}
+
+// resolveVolume returns the CLI volume if set, otherwise the config default.
+func resolveVolume(volume int, cfg config.Config) int {
+	if volume < 0 {
+		return cfg.Options.DefaultVolume
+	}
+	return volume
+}
+
+// resolveCooldown returns whether cooldown is enabled and the effective
+// cooldown duration in seconds (per-action overrides global).
+func resolveCooldown(act *config.Action, cfg config.Config, flag bool) (bool, int) {
+	enabled := cfg.Options.Cooldown || flag
+	sec := act.CooldownSeconds
+	if sec == 0 {
+		sec = cfg.Options.CooldownSeconds
+	}
+	return enabled, sec
+}
+
+// detectAFK returns true when the user has been idle longer than the
+// configured threshold. Fails open (returns false on error).
+func detectAFK(cfg config.Config) bool {
+	idleSec, err := idle.IdleSeconds()
+	if err != nil {
+		return false
+	}
+	return idleSec >= float64(cfg.Options.AFKThresholdSeconds)
+}
+
+// shouldLog returns true when event logging is enabled via config or flag.
+func shouldLog(cfg config.Config, flag bool) bool {
+	return cfg.Options.Log || flag
 }
 
 // formatDuration returns a compact duration string (e.g. "3s", "2m15s").

@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
+
+	"github.com/Mavwarf/notify/internal/paths"
 )
 
 // DefaultAFKThreshold is the default idle-time threshold in seconds.
@@ -84,17 +85,9 @@ func Load(explicitPath string) (Config, error) {
 	}
 
 	// User config directory
-	home, err := os.UserHomeDir()
-	if err == nil {
-		var p string
-		if runtime.GOOS == "windows" {
-			p = filepath.Join(home, "AppData", "Roaming", "notify", "notify-config.json")
-		} else {
-			p = filepath.Join(home, ".config", "notify", "notify-config.json")
-		}
-		if _, err := os.Stat(p); err == nil {
-			return readConfig(p)
-		}
+	p := filepath.Join(paths.DataDir(), paths.ConfigFileName)
+	if _, err := os.Stat(p); err == nil {
+		return readConfig(p)
 	}
 
 	return Config{}, fmt.Errorf("no notify-config.json found (use --config to specify a path)")

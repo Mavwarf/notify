@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
 	"github.com/Mavwarf/notify/internal/config"
+	"github.com/Mavwarf/notify/internal/paths"
 	"github.com/Mavwarf/notify/internal/tmpl"
 )
 
@@ -78,26 +78,17 @@ func Log(action string, steps []config.Step, afk bool, vars tmpl.Vars) {
 // parent directory if needed.
 func openLog() (*os.File, error) {
 	path := logPath()
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), paths.DirPerm); err != nil {
 		return nil, err
 	}
-	return os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	return os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, paths.FilePerm)
 }
 
 // logPath returns the log file location:
 //   - Windows: %APPDATA%\notify\notify.log
 //   - Unix:    ~/.config/notify/notify.log
 func logPath() string {
-	if runtime.GOOS == "windows" {
-		if appdata := os.Getenv("APPDATA"); appdata != "" {
-			return filepath.Join(appdata, "notify", "notify.log")
-		}
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return filepath.Join(os.TempDir(), "notify.log")
-	}
-	return filepath.Join(home, ".config", "notify", "notify.log")
+	return filepath.Join(paths.DataDir(), paths.LogFileName)
 }
 
 // stepDetail returns a human-readable description of what a step does.
