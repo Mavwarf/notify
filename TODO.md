@@ -18,12 +18,6 @@ Interactive config generator. Asks which platforms you want, generates
 a starter config with credentials. Lowers the barrier for first-time
 setup.
 
-### Exit Code Mapping
-
-`notify run` currently maps exit 0 → `ready`, non-zero → `error`.
-Allow custom mappings so specific exit codes trigger different actions,
-e.g. exit 2 → `warning` with a different notification pipeline.
-
 ### MQTT Publish
 
 Publish a message to an MQTT broker topic. Useful for home automation —

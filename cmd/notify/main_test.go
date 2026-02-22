@@ -100,6 +100,46 @@ func TestDetectAFKPresent(t *testing.T) {
 	}
 }
 
+func TestResolveExitActionMapped(t *testing.T) {
+	codes := map[string]string{"2": "warning", "130": "cancelled"}
+	if got := resolveExitAction(codes, 2); got != "warning" {
+		t.Errorf("resolveExitAction(codes, 2) = %q, want \"warning\"", got)
+	}
+	if got := resolveExitAction(codes, 130); got != "cancelled" {
+		t.Errorf("resolveExitAction(codes, 130) = %q, want \"cancelled\"", got)
+	}
+}
+
+func TestResolveExitActionDefaultReady(t *testing.T) {
+	codes := map[string]string{"2": "warning"}
+	if got := resolveExitAction(codes, 0); got != "ready" {
+		t.Errorf("resolveExitAction(codes, 0) = %q, want \"ready\"", got)
+	}
+}
+
+func TestResolveExitActionDefaultError(t *testing.T) {
+	codes := map[string]string{"2": "warning"}
+	if got := resolveExitAction(codes, 1); got != "error" {
+		t.Errorf("resolveExitAction(codes, 1) = %q, want \"error\"", got)
+	}
+}
+
+func TestResolveExitActionNilMap(t *testing.T) {
+	if got := resolveExitAction(nil, 0); got != "ready" {
+		t.Errorf("resolveExitAction(nil, 0) = %q, want \"ready\"", got)
+	}
+	if got := resolveExitAction(nil, 1); got != "error" {
+		t.Errorf("resolveExitAction(nil, 1) = %q, want \"error\"", got)
+	}
+}
+
+func TestResolveExitActionOverrideZero(t *testing.T) {
+	codes := map[string]string{"0": "done"}
+	if got := resolveExitAction(codes, 0); got != "done" {
+		t.Errorf("resolveExitAction(codes, 0) = %q, want \"done\"", got)
+	}
+}
+
 func TestDetectAFKErrorFailsOpen(t *testing.T) {
 	orig := idleFunc
 	t.Cleanup(func() { idleFunc = orig })

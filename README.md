@@ -173,6 +173,10 @@ notify help                            # Show help
     "echo": false,
     "cooldown": false,
     "cooldown_seconds": 30,
+    "exit_codes": {
+      "2": "warning",
+      "130": "cancelled"
+    },
     "credentials": {
       "discord_webhook": "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN",
       "slack_webhook": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
@@ -245,6 +249,10 @@ notify help                            # Show help
   rate limiting. Set a global default with `"cooldown_seconds"` in `"config"`,
   or override per-action. Actions silently skip if the same profile+action
   was triggered within the cooldown window.
+- **Exit code mapping:** by default, `notify run` triggers `ready` on
+  exit 0 and `error` on non-zero. Add `"exit_codes"` to `"config"` to
+  map specific codes to different actions, e.g. `"2": "warning"`. Unmapped
+  codes still use the default 0→ready / non-zero→error fallback.
 - `sound` and `say` steps run sequentially (shared audio pipeline).
   All other steps (`toast`, `discord`, `discord_voice`, `slack`,
   `telegram`, `telegram_audio`, `telegram_voice`, `webhook`) fire in parallel
@@ -516,8 +524,9 @@ notify run -v 50 -- npm run build     # with volume override
 ```
 
 `notify run` executes the command, measures its duration, then triggers
-`ready` on exit code 0 or `error` on non-zero. The `--` separator is
-required to distinguish notify options from the wrapped command.
+`ready` on exit code 0 or `error` on non-zero. Custom mappings in
+`"exit_codes"` override this default (e.g. exit 2 → `warning`). The `--`
+separator is required to distinguish notify options from the wrapped command.
 
 Additional template variables are available in `run` mode:
 

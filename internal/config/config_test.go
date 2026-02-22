@@ -803,6 +803,82 @@ func TestExpandEnvLiteral(t *testing.T) {
 	}
 }
 
+func TestUnmarshalExitCodes(t *testing.T) {
+	data := []byte(`{
+		"config": { "exit_codes": { "2": "warning", "130": "cancelled" } },
+		"profiles": {
+			"default": {
+				"ready": { "steps": [{"type": "sound", "sound": "blip"}] }
+			}
+		}
+	}`)
+
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	if len(cfg.Options.ExitCodes) != 2 {
+		t.Fatalf("len(ExitCodes) = %d, want 2", len(cfg.Options.ExitCodes))
+	}
+	if cfg.Options.ExitCodes["2"] != "warning" {
+		t.Errorf("ExitCodes[\"2\"] = %q, want \"warning\"", cfg.Options.ExitCodes["2"])
+	}
+	if cfg.Options.ExitCodes["130"] != "cancelled" {
+		t.Errorf("ExitCodes[\"130\"] = %q, want \"cancelled\"", cfg.Options.ExitCodes["130"])
+	}
+}
+
+func TestValidateExitCodesValid(t *testing.T) {
+	cfg := Config{
+		Options: Options{
+			ExitCodes: map[string]string{"0": "success", "2": "warning", "130": "cancelled"},
+		},
+		Profiles: map[string]Profile{
+			"default": {"ready": Action{Steps: []Step{{Type: "sound", Sound: "blip"}}}},
+		},
+	}
+	if err := Validate(cfg); err != nil {
+		t.Errorf("expected valid, got: %v", err)
+	}
+}
+
+func TestValidateExitCodesInvalidKey(t *testing.T) {
+	cfg := Config{
+		Options: Options{
+			ExitCodes: map[string]string{"abc": "warning"},
+		},
+		Profiles: map[string]Profile{
+			"default": {"ready": Action{Steps: []Step{{Type: "sound", Sound: "blip"}}}},
+		},
+	}
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for non-integer key")
+	}
+	if !strings.Contains(err.Error(), "not a valid integer") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateExitCodesEmptyValue(t *testing.T) {
+	cfg := Config{
+		Options: Options{
+			ExitCodes: map[string]string{"2": ""},
+		},
+		Profiles: map[string]Profile{
+			"default": {"ready": Action{Steps: []Step{{Type: "sound", Sound: "blip"}}}},
+		},
+	}
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for empty action value")
+	}
+	if !strings.Contains(err.Error(), "must not be empty") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
 func TestResolveDirectMatch(t *testing.T) {
 	cfg := Config{
 		Profiles: map[string]Profile{

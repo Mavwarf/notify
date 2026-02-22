@@ -2,6 +2,7 @@
 
 ## Features
 
+- Exit code mapping for `notify run` — map specific codes to custom actions *(Feb 22)*
 - Custom sound files — use your own WAV files in `sound` steps *(Feb 22)*
 - Generic webhook step for ntfy.sh, Pushover, Home Assistant, IFTTT, etc. *(Feb 22)*
 - Automatic retry for remote steps (discord, slack, telegram) *(Feb 22)*
@@ -23,6 +24,15 @@
 ---
 
 ## 2026-02-22
+
+### Exit Code Mapping
+`notify run` previously hardcoded exit 0 → `ready` and non-zero → `error`.
+New `"exit_codes"` map in the `"config"` section lets users route specific
+exit codes to custom actions, e.g. `"2": "warning"` or `"130": "cancelled"`.
+Keys are exit code strings, values are action names. Unmapped codes still
+use the default 0→ready / non-zero→error fallback. Config validation checks
+that keys parse as integers and values are non-empty. Config is now loaded
+before exit code resolution in `runWrapped` to make the mapping available.
 
 ### Custom Sound Files
 The `sound` step now accepts a WAV file path alongside the 7 built-in sound

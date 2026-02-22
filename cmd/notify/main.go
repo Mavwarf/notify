@@ -214,12 +214,7 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 		}
 	}
 
-	action := "ready"
-	if exitCode != 0 {
-		action = "error"
-	}
-
-	// Load config and run notification.
+	// Load config and resolve action from exit code.
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -229,6 +224,8 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(exitCode)
 	}
+
+	action := resolveExitAction(cfg.Options.ExitCodes, exitCode)
 
 	if silent.IsSilent() {
 		if shouldLog(cfg, logFlag) {
@@ -299,6 +296,19 @@ func resolveCooldown(act *config.Action, cfg config.Config, flag bool) (bool, in
 		sec = cfg.Options.CooldownSeconds
 	}
 	return enabled, sec
+}
+
+// resolveExitAction maps an exit code to an action name using the
+// user's exit_codes config. Falls back to "ready" for 0 and "error"
+// for any other unmapped code.
+func resolveExitAction(codes map[string]string, exitCode int) string {
+	if a, ok := codes[strconv.Itoa(exitCode)]; ok {
+		return a
+	}
+	if exitCode == 0 {
+		return "ready"
+	}
+	return "error"
 }
 
 // idleFunc is the function used to get idle time. Replaced in tests.
@@ -668,7 +678,7 @@ Options:
   --cooldown, -C         Enable per-action cooldown (rate limiting)
 
 Commands:
-  run                    Wrap a command; notify ready on success, error on failure
+  run                    Wrap a command; map exit code to action (default: 0=ready, else=error)
   play [sound|file.wav]  Preview a built-in sound or WAV file (no args lists built-ins)
   test [profile]         Dry-run: show what would happen without sending
   history [N]            Show last N log entries (default 10)

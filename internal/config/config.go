@@ -27,13 +27,14 @@ type Credentials struct {
 
 // Options holds global settings parsed from the "config" key.
 type Options struct {
-	AFKThresholdSeconds int         `json:"afk_threshold_seconds,omitempty"`
-	DefaultVolume       int         `json:"default_volume,omitempty"`
-	Log                 bool        `json:"log,omitempty"`
-	Echo                bool        `json:"echo,omitempty"`
-	Cooldown            bool        `json:"cooldown,omitempty"`
-	CooldownSeconds     int         `json:"cooldown_seconds,omitempty"`
-	Credentials         Credentials `json:"credentials,omitempty"`
+	AFKThresholdSeconds int               `json:"afk_threshold_seconds,omitempty"`
+	DefaultVolume       int               `json:"default_volume,omitempty"`
+	Log                 bool              `json:"log,omitempty"`
+	Echo                bool              `json:"echo,omitempty"`
+	Cooldown            bool              `json:"cooldown,omitempty"`
+	CooldownSeconds     int               `json:"cooldown_seconds,omitempty"`
+	ExitCodes           map[string]string `json:"exit_codes,omitempty"`
+	Credentials         Credentials       `json:"credentials,omitempty"`
 }
 
 // Config holds the top-level configuration: global options and profiles.
@@ -101,6 +102,14 @@ func Validate(cfg Config) error {
 	}
 	if cfg.Options.CooldownSeconds < 0 {
 		errs = append(errs, fmt.Sprintf("config: cooldown_seconds %d must not be negative", cfg.Options.CooldownSeconds))
+	}
+	for k, v := range cfg.Options.ExitCodes {
+		if _, err := strconv.Atoi(k); err != nil {
+			errs = append(errs, fmt.Sprintf("config: exit_codes key %q is not a valid integer", k))
+		}
+		if v == "" {
+			errs = append(errs, fmt.Sprintf("config: exit_codes[%q] action must not be empty", k))
+		}
 	}
 
 	// Profiles and steps.
