@@ -131,6 +131,7 @@ internal/
 notify [options] [profile] <action>
 notify run [options] [profile] -- <command...>
 notify test [profile]                  # Dry-run: show what would happen
+notify history [N]                     # Show last N log entries (default 10)
 notify silent [duration|off]           # Suppress notifications temporarily
 notify list                            # List all profiles and actions
 notify version                         # Show version and build date
@@ -475,6 +476,8 @@ notify run boss -- cargo test     # Wrap with a specific profile
 notify test                       # Dry-run default profile
 notify test boss                  # Dry-run boss profile
 notify silent 1h                  # Suppress all notifications for 1 hour
+notify history                    # Show last 10 log entries
+notify history 5                  # Show last 5 log entries
 notify silent                     # Show current silent status
 notify silent off                 # Disable silent mode
 ```

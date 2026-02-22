@@ -120,17 +120,17 @@ func Log(action string, steps []config.Step, afk bool, vars tmpl.Vars) {
 // openLog opens (or creates) the log file for appending, creating the
 // parent directory if needed.
 func openLog() (*os.File, error) {
-	path := logPath()
+	path := LogPath()
 	if err := os.MkdirAll(filepath.Dir(path), paths.DirPerm); err != nil {
 		return nil, err
 	}
 	return os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, paths.FilePerm)
 }
 
-// logPath returns the log file location:
+// LogPath returns the log file location:
 //   - Windows: %APPDATA%\notify\notify.log
 //   - Unix:    ~/.config/notify/notify.log
-func logPath() string {
+func LogPath() string {
 	return filepath.Join(paths.DataDir(), paths.LogFileName)
 }
 

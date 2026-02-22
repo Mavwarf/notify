@@ -2,6 +2,7 @@
 
 ## Features
 
+- Notification history (`notify history`) to view recent log entries *(Feb 22)*
 - Echo option (`--echo`) to print execution summary *(Feb 22)*
 - Silent mode (`notify silent`) for temporary suppression *(Feb 22)*
 - Remote notifications: Discord, Slack, Telegram, voice messages, voice bubbles *(Feb 20–22)*
@@ -17,6 +18,14 @@
 ---
 
 ## 2026-02-22
+
+### Notification History (`notify history`)
+New `notify history [N]` command pretty-prints the last N entries from
+`notify.log` (default 10). Reads the log file location via the existing
+`eventlog.LogPath()` function. If the log file doesn't exist, prints a
+friendly message suggesting `--log` or `"log": true`. Useful for
+reviewing recent notification activity without opening the log file
+manually.
 
 ### Echo Option (`--echo`, `-E`)
 New `--echo` (`-E`) CLI flag and `"echo": true` config option prints a

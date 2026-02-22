@@ -82,6 +82,8 @@ func main() {
 		listProfiles(configPath)
 	case "test":
 		dryRun(filtered[1:], configPath)
+	case "history":
+		historyCmd(filtered[1:])
 	case "silent":
 		silentCmd(filtered[1:], configPath, logFlag)
 	case "run":
@@ -426,6 +428,47 @@ func silentCmd(args []string, configPath string, logFlag bool) {
 	}
 }
 
+func historyCmd(args []string) {
+	count := 10
+	if len(args) > 0 {
+		n, err := strconv.Atoi(args[0])
+		if err != nil || n <= 0 {
+			fmt.Fprintf(os.Stderr, "Error: count must be a positive integer\n")
+			os.Exit(1)
+		}
+		count = n
+	}
+
+	path := eventlog.LogPath()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Println("No log file found. Enable logging with --log or \"log\": true in config.")
+			return
+		}
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	content := strings.TrimRight(string(data), "\n\r ")
+	if content == "" {
+		fmt.Println("Log file is empty.")
+		return
+	}
+
+	entries := strings.Split(content, "\n\n")
+	if len(entries) > count {
+		entries = entries[len(entries)-count:]
+	}
+	for i, e := range entries {
+		fmt.Print(e)
+		fmt.Println()
+		if i < len(entries)-1 {
+			fmt.Println()
+		}
+	}
+}
+
 func listProfiles(configPath string) {
 	cfg, err := config.Load(configPath)
 	if err != nil {
@@ -592,6 +635,7 @@ Options:
 Commands:
   run                    Wrap a command; notify ready on success, error on failure
   test [profile]         Dry-run: show what would happen without sending
+  history [N]            Show last N log entries (default 10)
   silent [duration|off]  Suppress all notifications for a duration (e.g. 1h, 30m)
   list, -l, --list       List all profiles and actions
   version, -V             Show version and build date
