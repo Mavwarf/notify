@@ -66,26 +66,14 @@ func silentUntil(path string) (time.Time, bool) {
 }
 
 func enable(path string, d time.Duration) {
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, paths.DirPerm); err != nil {
-		fmt.Fprintf(os.Stderr, "silent: mkdir %s: %v\n", dir, err)
-		return
-	}
-
 	s := state{SilentUntil: time.Now().Add(d).Format(time.RFC3339)}
 	data, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "silent: marshal: %v\n", err)
 		return
 	}
-
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, paths.FilePerm); err != nil {
-		fmt.Fprintf(os.Stderr, "silent: write %s: %v\n", tmp, err)
-		return
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		fmt.Fprintf(os.Stderr, "silent: rename %s → %s: %v\n", tmp, path, err)
+	if err := paths.AtomicWrite(path, data); err != nil {
+		fmt.Fprintf(os.Stderr, "silent: write: %v\n", err)
 	}
 }
 

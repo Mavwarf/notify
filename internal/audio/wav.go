@@ -7,6 +7,9 @@ import (
 	"os"
 )
 
+// maxWAVSize is the maximum WAV file size we'll load (50 MB).
+const maxWAVSize = 50 * 1024 * 1024
+
 // LoadWAV reads a WAV file and returns raw stereo 16-bit signed LE PCM at 44100 Hz.
 // Supports PCM format (format code 1) with 8-bit, 16-bit, or 24-bit samples,
 // mono or stereo. Resamples to 44100 Hz via linear interpolation if needed.
@@ -14,6 +17,9 @@ func LoadWAV(path string) ([]byte, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("wav: %w", err)
+	}
+	if len(data) > maxWAVSize {
+		return nil, fmt.Errorf("wav: file too large (%d bytes, max %d)", len(data), maxWAVSize)
 	}
 	if len(data) < 44 {
 		return nil, fmt.Errorf("wav: file too short")

@@ -178,19 +178,12 @@ func Validate(cfg Config) error {
 					if s.Message == "" {
 						errs = append(errs, fmt.Sprintf("%s: toast step requires \"message\" field", sp))
 					}
-				case "discord":
+				case "discord", "discord_voice":
 					if s.Text == "" {
-						errs = append(errs, fmt.Sprintf("%s: discord step requires \"text\" field", sp))
+						errs = append(errs, fmt.Sprintf("%s: %s step requires \"text\" field", sp, s.Type))
 					}
 					if cfg.Options.Credentials.DiscordWebhook == "" {
-						errs = append(errs, fmt.Sprintf("%s: discord step requires credentials.discord_webhook", sp))
-					}
-				case "discord_voice":
-					if s.Text == "" {
-						errs = append(errs, fmt.Sprintf("%s: discord_voice step requires \"text\" field", sp))
-					}
-					if cfg.Options.Credentials.DiscordWebhook == "" {
-						errs = append(errs, fmt.Sprintf("%s: discord_voice step requires credentials.discord_webhook", sp))
+						errs = append(errs, fmt.Sprintf("%s: %s step requires credentials.discord_webhook", sp, s.Type))
 					}
 				case "slack":
 					if s.Text == "" {
@@ -199,26 +192,12 @@ func Validate(cfg Config) error {
 					if cfg.Options.Credentials.SlackWebhook == "" {
 						errs = append(errs, fmt.Sprintf("%s: slack step requires credentials.slack_webhook", sp))
 					}
-				case "telegram":
+				case "telegram", "telegram_audio", "telegram_voice":
 					if s.Text == "" {
-						errs = append(errs, fmt.Sprintf("%s: telegram step requires \"text\" field", sp))
+						errs = append(errs, fmt.Sprintf("%s: %s step requires \"text\" field", sp, s.Type))
 					}
 					if cfg.Options.Credentials.TelegramToken == "" || cfg.Options.Credentials.TelegramChatID == "" {
-						errs = append(errs, fmt.Sprintf("%s: telegram step requires credentials.telegram_token and telegram_chat_id", sp))
-					}
-				case "telegram_audio":
-					if s.Text == "" {
-						errs = append(errs, fmt.Sprintf("%s: telegram_audio step requires \"text\" field", sp))
-					}
-					if cfg.Options.Credentials.TelegramToken == "" || cfg.Options.Credentials.TelegramChatID == "" {
-						errs = append(errs, fmt.Sprintf("%s: telegram_audio step requires credentials.telegram_token and telegram_chat_id", sp))
-					}
-				case "telegram_voice":
-					if s.Text == "" {
-						errs = append(errs, fmt.Sprintf("%s: telegram_voice step requires \"text\" field", sp))
-					}
-					if cfg.Options.Credentials.TelegramToken == "" || cfg.Options.Credentials.TelegramChatID == "" {
-						errs = append(errs, fmt.Sprintf("%s: telegram_voice step requires credentials.telegram_token and telegram_chat_id", sp))
+						errs = append(errs, fmt.Sprintf("%s: %s step requires credentials.telegram_token and telegram_chat_id", sp, s.Type))
 					}
 				case "webhook":
 					if s.URL == "" {

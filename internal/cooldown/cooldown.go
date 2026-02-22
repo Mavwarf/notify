@@ -49,13 +49,6 @@ func check(path, profile, action string, cooldownSeconds int) bool {
 }
 
 func record(path, profile, action string) {
-	// Ensure directory exists.
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, paths.DirPerm); err != nil {
-		fmt.Fprintf(os.Stderr, "cooldown: mkdir %s: %v\n", dir, err)
-		return
-	}
-
 	// Load existing state.
 	state := make(map[string]string)
 	if data, err := os.ReadFile(path); err == nil {
@@ -78,15 +71,8 @@ func record(path, profile, action string) {
 		fmt.Fprintf(os.Stderr, "cooldown: marshal: %v\n", err)
 		return
 	}
-
-	// Atomic write: tmp file then rename.
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, paths.FilePerm); err != nil {
-		fmt.Fprintf(os.Stderr, "cooldown: write %s: %v\n", tmp, err)
-		return
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		fmt.Fprintf(os.Stderr, "cooldown: rename %s → %s: %v\n", tmp, path, err)
+	if err := paths.AtomicWrite(path, data); err != nil {
+		fmt.Fprintf(os.Stderr, "cooldown: write: %v\n", err)
 	}
 }
 

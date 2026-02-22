@@ -109,12 +109,8 @@ func runAction(args []string, configPath string, volume int, logFlag bool, echoF
 		os.Exit(1)
 	}
 
-	cfg, err := config.Load(configPath)
+	cfg, err := loadAndValidate(configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	if err := config.Validate(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
@@ -134,32 +130,8 @@ func runAction(args []string, configPath string, volume int, logFlag bool, echoF
 		os.Exit(1)
 	}
 
-	cdEnabled, cdSec := resolveCooldown(act, cfg, cooldownFlag)
-	if cdEnabled && cdSec > 0 && cooldown.Check(profile, action, cdSec) {
-		if shouldLog(cfg, logFlag) {
-			eventlog.LogCooldown(profile, action, cdSec)
-		}
-		return
-	}
-
-	afk := detectAFK(cfg)
-
 	vars := tmpl.Vars{Profile: profile}
-	filtered := runner.FilterSteps(act.Steps, afk, false)
-	err = runner.Execute(act, volume, cfg.Options.Credentials, vars, afk, false)
-	if cdEnabled && cdSec > 0 {
-		cooldown.Record(profile, action)
-		if shouldLog(cfg, logFlag) {
-			eventlog.LogCooldownRecord(profile, action, cdSec)
-		}
-	}
-	if shouldLog(cfg, logFlag) {
-		eventlog.Log(action, filtered, afk, vars)
-	}
-	if shouldEcho(cfg, echoFlag) {
-		printEcho(filtered)
-	}
-	if err != nil {
+	if err := executeAction(cfg, profile, action, act, volume, logFlag, echoFlag, cooldownFlag, false, vars); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
@@ -215,12 +187,8 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 	}
 
 	// Load config and resolve action from exit code.
-	cfg, err := config.Load(configPath)
+	cfg, err := loadAndValidate(configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(exitCode)
-	}
-	if err := config.Validate(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(exitCode)
 	}
@@ -242,24 +210,49 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 		os.Exit(exitCode)
 	}
 
-	cdEnabled, cdSec := resolveCooldown(act, cfg, cooldownFlag)
-	if cdEnabled && cdSec > 0 && cooldown.Check(profile, action, cdSec) {
-		if shouldLog(cfg, logFlag) {
-			eventlog.LogCooldown(profile, action, cdSec)
-		}
-		os.Exit(exitCode)
-	}
-
-	afk := detectAFK(cfg)
-
 	vars := tmpl.Vars{
 		Profile:     profile,
 		Command:     strings.Join(cmdArgs, " "),
 		Duration:    formatDuration(elapsed),
 		DurationSay: formatDurationSay(elapsed),
 	}
-	filtered := runner.FilterSteps(act.Steps, afk, true)
-	err = runner.Execute(act, volume, cfg.Options.Credentials, vars, afk, true)
+	if err := executeAction(cfg, profile, action, act, volume, logFlag, echoFlag, cooldownFlag, true, vars); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+	}
+
+	os.Exit(exitCode)
+}
+
+// loadAndValidate loads and validates the config file, returning an error
+// on any problem (instead of calling os.Exit directly).
+func loadAndValidate(configPath string) (config.Config, error) {
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return config.Config{}, err
+	}
+	if err := config.Validate(cfg); err != nil {
+		return config.Config{}, err
+	}
+	return cfg, nil
+}
+
+// executeAction runs the common tail of runAction/runWrapped: cooldown check,
+// step filtering, execution, cooldown recording, logging, and echo output.
+func executeAction(cfg config.Config, profile, action string, act *config.Action,
+	volume int, logFlag, echoFlag, cooldownFlag, run bool, vars tmpl.Vars) error {
+
+	cdEnabled, cdSec := resolveCooldown(act, cfg, cooldownFlag)
+	if cdEnabled && cdSec > 0 && cooldown.Check(profile, action, cdSec) {
+		if shouldLog(cfg, logFlag) {
+			eventlog.LogCooldown(profile, action, cdSec)
+		}
+		return nil
+	}
+
+	afk := detectAFK(cfg)
+
+	filtered := runner.FilterSteps(act.Steps, afk, run)
+	err := runner.Execute(act, volume, cfg.Options.Credentials, vars, afk, run)
 	if cdEnabled && cdSec > 0 {
 		cooldown.Record(profile, action)
 		if shouldLog(cfg, logFlag) {
@@ -272,11 +265,7 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 	if shouldEcho(cfg, echoFlag) {
 		printEcho(filtered)
 	}
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-	}
-
-	os.Exit(exitCode)
+	return err
 }
 
 // resolveVolume returns the CLI volume if set, otherwise the config default.
@@ -374,25 +363,13 @@ func formatDurationSay(d time.Duration) string {
 
 	var parts []string
 	if hours > 0 {
-		if hours == 1 {
-			parts = append(parts, "1 hour")
-		} else {
-			parts = append(parts, fmt.Sprintf("%d hours", hours))
-		}
+		parts = append(parts, pluralize(hours, "hour", "hours"))
 	}
 	if minutes > 0 {
-		if minutes == 1 {
-			parts = append(parts, "1 minute")
-		} else {
-			parts = append(parts, fmt.Sprintf("%d minutes", minutes))
-		}
+		parts = append(parts, pluralize(minutes, "minute", "minutes"))
 	}
 	if seconds > 0 {
-		if seconds == 1 {
-			parts = append(parts, "1 second")
-		} else {
-			parts = append(parts, fmt.Sprintf("%d seconds", seconds))
-		}
+		parts = append(parts, pluralize(seconds, "second", "seconds"))
 	}
 
 	if len(parts) == 0 {
@@ -402,6 +379,14 @@ func formatDurationSay(d time.Duration) string {
 		return parts[0]
 	}
 	return strings.Join(parts[:len(parts)-1], ", ") + " and " + parts[len(parts)-1]
+}
+
+// pluralize returns "1 singular" or "N plural".
+func pluralize(n int, singular, plural string) string {
+	if n == 1 {
+		return "1 " + singular
+	}
+	return fmt.Sprintf("%d %s", n, plural)
 }
 
 func silentCmd(args []string, configPath string, logFlag bool) {
@@ -510,12 +495,8 @@ func playCmd(args []string, volume int) {
 }
 
 func listProfiles(configPath string) {
-	cfg, err := config.Load(configPath)
+	cfg, err := loadAndValidate(configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	if err := config.Validate(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
@@ -555,12 +536,8 @@ func dryRun(args []string, configPath string) {
 		profile = args[0]
 	}
 
-	cfg, err := config.Load(configPath)
+	cfg, err := loadAndValidate(configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	if err := config.Validate(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
@@ -602,30 +579,17 @@ func dryRun(args []string, configPath string) {
 	fmt.Printf("\nActions:\n")
 	for _, aName := range actionNames {
 		act := p.Actions[aName]
-		filtered := runner.FilterSteps(act.Steps, afk, false)
-		fmt.Printf("\n  %s (%d/%d steps would run):\n", aName, len(filtered), len(act.Steps))
+		wouldRun := runner.FilteredIndices(act.Steps, afk, false)
+		fmt.Printf("\n  %s (%d/%d steps would run):\n", aName, len(wouldRun), len(act.Steps))
 		for i, s := range act.Steps {
-			marker := "  "
-			if !stepInList(s, filtered) {
-				marker = "  SKIP "
-			} else {
+			marker := "  SKIP "
+			if wouldRun[i] {
 				marker = "  RUN  "
 			}
 			detail := stepSummary(s)
 			fmt.Printf("    %s[%d] %-10s %s\n", marker, i+1, s.Type, detail)
 		}
 	}
-}
-
-func stepInList(s config.Step, list []config.Step) bool {
-	for _, l := range list {
-		if l.Type == s.Type && l.When == s.When && l.Text == s.Text &&
-			l.Sound == s.Sound && l.Title == s.Title && l.Message == s.Message &&
-			l.URL == s.URL {
-			return true
-		}
-	}
-	return false
 }
 
 func stepSummary(s config.Step) string {

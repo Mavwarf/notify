@@ -31,10 +31,7 @@ func sendTo(endpoint, chatID, message string) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("telegram: API returned %d: %s", resp.StatusCode, httputil.ReadSnippet(resp.Body))
-	}
-	return nil
+	return httputil.CheckStatus(resp, "telegram: API")
 }
 
 // SendAudio uploads a WAV file to a Telegram chat via the Bot API.
@@ -103,10 +100,7 @@ func sendFile(endpoint, chatID, filePath, caption, fieldName string) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("telegram: %s API returned %d: %s", fieldName, resp.StatusCode, httputil.ReadSnippet(resp.Body))
-	}
-	return nil
+	return httputil.CheckStatus(resp, fmt.Sprintf("telegram: %s API", fieldName))
 }
 
 // mimeForField returns the MIME type for a given form field name.

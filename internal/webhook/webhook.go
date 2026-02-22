@@ -28,8 +28,5 @@ func Send(url, body string, headers map[string]string) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("webhook: returned %d: %s", resp.StatusCode, httputil.ReadSnippet(resp.Body))
-	}
-	return nil
+	return httputil.CheckStatus(resp, "webhook")
 }

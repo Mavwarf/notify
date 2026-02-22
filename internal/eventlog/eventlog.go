@@ -15,106 +15,81 @@ import (
 // LogSilentEnable appends a single line noting that silent mode was enabled.
 // Best-effort, same as Log.
 func LogSilentEnable(d time.Duration) {
-	f, err := openLog()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "eventlog: %v\n", err)
-		return
-	}
-	defer f.Close()
-
-	ts := time.Now().Format(time.RFC3339)
-	fmt.Fprintf(f, "%s  silent=enabled (%s)\n\n", ts, d)
+	writeLog(func(f *os.File, ts string) {
+		fmt.Fprintf(f, "%s  silent=enabled (%s)\n\n", ts, d)
+	})
 }
 
 // LogSilentDisable appends a single line noting that silent mode was disabled.
 // Best-effort, same as Log.
 func LogSilentDisable() {
-	f, err := openLog()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "eventlog: %v\n", err)
-		return
-	}
-	defer f.Close()
-
-	ts := time.Now().Format(time.RFC3339)
-	fmt.Fprintf(f, "%s  silent=disabled\n\n", ts)
+	writeLog(func(f *os.File, ts string) {
+		fmt.Fprintf(f, "%s  silent=disabled\n\n", ts)
+	})
 }
 
 // LogSilent appends a single line noting that an invocation was skipped
 // due to silent mode. Best-effort, same as Log.
 func LogSilent(profile, action string) {
-	f, err := openLog()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "eventlog: %v\n", err)
-		return
-	}
-	defer f.Close()
-
-	ts := time.Now().Format(time.RFC3339)
-	fmt.Fprintf(f, "%s  profile=%s  action=%s  silent=skipped\n\n",
-		ts, profile, action)
+	writeLog(func(f *os.File, ts string) {
+		fmt.Fprintf(f, "%s  profile=%s  action=%s  silent=skipped\n\n",
+			ts, profile, action)
+	})
 }
 
 // LogCooldown appends a single line noting that an invocation was skipped
 // due to cooldown. Best-effort, same as Log.
 func LogCooldown(profile, action string, cooldownSeconds int) {
-	f, err := openLog()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "eventlog: %v\n", err)
-		return
-	}
-	defer f.Close()
-
-	ts := time.Now().Format(time.RFC3339)
-	fmt.Fprintf(f, "%s  profile=%s  action=%s  cooldown=skipped (%ds)\n\n",
-		ts, profile, action, cooldownSeconds)
+	writeLog(func(f *os.File, ts string) {
+		fmt.Fprintf(f, "%s  profile=%s  action=%s  cooldown=skipped (%ds)\n\n",
+			ts, profile, action, cooldownSeconds)
+	})
 }
 
 // LogCooldownRecord appends a single line noting that cooldown state was
 // updated for an action. Best-effort, same as Log.
 func LogCooldownRecord(profile, action string, cooldownSeconds int) {
-	f, err := openLog()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "eventlog: %v\n", err)
-		return
-	}
-	defer f.Close()
-
-	ts := time.Now().Format(time.RFC3339)
-	fmt.Fprintf(f, "%s  profile=%s  action=%s  cooldown=recorded (%ds)\n",
-		ts, profile, action, cooldownSeconds)
+	writeLog(func(f *os.File, ts string) {
+		fmt.Fprintf(f, "%s  profile=%s  action=%s  cooldown=recorded (%ds)\n",
+			ts, profile, action, cooldownSeconds)
+	})
 }
 
 // Log appends to the log file a summary line followed by one detail line
 // per step. Errors are printed to stderr but never returned — logging is
 // best-effort.
 func Log(action string, steps []config.Step, afk bool, vars tmpl.Vars) {
+	writeLog(func(f *os.File, ts string) {
+		types := make([]string, len(steps))
+		for i, s := range steps {
+			types[i] = s.Type
+		}
+
+		// Summary line.
+		fmt.Fprintf(f, "%s  profile=%s  action=%s  steps=%s  afk=%t\n",
+			ts, vars.Profile, action, strings.Join(types, ","), afk)
+
+		// Detail line per step.
+		for i, s := range steps {
+			detail := stepDetail(s, vars)
+			fmt.Fprintf(f, "%s    step[%d] %s  %s\n", ts, i+1, s.Type, detail)
+		}
+
+		// Blank line separates invocations.
+		fmt.Fprintln(f)
+	})
+}
+
+// writeLog opens the log file, generates a timestamp, and calls fn to
+// write the entry. Errors are printed to stderr — logging is best-effort.
+func writeLog(fn func(f *os.File, ts string)) {
 	f, err := openLog()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "eventlog: %v\n", err)
 		return
 	}
 	defer f.Close()
-
-	ts := time.Now().Format(time.RFC3339)
-
-	types := make([]string, len(steps))
-	for i, s := range steps {
-		types[i] = s.Type
-	}
-
-	// Summary line.
-	fmt.Fprintf(f, "%s  profile=%s  action=%s  steps=%s  afk=%t\n",
-		ts, vars.Profile, action, strings.Join(types, ","), afk)
-
-	// Detail line per step.
-	for i, s := range steps {
-		detail := stepDetail(s, vars)
-		fmt.Fprintf(f, "%s    step[%d] %s  %s\n", ts, i+1, s.Type, detail)
-	}
-
-	// Blank line separates invocations.
-	fmt.Fprintln(f)
+	fn(f, time.Now().Format(time.RFC3339))
 }
 
 // openLog opens (or creates) the log file for appending, creating the

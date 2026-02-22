@@ -26,10 +26,7 @@ func Send(webhookURL, message string) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("discord: webhook returned %d: %s", resp.StatusCode, httputil.ReadSnippet(resp.Body))
-	}
-	return nil
+	return httputil.CheckStatus(resp, "discord: webhook")
 }
 
 // SendVoice uploads a WAV file to a Discord channel via webhook URL.
@@ -72,9 +69,6 @@ func SendVoice(webhookURL, wavPath, caption string) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("discord: voice webhook returned %d: %s", resp.StatusCode, httputil.ReadSnippet(resp.Body))
-	}
-	return nil
+	return httputil.CheckStatus(resp, "discord: voice webhook")
 }
 

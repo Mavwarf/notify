@@ -22,8 +22,5 @@ func Send(webhookURL, message string) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("slack: webhook returned %d: %s", resp.StatusCode, httputil.ReadSnippet(resp.Body))
-	}
-	return nil
+	return httputil.CheckStatus(resp, "slack: webhook")
 }

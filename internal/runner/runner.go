@@ -24,6 +24,25 @@ import (
 // is left to the receiving side, so we always render at full volume.
 const remoteVolume = 100
 
+// ttsToTempFile renders text to a temporary WAV file via TTS and returns the
+// file path plus a cleanup function that removes the temp file.
+func ttsToTempFile(prefix, text string) (path string, cleanup func(), err error) {
+	f, err := os.CreateTemp("", prefix)
+	if err != nil {
+		return "", nil, fmt.Errorf("temp file: %w", err)
+	}
+	path = f.Name()
+	if err := f.Close(); err != nil {
+		return "", nil, fmt.Errorf("close temp: %w", err)
+	}
+	if err := speech.SayToFile(text, remoteVolume, path); err != nil {
+		os.Remove(path)
+		return "", nil, fmt.Errorf("tts: %w", err)
+	}
+	cleanup = func() { os.Remove(path) }
+	return path, cleanup, nil
+}
+
 // retryOnce calls fn and, if it fails, waits 2 seconds and tries once
 // more. Used for remote network calls so a single transient error
 // doesn't lose the notification.
@@ -55,6 +74,19 @@ func FilterSteps(steps []config.Step, afk, run bool) []config.Step {
 		}
 	}
 	return out
+}
+
+// FilteredIndices returns a boolean map indicating which step indices
+// would run. Used by dry-run to mark each step as RUN or SKIP.
+func FilteredIndices(steps []config.Step, afk, run bool) map[int]bool {
+	now := time.Now()
+	m := make(map[int]bool, len(steps))
+	for i, s := range steps {
+		if matchWhen(s.When, afk, run, now) {
+			m[i] = true
+		}
+	}
+	return m
 }
 
 // matchWhen evaluates a single "when" condition string against the
@@ -178,18 +210,11 @@ func execStep(step config.Step, defaultVolume int, creds config.Credentials, var
 		return retryOnce(func() error { return discord.Send(creds.DiscordWebhook, msg) })
 	case "discord_voice":
 		text := tmpl.Expand(step.Text, vars)
-		wavFile, err := os.CreateTemp("", "notify-voice-*.wav")
+		wavPath, cleanup, err := ttsToTempFile("notify-voice-*.wav", text)
 		if err != nil {
-			return fmt.Errorf("discord_voice temp file: %w", err)
+			return fmt.Errorf("discord_voice: %w", err)
 		}
-		wavPath := wavFile.Name()
-		if err := wavFile.Close(); err != nil {
-			return fmt.Errorf("discord_voice close temp: %w", err)
-		}
-		if err := speech.SayToFile(text, remoteVolume, wavPath); err != nil {
-			return fmt.Errorf("discord_voice tts: %w", err)
-		}
-		defer os.Remove(wavPath)
+		defer cleanup()
 		return retryOnce(func() error { return discord.SendVoice(creds.DiscordWebhook, wavPath, text) })
 	case "slack":
 		msg := tmpl.Expand(step.Text, vars)
@@ -199,33 +224,19 @@ func execStep(step config.Step, defaultVolume int, creds config.Credentials, var
 		return retryOnce(func() error { return telegram.Send(creds.TelegramToken, creds.TelegramChatID, msg) })
 	case "telegram_audio":
 		text := tmpl.Expand(step.Text, vars)
-		wavFile, err := os.CreateTemp("", "notify-tgaudio-*.wav")
+		wavPath, cleanup, err := ttsToTempFile("notify-tgaudio-*.wav", text)
 		if err != nil {
-			return fmt.Errorf("telegram_audio temp file: %w", err)
+			return fmt.Errorf("telegram_audio: %w", err)
 		}
-		wavPath := wavFile.Name()
-		if err := wavFile.Close(); err != nil {
-			return fmt.Errorf("telegram_audio close temp: %w", err)
-		}
-		if err := speech.SayToFile(text, remoteVolume, wavPath); err != nil {
-			return fmt.Errorf("telegram_audio tts: %w", err)
-		}
-		defer os.Remove(wavPath)
+		defer cleanup()
 		return retryOnce(func() error { return telegram.SendAudio(creds.TelegramToken, creds.TelegramChatID, wavPath, text) })
 	case "telegram_voice":
 		text := tmpl.Expand(step.Text, vars)
-		wavFile, err := os.CreateTemp("", "notify-tgvoice-*.wav")
+		wavPath, wavCleanup, err := ttsToTempFile("notify-tgvoice-*.wav", text)
 		if err != nil {
-			return fmt.Errorf("telegram_voice temp file: %w", err)
+			return fmt.Errorf("telegram_voice: %w", err)
 		}
-		wavPath := wavFile.Name()
-		if err := wavFile.Close(); err != nil {
-			return fmt.Errorf("telegram_voice close temp: %w", err)
-		}
-		if err := speech.SayToFile(text, remoteVolume, wavPath); err != nil {
-			return fmt.Errorf("telegram_voice tts: %w", err)
-		}
-		defer os.Remove(wavPath)
+		defer wavCleanup()
 		oggFile, err := os.CreateTemp("", "notify-tgvoice-*.ogg")
 		if err != nil {
 			return fmt.Errorf("telegram_voice ogg temp file: %w", err)
