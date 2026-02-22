@@ -19,6 +19,10 @@ import (
 	"github.com/Mavwarf/notify/internal/toast"
 )
 
+// remoteVolume is used for TTS in remote voice steps. Volume control
+// is left to the receiving side, so we always render at full volume.
+const remoteVolume = 100
+
 // sequential returns true for step types that use the audio pipeline
 // and must run one after another.
 func sequential(typ string) bool {
@@ -169,7 +173,7 @@ func execStep(step config.Step, defaultVolume int, creds config.Credentials, var
 		if err := wavFile.Close(); err != nil {
 			return fmt.Errorf("discord_voice close temp: %w", err)
 		}
-		if err := speech.SayToFile(text, vol, wavPath); err != nil {
+		if err := speech.SayToFile(text, remoteVolume, wavPath); err != nil {
 			return fmt.Errorf("discord_voice tts: %w", err)
 		}
 		defer os.Remove(wavPath)
@@ -188,7 +192,7 @@ func execStep(step config.Step, defaultVolume int, creds config.Credentials, var
 		if err := wavFile.Close(); err != nil {
 			return fmt.Errorf("telegram_audio close temp: %w", err)
 		}
-		if err := speech.SayToFile(text, vol, wavPath); err != nil {
+		if err := speech.SayToFile(text, remoteVolume, wavPath); err != nil {
 			return fmt.Errorf("telegram_audio tts: %w", err)
 		}
 		defer os.Remove(wavPath)
@@ -203,7 +207,7 @@ func execStep(step config.Step, defaultVolume int, creds config.Credentials, var
 		if err := wavFile.Close(); err != nil {
 			return fmt.Errorf("telegram_voice close temp: %w", err)
 		}
-		if err := speech.SayToFile(text, vol, wavPath); err != nil {
+		if err := speech.SayToFile(text, remoteVolume, wavPath); err != nil {
 			return fmt.Errorf("telegram_voice tts: %w", err)
 		}
 		defer os.Remove(wavPath)
