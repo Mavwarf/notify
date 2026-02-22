@@ -452,6 +452,7 @@ func dryRun(args []string, configPath string) {
 
 	creds := cfg.Options.Credentials
 	fmt.Printf("Discord: %s\n", credStatus(creds.DiscordWebhook != ""))
+	fmt.Printf("Slack:   %s\n", credStatus(creds.SlackWebhook != ""))
 	fmt.Printf("Telegram:%s\n", credStatus(creds.TelegramToken != "" && creds.TelegramChatID != ""))
 
 	afk := detectAFK(cfg)
@@ -518,7 +519,7 @@ func stepSummary(s config.Step) string {
 			parts = append(parts, fmt.Sprintf("title=%q", s.Title))
 		}
 		parts = append(parts, fmt.Sprintf("message=%q", s.Message))
-	case "discord", "discord_voice", "telegram", "telegram_audio":
+	case "discord", "discord_voice", "slack", "telegram", "telegram_audio":
 		parts = append(parts, fmt.Sprintf("text=%q", s.Text))
 	}
 	if s.When != "" {

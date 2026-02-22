@@ -330,6 +330,7 @@ func TestValidateValidConfig(t *testing.T) {
 			CooldownSeconds:     30,
 			Credentials: Credentials{
 				DiscordWebhook: "https://example.com",
+				SlackWebhook:   "https://hooks.slack.com/services/T/B/X",
 				TelegramToken:  "tok",
 				TelegramChatID: "123",
 			},
@@ -343,6 +344,7 @@ func TestValidateValidConfig(t *testing.T) {
 						{Type: "toast", Message: "Done", When: "afk"},
 						{Type: "discord", Text: "Done", When: "hours:8-22"},
 						{Type: "discord_voice", Text: "Done", When: "afk"},
+						{Type: "slack", Text: "Done", When: "afk"},
 						{Type: "telegram", Text: "Done", When: "afk"},
 						{Type: "telegram_audio", Text: "Done", When: "afk"},
 					},
@@ -438,6 +440,7 @@ func TestValidateMissingRequiredFields(t *testing.T) {
 		{"toast without message", Step{Type: "toast"}, "requires \"message\" field"},
 		{"discord without text", Step{Type: "discord"}, "requires \"text\" field"},
 		{"discord_voice without text", Step{Type: "discord_voice"}, "requires \"text\" field"},
+		{"slack without text", Step{Type: "slack"}, "requires \"text\" field"},
 		{"telegram without text", Step{Type: "telegram"}, "requires \"text\" field"},
 		{"telegram_audio without text", Step{Type: "telegram_audio"}, "requires \"text\" field"},
 	}
@@ -581,6 +584,33 @@ func TestValidateDiscordVoiceWithCredentials(t *testing.T) {
 		Options: Options{Credentials: Credentials{DiscordWebhook: "https://example.com"}},
 		Profiles: map[string]Profile{
 			"default": {"ready": Action{Steps: []Step{{Type: "discord_voice", Text: "hi"}}}},
+		},
+	}
+	if err := Validate(cfg); err != nil {
+		t.Errorf("expected valid, got: %v", err)
+	}
+}
+
+func TestValidateSlackMissingCredentials(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"default": {"ready": Action{Steps: []Step{{Type: "slack", Text: "hi"}}}},
+		},
+	}
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for missing slack credentials")
+	}
+	if !strings.Contains(err.Error(), "credentials.slack_webhook") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateSlackWithCredentials(t *testing.T) {
+	cfg := Config{
+		Options: Options{Credentials: Credentials{SlackWebhook: "https://hooks.slack.com/services/T/B/X"}},
+		Profiles: map[string]Profile{
+			"default": {"ready": Action{Steps: []Step{{Type: "slack", Text: "hi"}}}},
 		},
 	}
 	if err := Validate(cfg); err != nil {

@@ -2,12 +2,12 @@
 
 **Never miss a finished build again.** Whether you're at your desk or grabbing
 coffee — `notify` knows and reaches you the right way: a chime when you're
-present, a Discord or Telegram ping when you're not.
+present, a Discord, Slack, or Telegram ping when you're not.
 
 A single binary, zero-dependency notification engine for the command line.
 Chain sounds, speech, toast popups, Discord messages, Discord voice messages,
-Telegram messages, and Telegram audio messages into pipelines — all configured
-in one JSON file.
+Slack messages, Telegram messages, and Telegram audio messages into pipelines
+— all configured in one JSON file.
 
 ## What is this for?
 
@@ -44,7 +44,7 @@ go install github.com/Mavwarf/notify/cmd/notify@latest
 
 - **Written in Go** for easy cross-compilation and single-binary distribution.
 - **Config-driven** — define notification pipelines as JSON. Each action
-  combines sound, speech, toast, Discord, and Telegram steps.
+  combines sound, speech, toast, Discord, Slack, and Telegram steps.
 - **Built-in sounds** — 7 generated tones (success, error, warning, etc.)
   created programmatically as sine-wave patterns.
 - **Text-to-speech** — uses OS-native TTS engines
@@ -55,13 +55,15 @@ go install github.com/Mavwarf/notify/cmd/notify@latest
   no external dependencies (just `net/http`).
 - **Discord voice messages** — generate TTS audio and upload as a WAV
   file attachment to Discord. Same TTS engines as `say` steps.
+- **Slack webhooks** — post messages to a Slack channel via incoming webhook,
+  no external dependencies (just `net/http`).
 - **Telegram Bot API** — send messages to a Telegram chat via bot token,
   no external dependencies (just `net/http`).
 - **Telegram audio messages** — generate TTS audio and upload as a WAV
   file to Telegram via `sendAudio`. Same TTS engines as `say` steps.
 - **AFK detection** — conditionally run steps based on whether the user is
-  at their desk or away. Play a sound when present, send a Discord or
-  Telegram message when AFK.
+  at their desk or away. Play a sound when present, send a Discord, Slack,
+  or Telegram message when AFK.
 - **Quiet hours** — time-based `"hours:X-Y"` condition suppresses loud steps
   at night and routes to silent channels instead.
 - **Cross-platform** — uses [oto](https://github.com/ebitengine/oto) for
@@ -87,6 +89,8 @@ internal/
     silent.go            Temporary notification suppression with file-based state
   discord/
     discord.go           Discord webhook integration (POST to channel)
+  slack/
+    slack.go             Slack incoming webhook integration (POST to channel)
   telegram/
     telegram.go          Telegram Bot API integration (sendMessage, sendAudio)
   paths/
@@ -96,7 +100,7 @@ internal/
     idle_darwin.go       User idle time via ioreg HIDIdleTime
     idle_linux.go        User idle time via xprintidle
   runner/
-    runner.go            Step executor (dispatches to audio/speech/toast/discord/discord_voice/telegram/telegram_audio)
+    runner.go            Step executor (dispatches to audio/speech/toast/discord/discord_voice/slack/telegram/telegram_audio)
   eventlog/
     eventlog.go          Append-only invocation log (notify.log)
   httputil/
@@ -156,6 +160,7 @@ notify help                            # Show help
     "cooldown_seconds": 30,
     "credentials": {
       "discord_webhook": "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN",
+      "slack_webhook": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
       "telegram_token": "YOUR_BOT_TOKEN",
       "telegram_chat_id": "YOUR_CHAT_ID"
     }
@@ -171,6 +176,7 @@ notify help                            # Show help
           { "type": "toast", "message": "Ready!", "when": "hours:22-8" },
           { "type": "discord", "text": "Ready!", "when": "afk" },
           { "type": "discord_voice", "text": "Ready!", "when": "afk" },
+          { "type": "slack", "text": "Ready!", "when": "afk" },
           { "type": "telegram", "text": "Ready!", "when": "afk" },
           { "type": "telegram_audio", "text": "Ready!", "when": "afk" }
         ]
@@ -196,13 +202,14 @@ notify help                            # Show help
   `"default"` is the fallback profile.
 - **Step types:** `sound` (play a built-in sound), `say` (text-to-speech),
   `toast` (desktop notification), `discord` (post to Discord channel via webhook),
-  `discord_voice` (TTS audio uploaded to Discord as WAV), `telegram` (send to
-  Telegram chat via bot), `telegram_audio` (TTS audio uploaded to Telegram as WAV).
+  `discord_voice` (TTS audio uploaded to Discord as WAV), `slack` (post to Slack
+  channel via webhook), `telegram` (send to Telegram chat via bot),
+  `telegram_audio` (TTS audio uploaded to Telegram as WAV).
 - **Volume priority:** per-step `volume` > CLI `--volume` > config
   `"default_volume"` > 100.
 - Toast `title` defaults to the profile name if omitted.
 - **Template variables:** use `{profile}` in `say` text, `toast` title/message,
-  `discord`, `discord_voice`, `telegram`, or `telegram_audio` text to inject the runtime profile name, or `{Profile}` for
+  `discord`, `discord_voice`, `slack`, `telegram`, or `telegram_audio` text to inject the runtime profile name, or `{Profile}` for
   title case (e.g. `boss` → `Boss`). When using `notify run`, `{command}`,
   `{duration}` (compact: `2m15s`), and `{Duration}` (spoken: `2 minutes and
   15 seconds`) are also available. Use `{Duration}` in `say` steps for
@@ -216,8 +223,8 @@ notify help                            # Show help
   or override per-action. Actions silently skip if the same profile+action
   was triggered within the cooldown window.
 - `sound` and `say` steps run sequentially (shared audio pipeline).
-  All other steps (`toast`, `discord`, `discord_voice`, `telegram`,
-  `telegram_audio`) fire in parallel immediately.
+  All other steps (`toast`, `discord`, `discord_voice`, `slack`,
+  `telegram`, `telegram_audio`) fire in parallel immediately.
 
 ### Available sounds
 
@@ -233,7 +240,7 @@ notify help                            # Show help
 
 ### Credentials
 
-Remote notification steps (`discord`, `discord_voice`, `telegram`, `telegram_audio`) need credentials stored in
+Remote notification steps (`discord`, `discord_voice`, `slack`, `telegram`, `telegram_audio`) need credentials stored in
 the `"credentials"` object inside `"config"`:
 
 ```json
@@ -241,6 +248,7 @@ the `"credentials"` object inside `"config"`:
   "config": {
     "credentials": {
       "discord_webhook": "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN",
+      "slack_webhook": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
       "telegram_token": "YOUR_BOT_TOKEN",
       "telegram_chat_id": "YOUR_CHAT_ID"
     }
@@ -251,6 +259,8 @@ the `"credentials"` object inside `"config"`:
 
 - **Discord webhook URL:** Server Settings → Integrations → Webhooks →
   New Webhook → Copy Webhook URL.
+- **Slack webhook URL:** App settings → Incoming Webhooks → Add New Webhook
+  to Workspace → select a channel → Copy Webhook URL.
 - **Telegram bot token:** Message [@BotFather](https://t.me/BotFather) →
   `/newbot` → copy the token.
 - **Telegram chat ID:** Message your bot, then open
@@ -282,6 +292,18 @@ sent as a caption alongside the file:
 Uses the same platform-native TTS engines as `say` steps. Requires
 `discord_webhook` in `"credentials"`. Useful when you want an audible
 notification on your phone via Discord without needing to read the message.
+
+### Slack notifications
+
+The `slack` step type posts a message to a Slack channel via incoming webhook.
+Same pattern as Discord — especially useful with `"when": "afk"`:
+
+```json
+{ "type": "slack", "text": "{Profile} build is ready", "when": "afk" }
+```
+
+Requires `slack_webhook` in `"credentials"`. Slack steps run in parallel
+(they don't block the audio pipeline).
 
 ### Telegram notifications
 
@@ -399,7 +421,7 @@ Additional template variables are available in `run` mode:
 | `{Duration}` | Spoken elapsed time (for TTS)        | `2 minutes and 15 seconds`     |
 
 Use `{Duration}` in `say` steps for natural speech, `{duration}` in
-toast/discord for compact display.
+toast/discord/slack for compact display.
 
 Steps can be limited to `run` mode with `"when": "run"`, or excluded
 from it with `"when": "direct"`:
@@ -588,6 +610,7 @@ cmake --install build --prefix /usr/local
 | Toast notifications | Toast API (Win 10+) | `osascript` (built-in) | `notify-send` (`libnotify`) |
 | Discord webhook | `net/http` (built-in) | `net/http` (built-in) | `net/http` (built-in) |
 | Discord voice | TTS + `net/http` | TTS + `net/http` | TTS + `net/http` |
+| Slack webhook | `net/http` (built-in) | `net/http` (built-in) | `net/http` (built-in) |
 | Telegram Bot API | `net/http` (built-in) | `net/http` (built-in) | `net/http` (built-in) |
 | Telegram audio | TTS + `net/http` | TTS + `net/http` | TTS + `net/http` |
 

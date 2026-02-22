@@ -11,6 +11,7 @@ import (
 	"github.com/Mavwarf/notify/internal/audio"
 	"github.com/Mavwarf/notify/internal/config"
 	"github.com/Mavwarf/notify/internal/discord"
+	"github.com/Mavwarf/notify/internal/slack"
 	"github.com/Mavwarf/notify/internal/speech"
 	"github.com/Mavwarf/notify/internal/telegram"
 	"github.com/Mavwarf/notify/internal/tmpl"
@@ -170,6 +171,8 @@ func execStep(step config.Step, defaultVolume int, creds config.Credentials, var
 		}
 		defer os.Remove(wavPath)
 		return discord.SendVoice(creds.DiscordWebhook, wavPath, text)
+	case "slack":
+		return slack.Send(creds.SlackWebhook, tmpl.Expand(step.Text, vars))
 	case "telegram":
 		return telegram.Send(creds.TelegramToken, creds.TelegramChatID, tmpl.Expand(step.Text, vars))
 	case "telegram_audio":

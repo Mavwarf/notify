@@ -3,7 +3,7 @@
 ## Features
 
 - Silent mode (`notify silent`) for temporary suppression *(Feb 22)*
-- Remote notifications: Discord, Telegram, voice messages *(Feb 20–22)*
+- Remote notifications: Discord, Slack, Telegram, voice messages *(Feb 20–22)*
 - Cooldown / rate limiting per action *(Feb 21)*
 - Config validation with multi-error reporting *(Feb 21)*
 - Command wrapper (`notify run`) with exit code and duration templates *(Feb 20)*
@@ -16,6 +16,13 @@
 ---
 
 ## 2026-02-22
+
+### Slack Webhook Notifications (`slack`)
+New `slack` step type posts messages to a Slack channel via incoming webhook.
+Uses a simple JSON POST (`{"text": "..."}`) — same pattern as the existing
+`discord` step. Requires `credentials.slack_webhook` in config. Supports
+template variables and `when` filtering. Runs in parallel (no audio pipeline
+dependency).
 
 ### Cooldown Auto-Pruning
 `record()` now prunes expired entries from `cooldown.json` on every write.

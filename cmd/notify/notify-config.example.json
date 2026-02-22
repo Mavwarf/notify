@@ -7,6 +7,7 @@
     "cooldown_seconds": 30,
     "credentials": {
       "discord_webhook": "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN",
+      "slack_webhook": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
       "telegram_token": "YOUR_BOT_TOKEN",
       "telegram_chat_id": "YOUR_CHAT_ID"
     }
@@ -22,6 +23,7 @@
           { "type": "toast", "message": "{Profile} is ready", "when": "hours:22-8" },
           { "type": "discord", "text": "{Profile} is ready", "when": "afk" },
           { "type": "discord_voice", "text": "{Profile} is ready", "when": "afk" },
+          { "type": "slack", "text": "{Profile} is ready", "when": "afk" },
           { "type": "telegram", "text": "{Profile} is ready", "when": "afk" },
           { "type": "telegram_audio", "text": "{Profile} is ready", "when": "afk" }
         ]

@@ -39,6 +39,7 @@ internal/
   config/            Config loading and resolution
   cooldown/          Per-action rate limiting
   discord/           Discord webhook and voice integration
+  slack/             Slack incoming webhook integration
   telegram/          Telegram Bot API integration
   eventlog/          Invocation logging
   idle/              Platform-specific AFK detection

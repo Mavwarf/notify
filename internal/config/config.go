@@ -20,6 +20,7 @@ const DefaultVolume = 100
 // Credentials holds secret values for remote notification actions.
 type Credentials struct {
 	DiscordWebhook string `json:"discord_webhook,omitempty"`
+	SlackWebhook   string `json:"slack_webhook,omitempty"`
 	TelegramToken  string `json:"telegram_token,omitempty"`
 	TelegramChatID string `json:"telegram_chat_id,omitempty"`
 }
@@ -61,7 +62,7 @@ type Action struct {
 
 // Step is a single unit of work within an action.
 type Step struct {
-	Type    string `json:"type"`              // "sound" | "say" | "toast" | "discord" | "discord_voice" | "telegram" | "telegram_audio"
+	Type    string `json:"type"`              // "sound" | "say" | "toast" | "discord" | "discord_voice" | "slack" | "telegram" | "telegram_audio"
 	Sound   string `json:"sound,omitempty"`   // type=sound
 	Text    string `json:"text,omitempty"`    // type=say, discord, discord_voice, telegram, telegram_audio
 	Title   string `json:"title,omitempty"`   // type=toast
@@ -72,7 +73,7 @@ type Step struct {
 
 // validStepTypes is the set of recognized step types.
 var validStepTypes = map[string]bool{
-	"sound": true, "say": true, "toast": true, "discord": true, "discord_voice": true, "telegram": true, "telegram_audio": true,
+	"sound": true, "say": true, "toast": true, "discord": true, "discord_voice": true, "slack": true, "telegram": true, "telegram_audio": true,
 }
 
 // Validate checks a parsed Config for common mistakes and returns a
@@ -139,6 +140,13 @@ func Validate(cfg Config) error {
 					}
 					if cfg.Options.Credentials.DiscordWebhook == "" {
 						errs = append(errs, fmt.Sprintf("%s: discord_voice step requires credentials.discord_webhook", sp))
+					}
+			case "slack":
+					if s.Text == "" {
+						errs = append(errs, fmt.Sprintf("%s: slack step requires \"text\" field", sp))
+					}
+					if cfg.Options.Credentials.SlackWebhook == "" {
+						errs = append(errs, fmt.Sprintf("%s: slack step requires credentials.slack_webhook", sp))
 					}
 				case "telegram":
 					if s.Text == "" {
