@@ -2,6 +2,19 @@
 
 ## 2026-02-22
 
+### Silent Mode (`notify silent`)
+New `notify silent <duration>` command temporarily suppresses all
+notification execution without editing the config. Supports Go-style
+duration strings (`30s`, `5m`, `1h`, `2h30m`). `notify silent off`
+disables immediately; `notify silent` (no args) shows current status.
+During silent mode, both direct invocations and `notify run` exit
+immediately — no sound, no speech, no toast, no remote notifications.
+Suppressed invocations are still logged when event logging is enabled,
+as are enable/disable state changes.
+`notify test` shows silent status in its output. State is stored in
+`silent.json` in the notify data directory, with fail-open semantics
+(missing, corrupt, or expired files are treated as not silent).
+
 ### Telegram Audio Messages (`telegram_audio`)
 New `telegram_audio` step type generates TTS audio and uploads it to Telegram
 as a WAV file via the Bot API `sendAudio` endpoint. Uses platform-native TTS

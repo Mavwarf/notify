@@ -9,6 +9,7 @@ const (
 	AppDirName       = "notify"
 	ConfigFileName   = "notify-config.json"
 	CooldownFileName = "cooldown.json"
+	SilentFileName   = "silent.json"
 	LogFileName      = "notify.log"
 	DirPerm          = 0755
 	FilePerm         = 0644

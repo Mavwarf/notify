@@ -12,6 +12,49 @@ import (
 	"github.com/Mavwarf/notify/internal/tmpl"
 )
 
+// LogSilentEnable appends a single line noting that silent mode was enabled.
+// Best-effort, same as Log.
+func LogSilentEnable(d time.Duration) {
+	f, err := openLog()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "eventlog: %v\n", err)
+		return
+	}
+	defer f.Close()
+
+	ts := time.Now().Format(time.RFC3339)
+	fmt.Fprintf(f, "%s  silent=enabled (%s)\n\n", ts, d)
+}
+
+// LogSilentDisable appends a single line noting that silent mode was disabled.
+// Best-effort, same as Log.
+func LogSilentDisable() {
+	f, err := openLog()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "eventlog: %v\n", err)
+		return
+	}
+	defer f.Close()
+
+	ts := time.Now().Format(time.RFC3339)
+	fmt.Fprintf(f, "%s  silent=disabled\n\n", ts)
+}
+
+// LogSilent appends a single line noting that an invocation was skipped
+// due to silent mode. Best-effort, same as Log.
+func LogSilent(profile, action string) {
+	f, err := openLog()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "eventlog: %v\n", err)
+		return
+	}
+	defer f.Close()
+
+	ts := time.Now().Format(time.RFC3339)
+	fmt.Fprintf(f, "%s  profile=%s  action=%s  silent=skipped\n\n",
+		ts, profile, action)
+}
+
 // LogCooldown appends a single line noting that an invocation was skipped
 // due to cooldown. Best-effort, same as Log.
 func LogCooldown(profile, action string, cooldownSeconds int) {

@@ -15,6 +15,7 @@ import (
 	"github.com/Mavwarf/notify/internal/eventlog"
 	"github.com/Mavwarf/notify/internal/idle"
 	"github.com/Mavwarf/notify/internal/runner"
+	"github.com/Mavwarf/notify/internal/silent"
 	"github.com/Mavwarf/notify/internal/tmpl"
 )
 
@@ -78,6 +79,8 @@ func main() {
 		listProfiles(configPath)
 	case "test":
 		dryRun(filtered[1:], configPath)
+	case "silent":
+		silentCmd(filtered[1:], configPath, logFlag)
 	case "run":
 		runWrapped(filtered[1:], configPath, volume, logFlag, cooldownFlag)
 	default:
@@ -106,6 +109,13 @@ func runAction(args []string, configPath string, volume int, logFlag bool, coold
 	if err := config.Validate(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
+	}
+
+	if silent.IsSilent() {
+		if shouldLog(cfg, logFlag) {
+			eventlog.LogSilent(profile, action)
+		}
+		return
 	}
 
 	volume = resolveVolume(volume, cfg)
@@ -206,6 +216,13 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, cool
 	}
 	if err := config.Validate(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(exitCode)
+	}
+
+	if silent.IsSilent() {
+		if shouldLog(cfg, logFlag) {
+			eventlog.LogSilent(profile, action)
+		}
 		os.Exit(exitCode)
 	}
 
@@ -341,6 +358,43 @@ func formatDurationSay(d time.Duration) string {
 	return strings.Join(parts[:len(parts)-1], ", ") + " and " + parts[len(parts)-1]
 }
 
+func silentCmd(args []string, configPath string, logFlag bool) {
+	if len(args) == 0 {
+		// Show current status.
+		if until, ok := silent.SilentUntil(); ok {
+			fmt.Printf("Silent until %s\n", until.Format("15:04:05"))
+		} else {
+			fmt.Println("Not silent")
+		}
+		return
+	}
+
+	if args[0] == "off" {
+		silent.Disable()
+		fmt.Println("Silent mode disabled")
+		if cfg, err := config.Load(configPath); err == nil && shouldLog(cfg, logFlag) {
+			eventlog.LogSilentDisable()
+		}
+		return
+	}
+
+	d, err := time.ParseDuration(args[0])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: invalid duration %q (examples: 30s, 5m, 1h, 2h30m)\n", args[0])
+		os.Exit(1)
+	}
+	if d <= 0 {
+		fmt.Fprintf(os.Stderr, "Error: duration must be positive\n")
+		os.Exit(1)
+	}
+
+	silent.Enable(d)
+	fmt.Printf("Silent until %s\n", time.Now().Add(d).Format("15:04:05"))
+	if cfg, err := config.Load(configPath); err == nil && shouldLog(cfg, logFlag) {
+		eventlog.LogSilentEnable(d)
+	}
+}
+
 func listProfiles(configPath string) {
 	cfg, err := config.Load(configPath)
 	if err != nil {
@@ -405,6 +459,12 @@ func dryRun(args []string, configPath string) {
 		fmt.Printf("AFK:     yes (threshold %ds)\n", cfg.Options.AFKThresholdSeconds)
 	} else {
 		fmt.Printf("AFK:     no (threshold %ds)\n", cfg.Options.AFKThresholdSeconds)
+	}
+
+	if until, ok := silent.SilentUntil(); ok {
+		fmt.Printf("Silent:  yes (until %s)\n", until.Format("15:04:05"))
+	} else {
+		fmt.Printf("Silent:  no\n")
 	}
 
 	p, ok := cfg.Profiles[profile]
@@ -499,6 +559,7 @@ Options:
 Commands:
   run                    Wrap a command; notify ready on success, error on failure
   test [profile]         Dry-run: show what would happen without sending
+  silent [duration|off]  Suppress all notifications for a duration (e.g. 1h, 30m)
   list, -l, --list       List all profiles and actions
   version, -V             Show version and build date
   help, -h, --help       Show this help message

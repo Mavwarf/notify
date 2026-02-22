@@ -83,6 +83,8 @@ internal/
     config.go            Config loading, validation, and profile/action resolution
   cooldown/
     cooldown.go          Per-action rate limiting with file-based state
+  silent/
+    silent.go            Temporary notification suppression with file-based state
   discord/
     discord.go           Discord webhook integration (POST to channel)
   telegram/
@@ -117,6 +119,7 @@ internal/
 notify [options] [profile] <action>
 notify run [options] [profile] -- <command...>
 notify test [profile]                  # Dry-run: show what would happen
+notify silent [duration|off]           # Suppress notifications temporarily
 notify list                            # List all profiles and actions
 notify version                         # Show version and build date
 notify help                            # Show help
@@ -418,6 +421,9 @@ notify run -- make build          # Wrap a command, auto ready/error
 notify run boss -- cargo test     # Wrap with a specific profile
 notify test                       # Dry-run default profile
 notify test boss                  # Dry-run boss profile
+notify silent 1h                  # Suppress all notifications for 1 hour
+notify silent                     # Show current silent status
+notify silent off                 # Disable silent mode
 ```
 
 ### Event log
@@ -440,6 +446,12 @@ detection are omitted). A blank line separates each invocation:
 2026-02-20T14:35:12+01:00    step[2] toast  title="AFK" message="Ready!"
 
 2026-02-20T14:35:15+01:00  profile=default  action=ready  cooldown=skipped (30s)
+
+2026-02-20T14:40:00+01:00  silent=enabled (1h0m0s)
+
+2026-02-20T14:40:05+01:00  profile=default  action=ready  silent=skipped
+
+2026-02-20T14:45:00+01:00  silent=disabled
 ```
 
 Template variables (`{profile}`, `{Profile}`, `{command}`, `{duration}`, etc.)
@@ -487,6 +499,32 @@ the invocation exits immediately — no sound, no speech, no toast.
 Cooldown state is stored in `%APPDATA%\notify\cooldown.json` (Windows)
 or `~/.config/notify/cooldown.json` (Linux/macOS). Missing or corrupt
 state files are treated as "not on cooldown" (fail-open).
+
+### Silent mode
+
+Sometimes you want to temporarily suppress all notifications — during a
+meeting, a recording, or focused work — without editing your config.
+Silent mode suppresses all notification execution for a given time window:
+
+```bash
+notify silent 1h       # Silent for 1 hour
+notify silent 30m      # Silent for 30 minutes
+notify silent 2h30m    # Silent for 2.5 hours
+notify silent          # Show current status
+notify silent off      # Disable immediately
+```
+
+During silent mode, all `notify` invocations (both direct and `notify run`)
+exit immediately without firing any steps. Invocations are still logged
+if event logging is enabled, so you don't lose visibility. Enabling and
+disabling silent mode is also logged.
+
+`notify test` shows silent status in its output.
+
+Silent state is stored in `silent.json` in the notify data directory
+(`%APPDATA%\notify\` on Windows, `~/.config/notify/` on Linux/macOS).
+If the file is missing, corrupt, or the time has passed, notify treats
+it as not silent (fail-open).
 
 ## Building
 
