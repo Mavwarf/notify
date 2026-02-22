@@ -144,6 +144,7 @@ notify help                            # Show help
 | `--volume`, `-v`   | Override volume, 0-100 (default: config or 100) |
 | `--config`, `-c`   | Path to notify-config.json               |
 | `--log`, `-L`      | Write invocation to notify.log         |
+| `--echo`, `-E`     | Print summary of steps that ran        |
 | `--cooldown`, `-C` | Enable per-action cooldown (rate limiting) |
 
 ### Config file
@@ -162,6 +163,7 @@ notify help                            # Show help
     "afk_threshold_seconds": 300,
     "default_volume": 100,
     "log": false,
+    "echo": false,
     "cooldown": false,
     "cooldown_seconds": 30,
     "credentials": {
@@ -226,6 +228,9 @@ notify help                            # Show help
   profile name was passed on the CLI.
 - **Event logging:** set `"log": true` to append every invocation to
   `notify.log` (or use `--log` on the CLI). Off by default.
+- **Echo:** set `"echo": true` (or use `--echo`) to print a one-line
+  summary of executed steps after each invocation, e.g.
+  `notify: sound, say, toast`. Off by default.
 - **Cooldown:** set `"cooldown": true` (or use `--cooldown`) to enable
   rate limiting. Set a global default with `"cooldown_seconds"` in `"config"`,
   or override per-action. Actions silently skip if the same profile+action
@@ -463,6 +468,7 @@ notify boss ready                 # Sound + speech + toast notification
 notify -v 50 ready                # Run at 50% volume
 notify -c myconfig.json dev done  # Use a specific config file
 notify --log ready                # Log this invocation to notify.log
+notify --echo ready               # Print summary: "notify: sound, say, toast"
 notify --cooldown ready           # Enable cooldown for this invocation
 notify run -- make build          # Wrap a command, auto ready/error
 notify run boss -- cargo test     # Wrap with a specific profile

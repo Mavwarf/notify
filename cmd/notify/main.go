@@ -29,6 +29,7 @@ func main() {
 	volume := -1
 	configPath := ""
 	logFlag := false
+	echoFlag := false
 	cooldownFlag := false
 
 	// Parse flags
@@ -58,6 +59,8 @@ func main() {
 			}
 		case "--log", "-L":
 			logFlag = true
+		case "--echo", "-E":
+			echoFlag = true
 		case "--cooldown", "-C":
 			cooldownFlag = true
 		default:
@@ -82,13 +85,13 @@ func main() {
 	case "silent":
 		silentCmd(filtered[1:], configPath, logFlag)
 	case "run":
-		runWrapped(filtered[1:], configPath, volume, logFlag, cooldownFlag)
+		runWrapped(filtered[1:], configPath, volume, logFlag, echoFlag, cooldownFlag)
 	default:
-		runAction(filtered, configPath, volume, logFlag, cooldownFlag)
+		runAction(filtered, configPath, volume, logFlag, echoFlag, cooldownFlag)
 	}
 }
 
-func runAction(args []string, configPath string, volume int, logFlag bool, cooldownFlag bool) {
+func runAction(args []string, configPath string, volume int, logFlag bool, echoFlag bool, cooldownFlag bool) {
 	var profile, action string
 	switch len(args) {
 	case 1:
@@ -148,13 +151,16 @@ func runAction(args []string, configPath string, volume int, logFlag bool, coold
 	if shouldLog(cfg, logFlag) {
 		eventlog.Log(action, filtered, afk, vars)
 	}
+	if shouldEcho(cfg, echoFlag) {
+		printEcho(filtered)
+	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func runWrapped(args []string, configPath string, volume int, logFlag bool, cooldownFlag bool) {
+func runWrapped(args []string, configPath string, volume int, logFlag bool, echoFlag bool, cooldownFlag bool) {
 	// Find "--" separator.
 	sepIdx := -1
 	for i, a := range args {
@@ -261,6 +267,9 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, cool
 	if shouldLog(cfg, logFlag) {
 		eventlog.Log(action, filtered, afk, vars)
 	}
+	if shouldEcho(cfg, echoFlag) {
+		printEcho(filtered)
+	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 	}
@@ -303,6 +312,28 @@ func detectAFK(cfg config.Config) bool {
 // shouldLog returns true when event logging is enabled via config or flag.
 func shouldLog(cfg config.Config, flag bool) bool {
 	return cfg.Options.Log || flag
+}
+
+// shouldEcho returns true when echo output is enabled via config or flag.
+func shouldEcho(cfg config.Config, flag bool) bool {
+	return cfg.Options.Echo || flag
+}
+
+// printEcho prints a one-line summary of the step types that ran.
+func printEcho(steps []config.Step) {
+	if len(steps) == 0 {
+		fmt.Println("notify: no steps ran")
+		return
+	}
+	seen := map[string]bool{}
+	var types []string
+	for _, s := range steps {
+		if !seen[s.Type] {
+			seen[s.Type] = true
+			types = append(types, s.Type)
+		}
+	}
+	fmt.Printf("notify: %s\n", strings.Join(types, ", "))
 }
 
 // formatDuration returns a compact duration string (e.g. "3s", "2m15s").
@@ -555,6 +586,7 @@ Options:
   --volume, -v <0-100>   Override volume (default: config or 100)
   --config, -c <path>    Path to notify-config.json
   --log, -L              Write invocation to notify.log
+  --echo, -E             Print summary of steps that ran
   --cooldown, -C         Enable per-action cooldown (rate limiting)
 
 Commands:

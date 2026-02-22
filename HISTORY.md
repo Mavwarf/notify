@@ -2,6 +2,7 @@
 
 ## Features
 
+- Echo option (`--echo`) to print execution summary *(Feb 22)*
 - Silent mode (`notify silent`) for temporary suppression *(Feb 22)*
 - Remote notifications: Discord, Slack, Telegram, voice messages, voice bubbles *(Feb 20–22)*
 - Cooldown / rate limiting per action *(Feb 21)*
@@ -16,6 +17,14 @@
 ---
 
 ## 2026-02-22
+
+### Echo Option (`--echo`, `-E`)
+New `--echo` (`-E`) CLI flag and `"echo": true` config option prints a
+one-line summary of the step types that ran after each invocation, e.g.
+`notify: sound, say, toast`. If all steps were filtered out:
+`notify: no steps ran`. Same opt-in pattern as `--log` and `--cooldown`
+(config bool + CLI flag). Useful for confirming what fired without
+enabling full event logging.
 
 ### `"when": "never"` Condition
 New `"when": "never"` condition that always skips the step. Add it to
