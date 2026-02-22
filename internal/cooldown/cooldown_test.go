@@ -81,6 +81,72 @@ func TestCheckCorruptFile(t *testing.T) {
 	}
 }
 
+func TestRecordPrunesExpiredEntries(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "cooldown.json")
+
+	fresh := time.Now().Add(-1 * time.Hour).Format(time.RFC3339)
+	stale := time.Now().Add(-25 * time.Hour).Format(time.RFC3339)
+	state := map[string]string{
+		"proj/fresh": fresh,
+		"proj/stale": stale,
+	}
+	data, _ := json.Marshal(state)
+	os.WriteFile(path, data, 0644)
+
+	record(path, "proj", "new")
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("state file not found: %v", err)
+	}
+
+	var got map[string]string
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	if _, ok := got["proj/fresh"]; !ok {
+		t.Error("expected fresh entry to survive pruning")
+	}
+	if _, ok := got["proj/new"]; !ok {
+		t.Error("expected new entry to be present")
+	}
+	if _, ok := got["proj/stale"]; ok {
+		t.Error("expected stale entry to be pruned")
+	}
+}
+
+func TestRecordPrunesCorruptEntries(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "cooldown.json")
+
+	state := map[string]string{
+		"proj/corrupt": "not-a-timestamp",
+	}
+	data, _ := json.Marshal(state)
+	os.WriteFile(path, data, 0644)
+
+	record(path, "proj", "new")
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("state file not found: %v", err)
+	}
+
+	var got map[string]string
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	if _, ok := got["proj/corrupt"]; ok {
+		t.Error("expected corrupt entry to be pruned")
+	}
+	if _, ok := got["proj/new"]; !ok {
+		t.Error("expected new entry to be present")
+	}
+}
+
 func TestRecordCreatesDirectory(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "sub", "deep", "cooldown.json")

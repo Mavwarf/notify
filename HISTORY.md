@@ -2,6 +2,12 @@
 
 ## 2026-02-22
 
+### Cooldown Auto-Pruning
+`record()` now prunes expired entries from `cooldown.json` on every write.
+Entries older than 24 hours or with unparseable timestamps are deleted
+before the new entry is written, preventing unbounded file growth from
+long-running watch loops.
+
 ### Silent Mode (`notify silent`)
 New `notify silent <duration>` command temporarily suppresses all
 notification execution without editing the config. Supports Go-style

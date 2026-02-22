@@ -62,6 +62,14 @@ func record(path, profile, action string) {
 		_ = json.Unmarshal(data, &state) // ignore corrupt; overwrite
 	}
 
+	// Prune expired entries.
+	for k, v := range state {
+		t, err := time.Parse(time.RFC3339, v)
+		if err != nil || time.Since(t) > 24*time.Hour {
+			delete(state, k)
+		}
+	}
+
 	key := paths.CooldownKey(profile, action)
 	state[key] = time.Now().Format(time.RFC3339)
 
