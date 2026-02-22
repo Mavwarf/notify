@@ -8,8 +8,10 @@ type Vars struct {
 	Command     string
 	Duration    string // compact: "2m15s"
 	DurationSay string // spoken: "2 minutes and 15 seconds"
-	Time        string // "15:04"
-	Date        string // "2006-01-02"
+	Time        string // compact: "15:04"
+	TimeSay     string // spoken: "3:04 PM"
+	Date        string // compact: "2006-01-02"
+	DateSay     string // spoken: "January 2, 2006"
 	Hostname    string
 }
 
@@ -23,7 +25,9 @@ func Expand(s string, v Vars) string {
 	s = strings.ReplaceAll(s, "{command}", v.Command)
 	s = strings.ReplaceAll(s, "{Duration}", v.DurationSay)
 	s = strings.ReplaceAll(s, "{duration}", v.Duration)
+	s = strings.ReplaceAll(s, "{Time}", v.TimeSay)
 	s = strings.ReplaceAll(s, "{time}", v.Time)
+	s = strings.ReplaceAll(s, "{Date}", v.DateSay)
 	s = strings.ReplaceAll(s, "{date}", v.Date)
 	s = strings.ReplaceAll(s, "{hostname}", v.Hostname)
 	return s

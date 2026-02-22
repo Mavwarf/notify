@@ -41,12 +41,17 @@ func TestExpand(t *testing.T) {
 		{"empty duration", "{duration}", Vars{}, ""},
 		{"empty Duration", "{Duration}", Vars{}, ""},
 		{"time var", "at {time}", Vars{Time: "14:30"}, "at 14:30"},
+		{"Time spoken", "at {Time}", Vars{TimeSay: "2:30 PM"}, "at 2:30 PM"},
 		{"date var", "on {date}", Vars{Date: "2026-02-22"}, "on 2026-02-22"},
+		{"Date spoken", "on {Date}", Vars{DateSay: "February 22, 2026"}, "on February 22, 2026"},
 		{"hostname var", "from {hostname}", Vars{Hostname: "mypc"}, "from mypc"},
 		{"empty time", "{time}", Vars{}, ""},
+		{"empty Time", "{Time}", Vars{}, ""},
 		{"empty date", "{date}", Vars{}, ""},
+		{"empty Date", "{Date}", Vars{}, ""},
 		{"empty hostname", "{hostname}", Vars{}, ""},
 		{"all new vars", "{date} {time} {hostname}", Vars{Time: "09:00", Date: "2026-01-01", Hostname: "srv"}, "2026-01-01 09:00 srv"},
+		{"spoken vars", "{Date} at {Time}", Vars{TimeSay: "9:00 AM", DateSay: "January 1, 2026"}, "January 1, 2026 at 9:00 AM"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

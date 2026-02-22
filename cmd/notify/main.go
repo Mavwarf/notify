@@ -276,7 +276,9 @@ func baseVars(profile string) tmpl.Vars {
 	return tmpl.Vars{
 		Profile:  profile,
 		Time:     now.Format("15:04"),
+		TimeSay:  now.Format("3:04 PM"),
 		Date:     now.Format("2006-01-02"),
+		DateSay:  now.Format("January 2, 2006"),
 		Hostname: host,
 	}
 }

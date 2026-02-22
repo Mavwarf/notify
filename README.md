@@ -256,8 +256,9 @@ notify help                            # Show help
   `discord`, `discord_voice`, `slack`, `telegram`, `telegram_audio`,
   `telegram_voice`, or `webhook` text to inject the runtime profile name, or `{Profile}` for
   title case (e.g. `boss` → `Boss`). `{time}` expands to the current time
-  (`HH:MM`), `{date}` to the current date (`YYYY-MM-DD`), and `{hostname}`
-  to the machine's hostname. When using `notify run`, `{command}`,
+  (`14:30`), `{Time}` to a spoken form (`2:30 PM`), `{date}` to the current
+  date (`2026-02-22`), `{Date}` to a spoken form (`February 22, 2026`), and
+  `{hostname}` to the machine's hostname. When using `notify run`, `{command}`,
   `{duration}` (compact: `2m15s`), and `{Duration}` (spoken: `2 minutes and
   15 seconds`) are also available. Use `{Duration}` in `say` steps for
   natural speech output. This is especially useful with the default fallback —
@@ -559,8 +560,10 @@ Template variables available in all modes:
 |--------------|--------------------------------------|--------------------------------|
 | `{profile}`  | Profile name as-is                   | `boss`                         |
 | `{Profile}`  | Profile name title-cased             | `Boss`                         |
-| `{time}`     | Current time (HH:MM)                 | `14:30`                        |
-| `{date}`     | Current date (YYYY-MM-DD)            | `2026-02-22`                   |
+| `{time}`     | Current time (compact)               | `14:30`                        |
+| `{Time}`     | Current time (spoken, for TTS)       | `2:30 PM`                      |
+| `{date}`     | Current date (compact)               | `2026-02-22`                   |
+| `{Date}`     | Current date (spoken, for TTS)       | `February 22, 2026`            |
 | `{hostname}` | Machine hostname                     | `mypc`                         |
 
 Additional variables available in `run` mode:

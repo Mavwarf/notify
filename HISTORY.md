@@ -3,7 +3,7 @@
 ## Features
 
 - Profile aliases — shorthand names for profiles *(Feb 22)*
-- Template variables: `{time}`, `{date}`, `{hostname}` *(Feb 22)*
+- Template variables: `{time}`, `{Time}`, `{date}`, `{Date}`, `{hostname}` *(Feb 22)*
 - Config validate command (`notify config validate`) *(Feb 22)*
 - History export (`notify history export`) — JSON export of log entries *(Feb 22)*
 - History summary (`notify history summary`) — aggregated usage stats per day *(Feb 22)*
@@ -42,13 +42,15 @@ in the output. Config validation catches duplicate aliases (two profiles
 claiming the same alias) and aliases that shadow existing profile names.
 `Resolve()` now returns `(string, *Action, error)` with the canonical name.
 
-### Template Variables: `{time}`, `{date}`, `{hostname}`
-Three new template variables available in all text fields (`say`, `toast`,
-`discord`, `slack`, `telegram`, `webhook`): `{time}` expands to the current
-time in `HH:MM` format, `{date}` to `YYYY-MM-DD`, and `{hostname}` to the
-machine's hostname. Useful for multi-machine setups and timestamped
-messages. A new `baseVars()` helper in `main.go` eliminates duplication
-between `runAction` and `runWrapped`.
+### Template Variables: `{time}`, `{Time}`, `{date}`, `{Date}`, `{hostname}`
+Five new template variables available in all text fields (`say`, `toast`,
+`discord`, `slack`, `telegram`, `webhook`): `{time}` expands to compact
+time (`14:30`), `{Time}` to spoken time (`2:30 PM`), `{date}` to compact
+date (`2026-02-22`), `{Date}` to spoken date (`February 22, 2026`), and
+`{hostname}` to the machine's hostname. Same lowercase/uppercase convention
+as `{duration}`/`{Duration}` — lowercase for compact display, uppercase for
+TTS. A new `baseVars()` helper in `main.go` eliminates duplication between
+`runAction` and `runWrapped`.
 
 ### Config Validate Command (`notify config validate`)
 New `notify config validate` command checks the config file for errors
