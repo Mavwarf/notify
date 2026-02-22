@@ -469,6 +469,8 @@ func printVersion() {
 func printUsage() {
 	fmt.Printf("notify %s - Run notification actions from a config file\n", version)
 	fmt.Println(`
+Docs: https://github.com/Mavwarf/notify
+
 Usage:
   notify [options] [profile] <action>
   notify run [options] [profile] -- <command...>
