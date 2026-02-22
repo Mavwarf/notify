@@ -63,7 +63,7 @@ type Action struct {
 type Step struct {
 	Type    string `json:"type"`              // "sound" | "say" | "toast" | "discord" | "discord_voice" | "telegram" | "telegram_audio"
 	Sound   string `json:"sound,omitempty"`   // type=sound
-	Text    string `json:"text,omitempty"`    // type=say, discord, discord_voice, telegram
+	Text    string `json:"text,omitempty"`    // type=say, discord, discord_voice, telegram, telegram_audio
 	Title   string `json:"title,omitempty"`   // type=toast
 	Message string `json:"message,omitempty"` // type=toast
 	Volume  *int   `json:"volume,omitempty"`  // per-step override, nil = use default

@@ -303,7 +303,9 @@ func TestValidateValidConfig(t *testing.T) {
 						{Type: "say", Text: "Ready!", When: "present"},
 						{Type: "toast", Message: "Done", When: "afk"},
 						{Type: "discord", Text: "Done", When: "hours:8-22"},
+						{Type: "discord_voice", Text: "Done", When: "afk"},
 						{Type: "telegram", Text: "Done", When: "afk"},
+						{Type: "telegram_audio", Text: "Done", When: "afk"},
 					},
 				},
 			},
@@ -395,7 +397,9 @@ func TestValidateMissingRequiredFields(t *testing.T) {
 		{"sound without sound", Step{Type: "sound"}, "requires \"sound\" field"},
 		{"say without text", Step{Type: "say"}, "requires \"text\" field"},
 		{"discord without text", Step{Type: "discord"}, "requires \"text\" field"},
+		{"discord_voice without text", Step{Type: "discord_voice"}, "requires \"text\" field"},
 		{"telegram without text", Step{Type: "telegram"}, "requires \"text\" field"},
+		{"telegram_audio without text", Step{Type: "telegram_audio"}, "requires \"text\" field"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -517,6 +521,33 @@ func TestValidateDiscordWithCredentials(t *testing.T) {
 	}
 }
 
+func TestValidateDiscordVoiceMissingCredentials(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"default": {"ready": Action{Steps: []Step{{Type: "discord_voice", Text: "hi"}}}},
+		},
+	}
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for missing discord credentials")
+	}
+	if !strings.Contains(err.Error(), "credentials.discord_webhook") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateDiscordVoiceWithCredentials(t *testing.T) {
+	cfg := Config{
+		Options: Options{Credentials: Credentials{DiscordWebhook: "https://example.com"}},
+		Profiles: map[string]Profile{
+			"default": {"ready": Action{Steps: []Step{{Type: "discord_voice", Text: "hi"}}}},
+		},
+	}
+	if err := Validate(cfg); err != nil {
+		t.Errorf("expected valid, got: %v", err)
+	}
+}
+
 func TestValidateTelegramMissingCredentials(t *testing.T) {
 	cfg := Config{
 		Profiles: map[string]Profile{
@@ -550,6 +581,33 @@ func TestValidateTelegramWithCredentials(t *testing.T) {
 		Options: Options{Credentials: Credentials{TelegramToken: "tok", TelegramChatID: "123"}},
 		Profiles: map[string]Profile{
 			"default": {"ready": Action{Steps: []Step{{Type: "telegram", Text: "hi"}}}},
+		},
+	}
+	if err := Validate(cfg); err != nil {
+		t.Errorf("expected valid, got: %v", err)
+	}
+}
+
+func TestValidateTelegramAudioMissingCredentials(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"default": {"ready": Action{Steps: []Step{{Type: "telegram_audio", Text: "hi"}}}},
+		},
+	}
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for missing telegram credentials")
+	}
+	if !strings.Contains(err.Error(), "credentials.telegram_token") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateTelegramAudioWithCredentials(t *testing.T) {
+	cfg := Config{
+		Options: Options{Credentials: Credentials{TelegramToken: "tok", TelegramChatID: "123"}},
+		Profiles: map[string]Profile{
+			"default": {"ready": Action{Steps: []Step{{Type: "telegram_audio", Text: "hi"}}}},
 		},
 	}
 	if err := Validate(cfg); err != nil {
