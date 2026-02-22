@@ -42,6 +42,7 @@ internal/
   slack/             Slack incoming webhook integration
   telegram/          Telegram Bot API integration
   eventlog/          Invocation logging
+  ffmpeg/            WAV to OGG/OPUS conversion via ffmpeg
   idle/              Platform-specific AFK detection
   paths/             Shared constants and platform-specific data directory
   runner/            Step execution engine

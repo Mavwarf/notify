@@ -25,7 +25,8 @@
           { "type": "discord_voice", "text": "{Profile} is ready", "when": "afk" },
           { "type": "slack", "text": "{Profile} is ready", "when": "afk" },
           { "type": "telegram", "text": "{Profile} is ready", "when": "afk" },
-          { "type": "telegram_audio", "text": "{Profile} is ready", "when": "afk" }
+          { "type": "telegram_audio", "text": "{Profile} is ready", "when": "afk" },
+          { "type": "telegram_voice", "text": "{Profile} is ready", "when": "afk" }
         ]
       },
       "done": {

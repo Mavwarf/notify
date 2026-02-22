@@ -6,6 +6,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -45,9 +46,27 @@ func SendAudio(token, chatID, wavPath, caption string) error {
 
 // sendAudioTo uploads a WAV file to the given endpoint. Extracted for testing.
 func sendAudioTo(endpoint, chatID, wavPath, caption string) error {
-	f, err := os.Open(wavPath)
+	return sendFile(endpoint, chatID, wavPath, caption, "audio")
+}
+
+// SendVoice uploads an OGG/OPUS file to a Telegram chat via the Bot API.
+// Renders as a native voice bubble in Telegram clients.
+func SendVoice(token, chatID, oggPath, caption string) error {
+	endpoint := fmt.Sprintf("https://api.telegram.org/bot%s/sendVoice", token)
+	return sendVoiceTo(endpoint, chatID, oggPath, caption)
+}
+
+// sendVoiceTo uploads an OGG file to the given endpoint. Extracted for testing.
+func sendVoiceTo(endpoint, chatID, oggPath, caption string) error {
+	return sendFile(endpoint, chatID, oggPath, caption, "voice")
+}
+
+// sendFile uploads a file to the given endpoint with the specified form field name.
+// The contentType is set on the file part (e.g. "audio/ogg" for voice bubbles).
+func sendFile(endpoint, chatID, filePath, caption, fieldName string) error {
+	f, err := os.Open(filePath)
 	if err != nil {
-		return fmt.Errorf("telegram: open wav: %w", err)
+		return fmt.Errorf("telegram: open file: %w", err)
 	}
 	defer f.Close()
 
@@ -64,13 +83,14 @@ func sendAudioTo(endpoint, chatID, wavPath, caption string) error {
 		return fmt.Errorf("telegram: write caption field: %w", err)
 	}
 
-	// Attach the WAV file.
-	part, err := w.CreateFormFile("audio", filepath.Base(wavPath))
+	// Attach the file with the correct MIME type.
+	ct := mimeForField(fieldName)
+	part, err := createFormFileWithType(w, fieldName, filepath.Base(filePath), ct)
 	if err != nil {
 		return fmt.Errorf("telegram: create form file: %w", err)
 	}
 	if _, err := io.Copy(part, f); err != nil {
-		return fmt.Errorf("telegram: copy wav data: %w", err)
+		return fmt.Errorf("telegram: copy file data: %w", err)
 	}
 
 	if err := w.Close(); err != nil {
@@ -79,13 +99,35 @@ func sendAudioTo(endpoint, chatID, wavPath, caption string) error {
 
 	resp, err := http.Post(endpoint, w.FormDataContentType(), &buf)
 	if err != nil {
-		return fmt.Errorf("telegram: post audio: %w", err)
+		return fmt.Errorf("telegram: post %s: %w", fieldName, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("telegram: audio API returned %d: %s", resp.StatusCode, httputil.ReadSnippet(resp.Body))
+		return fmt.Errorf("telegram: %s API returned %d: %s", fieldName, resp.StatusCode, httputil.ReadSnippet(resp.Body))
 	}
 	return nil
+}
+
+// mimeForField returns the MIME type for a given form field name.
+func mimeForField(fieldName string) string {
+	switch fieldName {
+	case "voice":
+		return "audio/ogg"
+	case "audio":
+		return "audio/wav"
+	default:
+		return "application/octet-stream"
+	}
+}
+
+// createFormFileWithType creates a form file part with a specific Content-Type
+// instead of the default application/octet-stream.
+func createFormFileWithType(w *multipart.Writer, fieldName, fileName, contentType string) (io.Writer, error) {
+	h := make(textproto.MIMEHeader)
+	h.Set("Content-Disposition",
+		fmt.Sprintf(`form-data; name="%s"; filename="%s"`, fieldName, fileName))
+	h.Set("Content-Type", contentType)
+	return w.CreatePart(h)
 }
 

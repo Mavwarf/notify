@@ -3,7 +3,7 @@
 ## Features
 
 - Silent mode (`notify silent`) for temporary suppression *(Feb 22)*
-- Remote notifications: Discord, Slack, Telegram, voice messages *(Feb 20–22)*
+- Remote notifications: Discord, Slack, Telegram, voice messages, voice bubbles *(Feb 20–22)*
 - Cooldown / rate limiting per action *(Feb 21)*
 - Config validation with multi-error reporting *(Feb 21)*
 - Command wrapper (`notify run`) with exit code and duration templates *(Feb 20)*
@@ -16,6 +16,16 @@
 ---
 
 ## 2026-02-22
+
+### Telegram Voice Bubbles (`telegram_voice`)
+New `telegram_voice` step type generates TTS audio, converts WAV to OGG/OPUS
+via `ffmpeg`, and uploads to Telegram via the Bot API `sendVoice` endpoint.
+Renders as a native voice bubble in Telegram clients (unlike `telegram_audio`
+which displays as an inline audio player). Uses platform-native TTS engines
+(`SayToFile`) to render speech to a temp file, then `ffmpeg -c:a libopus` for
+the format conversion. Requires `ffmpeg` on PATH, `credentials.telegram_token`
+and `credentials.telegram_chat_id` in config. Same `when` filtering and
+template variables as other Telegram steps.
 
 ### Slack Webhook Notifications (`slack`)
 New `slack` step type posts messages to a Slack channel via incoming webhook.

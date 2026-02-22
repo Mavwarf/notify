@@ -519,7 +519,7 @@ func stepSummary(s config.Step) string {
 			parts = append(parts, fmt.Sprintf("title=%q", s.Title))
 		}
 		parts = append(parts, fmt.Sprintf("message=%q", s.Message))
-	case "discord", "discord_voice", "slack", "telegram", "telegram_audio":
+	case "discord", "discord_voice", "slack", "telegram", "telegram_audio", "telegram_voice":
 		parts = append(parts, fmt.Sprintf("text=%q", s.Text))
 	}
 	if s.When != "" {

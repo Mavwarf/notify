@@ -11,6 +11,7 @@ import (
 	"github.com/Mavwarf/notify/internal/audio"
 	"github.com/Mavwarf/notify/internal/config"
 	"github.com/Mavwarf/notify/internal/discord"
+	"github.com/Mavwarf/notify/internal/ffmpeg"
 	"github.com/Mavwarf/notify/internal/slack"
 	"github.com/Mavwarf/notify/internal/speech"
 	"github.com/Mavwarf/notify/internal/telegram"
@@ -190,6 +191,33 @@ func execStep(step config.Step, defaultVolume int, creds config.Credentials, var
 		}
 		defer os.Remove(wavPath)
 		return telegram.SendAudio(creds.TelegramToken, creds.TelegramChatID, wavPath, text)
+	case "telegram_voice":
+		text := tmpl.Expand(step.Text, vars)
+		wavFile, err := os.CreateTemp("", "notify-tgvoice-*.wav")
+		if err != nil {
+			return fmt.Errorf("telegram_voice temp file: %w", err)
+		}
+		wavPath := wavFile.Name()
+		if err := wavFile.Close(); err != nil {
+			return fmt.Errorf("telegram_voice close temp: %w", err)
+		}
+		if err := speech.SayToFile(text, vol, wavPath); err != nil {
+			return fmt.Errorf("telegram_voice tts: %w", err)
+		}
+		defer os.Remove(wavPath)
+		oggFile, err := os.CreateTemp("", "notify-tgvoice-*.ogg")
+		if err != nil {
+			return fmt.Errorf("telegram_voice ogg temp file: %w", err)
+		}
+		oggPath := oggFile.Name()
+		if err := oggFile.Close(); err != nil {
+			return fmt.Errorf("telegram_voice close ogg temp: %w", err)
+		}
+		if err := ffmpeg.ToOGG(wavPath, oggPath); err != nil {
+			return fmt.Errorf("telegram_voice convert: %w", err)
+		}
+		defer os.Remove(oggPath)
+		return telegram.SendVoice(creds.TelegramToken, creds.TelegramChatID, oggPath, text)
 	default:
 		return fmt.Errorf("unknown step type: %q", step.Type)
 	}

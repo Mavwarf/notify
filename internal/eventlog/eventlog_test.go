@@ -88,6 +88,15 @@ func TestStepDetailTelegramAudio(t *testing.T) {
 	}
 }
 
+func TestStepDetailTelegramVoice(t *testing.T) {
+	s := config.Step{Type: "telegram_voice", Text: "Done"}
+	got := stepDetail(s, tmpl.Vars{})
+	want := `text="Done"`
+	if got != want {
+		t.Errorf("stepDetail(telegram_voice) = %q, want %q", got, want)
+	}
+}
+
 func TestStepDetailUnknown(t *testing.T) {
 	s := config.Step{Type: "bogus"}
 	got := stepDetail(s, tmpl.Vars{})

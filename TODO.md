@@ -1,12 +1,5 @@
 # TODO
 
-### Telegram Voice Bubble (`telegram_voice`)
-
-Convert WAV → OGG/OPUS via `ffmpeg`, then use Telegram's `sendVoice`
-for native voice bubble UX. Requires `ffmpeg` as external dependency.
-`telegram_audio` (WAV via `sendAudio`, inline audio player) is already
-implemented.
-
 ### More Remote Notification Actions
 
 Additional step types beyond `discord`, `slack`, and `telegram`:

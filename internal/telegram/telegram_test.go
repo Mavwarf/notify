@@ -128,3 +128,86 @@ func TestSendAudioMissingFile(t *testing.T) {
 		t.Fatal("expected error for missing file")
 	}
 }
+
+func TestSendVoiceSuccess(t *testing.T) {
+	var gotChatID, gotCaption, gotFilename, gotContentType string
+	var gotFileData []byte
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ct := r.Header.Get("Content-Type")
+		_, params, err := mime.ParseMediaType(ct)
+		if err != nil {
+			t.Fatalf("parse content type: %v", err)
+		}
+		mr := multipart.NewReader(r.Body, params["boundary"])
+		for {
+			part, err := mr.NextPart()
+			if err != nil {
+				break
+			}
+			data, _ := io.ReadAll(part)
+			switch part.FormName() {
+			case "chat_id":
+				gotChatID = string(data)
+			case "caption":
+				gotCaption = string(data)
+			case "voice":
+				gotFilename = part.FileName()
+				gotFileData = data
+				gotContentType = part.Header.Get("Content-Type")
+			}
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+
+	tmp := filepath.Join(t.TempDir(), "test.ogg")
+	if err := os.WriteFile(tmp, []byte("OggS fake ogg data"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := sendVoiceTo(srv.URL, "123456", tmp, "voice caption")
+	if err != nil {
+		t.Fatalf("SendVoice: %v", err)
+	}
+	if gotChatID != "123456" {
+		t.Errorf("chat_id = %q, want %q", gotChatID, "123456")
+	}
+	if gotCaption != "voice caption" {
+		t.Errorf("caption = %q, want %q", gotCaption, "voice caption")
+	}
+	if gotFilename != "test.ogg" {
+		t.Errorf("filename = %q, want %q", gotFilename, "test.ogg")
+	}
+	if string(gotFileData) != "OggS fake ogg data" {
+		t.Errorf("file data = %q, want %q", gotFileData, "OggS fake ogg data")
+	}
+	if gotContentType != "audio/ogg" {
+		t.Errorf("content-type = %q, want %q", gotContentType, "audio/ogg")
+	}
+}
+
+func TestSendVoiceError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusRequestEntityTooLarge)
+	}))
+	defer srv.Close()
+
+	tmp := filepath.Join(t.TempDir(), "test.ogg")
+	if err := os.WriteFile(tmp, []byte("data"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := sendVoiceTo(srv.URL, "123456", tmp, "test")
+	if err == nil {
+		t.Fatal("expected error for 413 response")
+	}
+}
+
+func TestSendVoiceMissingFile(t *testing.T) {
+	err := sendVoiceTo("http://example.com", "123456", "/nonexistent/file.ogg", "test")
+	if err == nil {
+		t.Fatal("expected error for missing file")
+	}
+}
