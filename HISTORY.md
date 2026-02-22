@@ -2,6 +2,7 @@
 
 ## Features
 
+- Environment variables in credentials (`$VAR` / `${VAR}`) *(Feb 22)*
 - Sound preview (`notify play`) to audition built-in sounds *(Feb 22)*
 - Notification history (`notify history`) to view recent log entries *(Feb 22)*
 - Echo option (`--echo`) to print execution summary *(Feb 22)*
@@ -19,6 +20,16 @@
 ---
 
 ## 2026-02-22
+
+### Environment Variables in Credentials
+Credential values (`discord_webhook`, `slack_webhook`, `telegram_token`,
+`telegram_chat_id`) now support `$VAR` and `${VAR}` syntax to reference
+environment variables. Expansion happens at config load time using Go's
+`os.ExpandEnv`, so all downstream code sees resolved values transparently.
+Undefined variables resolve to empty strings, which the existing config
+validation catches as missing credentials. Literal URLs pass through
+unchanged. This makes it safe to version-control configs or share them
+across machines without exposing secrets.
 
 ### Sound Preview (`notify play`)
 New `notify play [sound]` command lets you audition built-in sounds without

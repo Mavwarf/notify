@@ -727,6 +727,82 @@ func TestValidateTelegramVoiceWithCredentials(t *testing.T) {
 	}
 }
 
+// --- expandEnvCredentials tests ---
+
+func TestExpandEnvCredentials(t *testing.T) {
+	t.Setenv("NOTIFY_TEST_DISCORD", "https://discord.com/api/webhooks/123/abc")
+	t.Setenv("NOTIFY_TEST_SLACK", "https://hooks.slack.com/services/T/B/X")
+	t.Setenv("NOTIFY_TEST_TG_TOKEN", "bot123:AAHxx")
+	t.Setenv("NOTIFY_TEST_TG_CHAT", "99999")
+
+	cfg := Config{
+		Options: Options{
+			Credentials: Credentials{
+				DiscordWebhook: "$NOTIFY_TEST_DISCORD",
+				SlackWebhook:   "${NOTIFY_TEST_SLACK}",
+				TelegramToken:  "$NOTIFY_TEST_TG_TOKEN",
+				TelegramChatID: "${NOTIFY_TEST_TG_CHAT}",
+			},
+		},
+	}
+	expandEnvCredentials(&cfg)
+
+	if cfg.Options.Credentials.DiscordWebhook != "https://discord.com/api/webhooks/123/abc" {
+		t.Errorf("DiscordWebhook = %q", cfg.Options.Credentials.DiscordWebhook)
+	}
+	if cfg.Options.Credentials.SlackWebhook != "https://hooks.slack.com/services/T/B/X" {
+		t.Errorf("SlackWebhook = %q", cfg.Options.Credentials.SlackWebhook)
+	}
+	if cfg.Options.Credentials.TelegramToken != "bot123:AAHxx" {
+		t.Errorf("TelegramToken = %q", cfg.Options.Credentials.TelegramToken)
+	}
+	if cfg.Options.Credentials.TelegramChatID != "99999" {
+		t.Errorf("TelegramChatID = %q", cfg.Options.Credentials.TelegramChatID)
+	}
+}
+
+func TestExpandEnvUndefined(t *testing.T) {
+	cfg := Config{
+		Options: Options{
+			Credentials: Credentials{
+				DiscordWebhook: "$NOTIFY_TEST_UNDEFINED_VAR",
+			},
+		},
+	}
+	expandEnvCredentials(&cfg)
+
+	if cfg.Options.Credentials.DiscordWebhook != "" {
+		t.Errorf("DiscordWebhook = %q, want empty for undefined var", cfg.Options.Credentials.DiscordWebhook)
+	}
+}
+
+func TestExpandEnvLiteral(t *testing.T) {
+	cfg := Config{
+		Options: Options{
+			Credentials: Credentials{
+				DiscordWebhook: "https://discord.com/api/webhooks/123/abc",
+				SlackWebhook:   "https://hooks.slack.com/services/T/B/X",
+				TelegramToken:  "bot123:AAHxx",
+				TelegramChatID: "99999",
+			},
+		},
+	}
+	expandEnvCredentials(&cfg)
+
+	if cfg.Options.Credentials.DiscordWebhook != "https://discord.com/api/webhooks/123/abc" {
+		t.Errorf("DiscordWebhook = %q", cfg.Options.Credentials.DiscordWebhook)
+	}
+	if cfg.Options.Credentials.SlackWebhook != "https://hooks.slack.com/services/T/B/X" {
+		t.Errorf("SlackWebhook = %q", cfg.Options.Credentials.SlackWebhook)
+	}
+	if cfg.Options.Credentials.TelegramToken != "bot123:AAHxx" {
+		t.Errorf("TelegramToken = %q", cfg.Options.Credentials.TelegramToken)
+	}
+	if cfg.Options.Credentials.TelegramChatID != "99999" {
+		t.Errorf("TelegramChatID = %q", cfg.Options.Credentials.TelegramChatID)
+	}
+}
+
 func TestResolveDirectMatch(t *testing.T) {
 	cfg := Config{
 		Profiles: map[string]Profile{

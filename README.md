@@ -273,6 +273,25 @@ the `"credentials"` object inside `"config"`:
 }
 ```
 
+Credential values support environment variable expansion using `$VAR` or
+`${VAR}` syntax. This lets you keep secrets out of the config file:
+
+```json
+{
+  "config": {
+    "credentials": {
+      "discord_webhook": "$DISCORD_WEBHOOK",
+      "slack_webhook": "${SLACK_WEBHOOK}",
+      "telegram_token": "$TELEGRAM_TOKEN",
+      "telegram_chat_id": "$TELEGRAM_CHAT_ID"
+    }
+  }
+}
+```
+
+Undefined variables resolve to empty strings, which config validation
+catches as missing credentials. Literal URLs (no `$`) pass through unchanged.
+
 - **Discord webhook URL:** Server Settings → Integrations → Webhooks →
   New Webhook → Copy Webhook URL.
 - **Slack webhook URL:** App settings → Incoming Webhooks → Add New Webhook

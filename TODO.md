@@ -26,12 +26,6 @@ If a remote step (discord, slack, telegram, webhook) fails due to a
 network error, retry once after a short delay. Best-effort, no config
 needed — sensible default for flaky networks.
 
-### Environment Variables in Credentials
-
-Support `"$DISCORD_WEBHOOK"` or `"${env:DISCORD_WEBHOOK}"` in credential
-values. Keeps secrets out of the JSON file. Useful for version-controlled
-configs or sharing across machines.
-
 ### Heartbeat for Long Tasks
 
 With `notify run`, optionally ping every N minutes: "still running

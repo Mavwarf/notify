@@ -263,5 +263,17 @@ func readConfig(path string) (Config, error) {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return Config{}, fmt.Errorf("parsing config %s: %w", path, err)
 	}
+	expandEnvCredentials(&cfg)
 	return cfg, nil
+}
+
+// expandEnvCredentials expands $VAR and ${VAR} references in credential
+// fields so users can keep secrets in environment variables instead of
+// hardcoding them in the JSON config.
+func expandEnvCredentials(cfg *Config) {
+	c := &cfg.Options.Credentials
+	c.DiscordWebhook = os.ExpandEnv(c.DiscordWebhook)
+	c.SlackWebhook = os.ExpandEnv(c.SlackWebhook)
+	c.TelegramToken = os.ExpandEnv(c.TelegramToken)
+	c.TelegramChatID = os.ExpandEnv(c.TelegramChatID)
 }
