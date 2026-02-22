@@ -29,7 +29,7 @@ func sendTo(endpoint, chatID, message string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("telegram: API returned %d", resp.StatusCode)
+		return fmt.Errorf("telegram: API returned %d: %s", resp.StatusCode, readSnippet(resp.Body))
 	}
 	return nil
 }
@@ -82,7 +82,21 @@ func sendAudioTo(endpoint, chatID, wavPath, caption string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("telegram: audio API returned %d", resp.StatusCode)
+		return fmt.Errorf("telegram: audio API returned %d: %s", resp.StatusCode, readSnippet(resp.Body))
 	}
 	return nil
+}
+
+// readSnippet reads up to 200 bytes from r for inclusion in error messages.
+func readSnippet(r io.Reader) string {
+	buf := make([]byte, 200)
+	n, _ := io.ReadFull(r, buf)
+	if n == 0 {
+		return "(empty body)"
+	}
+	s := string(buf[:n])
+	if n == 200 {
+		s += "..."
+	}
+	return s
 }

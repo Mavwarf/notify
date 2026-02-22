@@ -122,6 +122,10 @@ func Validate(cfg Config) error {
 					if s.Text == "" {
 						errs = append(errs, fmt.Sprintf("%s: say step requires \"text\" field", sp))
 					}
+				case "toast":
+					if s.Message == "" {
+						errs = append(errs, fmt.Sprintf("%s: toast step requires \"message\" field", sp))
+					}
 				case "discord":
 					if s.Text == "" {
 						errs = append(errs, fmt.Sprintf("%s: discord step requires \"text\" field", sp))

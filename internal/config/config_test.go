@@ -218,6 +218,45 @@ func TestUnmarshalNoCredentials(t *testing.T) {
 	}
 }
 
+func TestUnmarshalLog(t *testing.T) {
+	data := []byte(`{
+		"config": { "log": true },
+		"profiles": {
+			"default": {
+				"done": { "steps": [{"type": "sound", "sound": "blip"}] }
+			}
+		}
+	}`)
+
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	if !cfg.Options.Log {
+		t.Error("Log = false, want true")
+	}
+}
+
+func TestUnmarshalLogDefault(t *testing.T) {
+	data := []byte(`{
+		"profiles": {
+			"default": {
+				"done": { "steps": [{"type": "sound", "sound": "blip"}] }
+			}
+		}
+	}`)
+
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	if cfg.Options.Log {
+		t.Error("Log = true, want false (default)")
+	}
+}
+
 func TestUnmarshalCooldown(t *testing.T) {
 	data := []byte(`{
 		"config": { "cooldown": true },
@@ -396,6 +435,7 @@ func TestValidateMissingRequiredFields(t *testing.T) {
 	}{
 		{"sound without sound", Step{Type: "sound"}, "requires \"sound\" field"},
 		{"say without text", Step{Type: "say"}, "requires \"text\" field"},
+		{"toast without message", Step{Type: "toast"}, "requires \"message\" field"},
 		{"discord without text", Step{Type: "discord"}, "requires \"text\" field"},
 		{"discord_voice without text", Step{Type: "discord_voice"}, "requires \"text\" field"},
 		{"telegram without text", Step{Type: "telegram"}, "requires \"text\" field"},

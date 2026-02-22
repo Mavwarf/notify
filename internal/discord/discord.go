@@ -25,7 +25,7 @@ func Send(webhookURL, message string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("discord: webhook returned %d", resp.StatusCode)
+		return fmt.Errorf("discord: webhook returned %d: %s", resp.StatusCode, readSnippet(resp.Body))
 	}
 	return nil
 }
@@ -71,7 +71,21 @@ func SendVoice(webhookURL, wavPath, caption string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("discord: voice webhook returned %d", resp.StatusCode)
+		return fmt.Errorf("discord: voice webhook returned %d: %s", resp.StatusCode, readSnippet(resp.Body))
 	}
 	return nil
+}
+
+// readSnippet reads up to 200 bytes from r for inclusion in error messages.
+func readSnippet(r io.Reader) string {
+	buf := make([]byte, 200)
+	n, _ := io.ReadFull(r, buf)
+	if n == 0 {
+		return "(empty body)"
+	}
+	s := string(buf[:n])
+	if n == 200 {
+		s += "..."
+	}
+	return s
 }
