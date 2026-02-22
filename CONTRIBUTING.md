@@ -42,6 +42,7 @@ internal/
   telegram/          Telegram Bot API integration
   eventlog/          Invocation logging
   idle/              Platform-specific AFK detection
+  paths/             Shared constants and platform-specific data directory
   runner/            Step execution engine
   shell/             Shell escaping utilities
   speech/            Text-to-speech (per-platform)

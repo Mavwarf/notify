@@ -367,7 +367,11 @@ func listProfiles(configPath string) {
 		sort.Strings(actions)
 		for _, aName := range actions {
 			act := cfg.Profiles[pName][aName]
-			fmt.Printf("  %-20s (%d steps)\n", aName, len(act.Steps))
+			types := make([]string, len(act.Steps))
+			for i, s := range act.Steps {
+				types[i] = s.Type
+			}
+			fmt.Printf("  %-20s %s\n", aName, strings.Join(types, ", "))
 		}
 	}
 }
@@ -391,6 +395,10 @@ func dryRun(args []string, configPath string) {
 	fmt.Printf("Config:  OK\n")
 	fmt.Printf("Profile: %s\n", profile)
 	fmt.Printf("Volume:  %d\n", cfg.Options.DefaultVolume)
+
+	creds := cfg.Options.Credentials
+	fmt.Printf("Discord: %s\n", credStatus(creds.DiscordWebhook != ""))
+	fmt.Printf("Telegram:%s\n", credStatus(creds.TelegramToken != "" && creds.TelegramChatID != ""))
 
 	afk := detectAFK(cfg)
 	if afk {
@@ -460,6 +468,13 @@ func stepSummary(s config.Step) string {
 		parts = append(parts, fmt.Sprintf("volume=%d", *s.Volume))
 	}
 	return strings.Join(parts, "  ")
+}
+
+func credStatus(ok bool) string {
+	if ok {
+		return " configured"
+	}
+	return " not configured"
 }
 
 func printVersion() {

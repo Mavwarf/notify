@@ -547,7 +547,9 @@ cmake --install build --prefix /usr/local
 | Text-to-speech | System.Speech (built-in) | `say` (built-in) | `espeak-ng` or `espeak` |
 | Toast notifications | Toast API (Win 10+) | `osascript` (built-in) | `notify-send` (`libnotify`) |
 | Discord webhook | `net/http` (built-in) | `net/http` (built-in) | `net/http` (built-in) |
+| Discord voice | TTS + `net/http` | TTS + `net/http` | TTS + `net/http` |
 | Telegram Bot API | `net/http` (built-in) | `net/http` (built-in) | `net/http` (built-in) |
+| Telegram audio | TTS + `net/http` | TTS + `net/http` | TTS + `net/http` |
 
 > **Note:** Development and testing has been done primarily on Windows.
 > macOS and Linux support is implemented but has not been extensively
