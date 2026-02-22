@@ -38,12 +38,6 @@ Support `"$DISCORD_WEBHOOK"` or `"${env:DISCORD_WEBHOOK}"` in credential
 values. Keeps secrets out of the JSON file. Useful for version-controlled
 configs or sharing across machines.
 
-### Notification History (`notify history`)
-
-Pretty-print recent entries from `notify.log`. The log file already
-exists — just needs a reader command with optional filtering (by
-profile, action, or date).
-
 ### Heartbeat for Long Tasks
 
 With `notify run`, optionally ping every N minutes: "still running
