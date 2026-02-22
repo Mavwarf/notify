@@ -1,5 +1,20 @@
 # History
 
+## Features
+
+- Silent mode (`notify silent`) for temporary suppression *(Feb 22)*
+- Remote notifications: Discord, Telegram, voice messages *(Feb 20–22)*
+- Cooldown / rate limiting per action *(Feb 21)*
+- Config validation with multi-error reporting *(Feb 21)*
+- Command wrapper (`notify run`) with exit code and duration templates *(Feb 20)*
+- Quiet hours — suppress steps outside a time window *(Feb 20)*
+- AFK detection — different steps when present vs away *(Feb 20)*
+- Template variables: `{profile}`, `{command}`, `{duration}` *(Feb 20)*
+- Opt-in event logging *(Feb 20)*
+- Multi-step notification pipelines: sound, speech, toast *(Feb 19)*
+
+---
+
 ## 2026-02-22
 
 ### Cooldown Auto-Pruning
