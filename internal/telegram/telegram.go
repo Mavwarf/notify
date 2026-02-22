@@ -1,9 +1,14 @@
 package telegram
 
 import (
+	"bytes"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 )
 
 // Send posts a message to a Telegram chat via the Bot API.
@@ -25,6 +30,59 @@ func sendTo(endpoint, chatID, message string) error {
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("telegram: API returned %d", resp.StatusCode)
+	}
+	return nil
+}
+
+// SendAudio uploads a WAV file to a Telegram chat via the Bot API.
+// The caption is sent as text alongside the audio file.
+func SendAudio(token, chatID, wavPath, caption string) error {
+	endpoint := fmt.Sprintf("https://api.telegram.org/bot%s/sendAudio", token)
+	return sendAudioTo(endpoint, chatID, wavPath, caption)
+}
+
+// sendAudioTo uploads a WAV file to the given endpoint. Extracted for testing.
+func sendAudioTo(endpoint, chatID, wavPath, caption string) error {
+	f, err := os.Open(wavPath)
+	if err != nil {
+		return fmt.Errorf("telegram: open wav: %w", err)
+	}
+	defer f.Close()
+
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+
+	// chat_id field.
+	if err := w.WriteField("chat_id", chatID); err != nil {
+		return fmt.Errorf("telegram: write chat_id field: %w", err)
+	}
+
+	// caption field.
+	if err := w.WriteField("caption", caption); err != nil {
+		return fmt.Errorf("telegram: write caption field: %w", err)
+	}
+
+	// Attach the WAV file.
+	part, err := w.CreateFormFile("audio", filepath.Base(wavPath))
+	if err != nil {
+		return fmt.Errorf("telegram: create form file: %w", err)
+	}
+	if _, err := io.Copy(part, f); err != nil {
+		return fmt.Errorf("telegram: copy wav data: %w", err)
+	}
+
+	if err := w.Close(); err != nil {
+		return fmt.Errorf("telegram: close multipart: %w", err)
+	}
+
+	resp, err := http.Post(endpoint, w.FormDataContentType(), &buf)
+	if err != nil {
+		return fmt.Errorf("telegram: post audio: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("telegram: audio API returned %d", resp.StatusCode)
 	}
 	return nil
 }

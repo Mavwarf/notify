@@ -179,6 +179,22 @@ func execStep(step config.Step, defaultVolume int, creds config.Credentials, var
 			return fmt.Errorf("telegram step requires credentials.telegram_token and telegram_chat_id in config")
 		}
 		return telegram.Send(creds.TelegramToken, creds.TelegramChatID, tmpl.Expand(step.Text, vars))
+	case "telegram_audio":
+		if creds.TelegramToken == "" || creds.TelegramChatID == "" {
+			return fmt.Errorf("telegram_audio step requires credentials.telegram_token and telegram_chat_id in config")
+		}
+		text := tmpl.Expand(step.Text, vars)
+		wavFile, err := os.CreateTemp("", "notify-tgaudio-*.wav")
+		if err != nil {
+			return fmt.Errorf("telegram_audio temp file: %w", err)
+		}
+		wavPath := wavFile.Name()
+		wavFile.Close()
+		if err := speech.SayToFile(text, vol, wavPath); err != nil {
+			return fmt.Errorf("telegram_audio tts: %w", err)
+		}
+		defer os.Remove(wavPath)
+		return telegram.SendAudio(creds.TelegramToken, creds.TelegramChatID, wavPath, text)
 	default:
 		return fmt.Errorf("unknown step type: %q", step.Type)
 	}

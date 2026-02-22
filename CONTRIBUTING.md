@@ -38,7 +38,8 @@ internal/
   audio/             Sound synthesis and playback
   config/            Config loading and resolution
   cooldown/          Per-action rate limiting
-  discord/           Discord webhook integration
+  discord/           Discord webhook and voice integration
+  telegram/          Telegram Bot API integration
   eventlog/          Invocation logging
   idle/              Platform-specific AFK detection
   runner/            Step execution engine

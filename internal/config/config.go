@@ -61,7 +61,7 @@ type Action struct {
 
 // Step is a single unit of work within an action.
 type Step struct {
-	Type    string `json:"type"`              // "sound" | "say" | "toast" | "discord" | "discord_voice" | "telegram"
+	Type    string `json:"type"`              // "sound" | "say" | "toast" | "discord" | "discord_voice" | "telegram" | "telegram_audio"
 	Sound   string `json:"sound,omitempty"`   // type=sound
 	Text    string `json:"text,omitempty"`    // type=say, discord, discord_voice, telegram
 	Title   string `json:"title,omitempty"`   // type=toast
@@ -72,7 +72,7 @@ type Step struct {
 
 // validStepTypes is the set of recognized step types.
 var validStepTypes = map[string]bool{
-	"sound": true, "say": true, "toast": true, "discord": true, "discord_voice": true, "telegram": true,
+	"sound": true, "say": true, "toast": true, "discord": true, "discord_voice": true, "telegram": true, "telegram_audio": true,
 }
 
 // Validate checks a parsed Config for common mistakes and returns a
@@ -142,6 +142,13 @@ func Validate(cfg Config) error {
 					}
 					if cfg.Options.Credentials.TelegramToken == "" || cfg.Options.Credentials.TelegramChatID == "" {
 						errs = append(errs, fmt.Sprintf("%s: telegram step requires credentials.telegram_token and telegram_chat_id", sp))
+					}
+				case "telegram_audio":
+					if s.Text == "" {
+						errs = append(errs, fmt.Sprintf("%s: telegram_audio step requires \"text\" field", sp))
+					}
+					if cfg.Options.Credentials.TelegramToken == "" || cfg.Options.Credentials.TelegramChatID == "" {
+						errs = append(errs, fmt.Sprintf("%s: telegram_audio step requires credentials.telegram_token and telegram_chat_id", sp))
 					}
 				}
 			}

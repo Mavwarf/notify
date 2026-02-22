@@ -1,21 +1,11 @@
 # TODO
 
-### Telegram Voice Messages
+### Telegram Voice Bubble (`telegram_voice`)
 
-Send TTS audio to Telegram chats. Telegram's `sendVoice` requires
-OGG/OPUS format for the voice bubble UX; `sendAudio` accepts WAV but
-displays as an audio player instead.
-
-Two approaches:
-
-- **`telegram_audio`**: Use `sendAudio` with WAV — no conversion needed,
-  plays inline but not as a voice bubble.
-- **`telegram_voice`**: Convert WAV → OGG/OPUS via `ffmpeg`, then use
-  `sendVoice` for native voice bubble. Requires `ffmpeg` as external
-  dependency.
-
-Start with `telegram_audio` (no deps), add `telegram_voice` later as
-opt-in when `ffmpeg` is available.
+Convert WAV → OGG/OPUS via `ffmpeg`, then use Telegram's `sendVoice`
+for native voice bubble UX. Requires `ffmpeg` as external dependency.
+`telegram_audio` (WAV via `sendAudio`, inline audio player) is already
+implemented.
 
 ### More Remote Notification Actions
 

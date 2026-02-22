@@ -6,7 +6,8 @@ present, a Discord or Telegram ping when you're not.
 
 A single binary, zero-dependency notification engine for the command line.
 Chain sounds, speech, toast popups, Discord messages, Discord voice messages,
-and Telegram messages into pipelines — all configured in one JSON file.
+Telegram messages, and Telegram audio messages into pipelines — all configured
+in one JSON file.
 
 ## What is this for?
 
@@ -56,6 +57,8 @@ go install github.com/Mavwarf/notify/cmd/notify@latest
   file attachment to Discord. Same TTS engines as `say` steps.
 - **Telegram Bot API** — send messages to a Telegram chat via bot token,
   no external dependencies (just `net/http`).
+- **Telegram audio messages** — generate TTS audio and upload as a WAV
+  file to Telegram via `sendAudio`. Same TTS engines as `say` steps.
 - **AFK detection** — conditionally run steps based on whether the user is
   at their desk or away. Play a sound when present, send a Discord or
   Telegram message when AFK.
@@ -83,7 +86,7 @@ internal/
   discord/
     discord.go           Discord webhook integration (POST to channel)
   telegram/
-    telegram.go          Telegram Bot API integration (sendMessage)
+    telegram.go          Telegram Bot API integration (sendMessage, sendAudio)
   paths/
     paths.go             Shared constants and platform-specific data directory
   idle/
@@ -91,7 +94,7 @@ internal/
     idle_darwin.go       User idle time via ioreg HIDIdleTime
     idle_linux.go        User idle time via xprintidle
   runner/
-    runner.go            Step executor (dispatches to audio/speech/toast/discord/discord_voice/telegram)
+    runner.go            Step executor (dispatches to audio/speech/toast/discord/discord_voice/telegram/telegram_audio)
   eventlog/
     eventlog.go          Append-only invocation log (notify.log)
   tmpl/
@@ -163,7 +166,8 @@ notify help                            # Show help
           { "type": "toast", "message": "Ready!", "when": "hours:22-8" },
           { "type": "discord", "text": "Ready!", "when": "afk" },
           { "type": "discord_voice", "text": "Ready!", "when": "afk" },
-          { "type": "telegram", "text": "Ready!", "when": "afk" }
+          { "type": "telegram", "text": "Ready!", "when": "afk" },
+          { "type": "telegram_audio", "text": "Ready!", "when": "afk" }
         ]
       }
     },
@@ -188,12 +192,12 @@ notify help                            # Show help
 - **Step types:** `sound` (play a built-in sound), `say` (text-to-speech),
   `toast` (desktop notification), `discord` (post to Discord channel via webhook),
   `discord_voice` (TTS audio uploaded to Discord as WAV), `telegram` (send to
-  Telegram chat via bot).
+  Telegram chat via bot), `telegram_audio` (TTS audio uploaded to Telegram as WAV).
 - **Volume priority:** per-step `volume` > CLI `--volume` > config
   `"default_volume"` > 100.
 - Toast `title` defaults to the profile name if omitted.
 - **Template variables:** use `{profile}` in `say` text, `toast` title/message,
-  `discord`, `discord_voice`, or `telegram` text to inject the runtime profile name, or `{Profile}` for
+  `discord`, `discord_voice`, `telegram`, or `telegram_audio` text to inject the runtime profile name, or `{Profile}` for
   title case (e.g. `boss` → `Boss`). When using `notify run`, `{command}`,
   `{duration}` (compact: `2m15s`), and `{Duration}` (spoken: `2 minutes and
   15 seconds`) are also available. Use `{Duration}` in `say` steps for
@@ -207,8 +211,8 @@ notify help                            # Show help
   or override per-action. Actions silently skip if the same profile+action
   was triggered within the cooldown window.
 - `sound` and `say` steps run sequentially (shared audio pipeline).
-  All other steps (`toast`, `discord`, `discord_voice`, `telegram`) fire in
-  parallel immediately.
+  All other steps (`toast`, `discord`, `discord_voice`, `telegram`,
+  `telegram_audio`) fire in parallel immediately.
 
 ### Available sounds
 
@@ -224,7 +228,7 @@ notify help                            # Show help
 
 ### Credentials
 
-Remote notification steps (`discord`, `discord_voice`, `telegram`) need credentials stored in
+Remote notification steps (`discord`, `discord_voice`, `telegram`, `telegram_audio`) need credentials stored in
 the `"credentials"` object inside `"config"`:
 
 ```json
@@ -285,6 +289,21 @@ Same pattern as Discord — especially useful with `"when": "afk"`:
 
 Requires `telegram_token` and `telegram_chat_id` in `"credentials"`.
 Telegram steps run in parallel (they don't block the audio pipeline).
+
+### Telegram audio messages
+
+The `telegram_audio` step type generates TTS audio and uploads it to Telegram
+as a WAV file via the `sendAudio` API. The text is both spoken (rendered to
+audio) and sent as a caption alongside the file:
+
+```json
+{ "type": "telegram_audio", "text": "{Profile} build is ready", "when": "afk" }
+```
+
+Uses the same platform-native TTS engines as `say` steps. Requires
+`telegram_token` and `telegram_chat_id` in `"credentials"`. Displays as an
+inline audio player in Telegram (not a voice bubble — that requires OGG/OPUS
+format via `sendVoice`).
 
 ### AFK detection
 

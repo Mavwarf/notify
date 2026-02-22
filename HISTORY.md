@@ -1,5 +1,16 @@
 # History
 
+## 2026-02-22
+
+### Telegram Audio Messages (`telegram_audio`)
+New `telegram_audio` step type generates TTS audio and uploads it to Telegram
+as a WAV file via the Bot API `sendAudio` endpoint. Uses platform-native TTS
+engines (`SayToFile`) to render speech to a temp file, then uploads via
+multipart POST with the text as a caption. Same `when` filtering and template
+variables as the existing `telegram` step. Requires `credentials.telegram_token`
+and `credentials.telegram_chat_id` in config. Displays as an inline audio
+player in Telegram.
+
 ## 2026-02-21
 
 ### Discord Voice Messages (`discord_voice`)
