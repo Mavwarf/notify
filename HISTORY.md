@@ -11,6 +11,39 @@ variables as the existing `telegram` step. Requires `credentials.telegram_token`
 and `credentials.telegram_chat_id` in config. Displays as an inline audio
 player in Telegram.
 
+### Toast Validation
+Config validation now checks that `toast` steps have a `message` field set.
+Previously only `sound`, `say`, `discord`, and `telegram` steps had
+required-field validation.
+
+### API Error Body in Messages
+Discord and Telegram API error messages now include up to 200 bytes of the
+response body alongside the HTTP status code. Previously only the status
+code was reported, making it hard to debug issues like invalid tokens or
+rate limiting.
+
+### Test Coverage
+Added unit tests for `audio` (PCM generation, volume scaling, sound
+registry completeness) and `eventlog` (step detail formatting for all
+step types, template expansion, default toast title). Added missing
+config validation tests for `discord_voice` and `telegram_audio`
+credential and required-field checks, plus `log` config parsing tests.
+
+### AppleScript Escaping Extraction
+Moved inline `escapeAppleScript()` from `toast_darwin.go` to
+`shell/escape_darwin.go` as `EscapeAppleScript()`, consistent with the
+existing `EscapePowerShell()` pattern in `shell/escape.go`.
+
+### Runner Credential Check Cleanup
+Removed redundant credential validation from `runner.go` — config
+validation already catches missing credentials at load time. The runner
+checks were defensive duplicates that could never trigger after a
+successful `Validate()` call.
+
+### Help Output
+`notify help` and `notify -h` now show a link to the GitHub documentation
+at the top of the output.
+
 ## 2026-02-21
 
 ### Discord Voice Messages (`discord_voice`)
