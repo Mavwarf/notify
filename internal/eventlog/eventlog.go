@@ -149,6 +149,8 @@ func stepDetail(s config.Step, vars tmpl.Vars) string {
 		return fmt.Sprintf("title=%q message=%q", tmpl.Expand(title, vars), tmpl.Expand(s.Message, vars))
 	case "discord", "discord_voice", "slack", "telegram", "telegram_audio", "telegram_voice":
 		return fmt.Sprintf("text=%q", tmpl.Expand(s.Text, vars))
+	case "webhook":
+		return fmt.Sprintf("url=%s text=%q", s.URL, tmpl.Expand(s.Text, vars))
 	default:
 		return ""
 	}

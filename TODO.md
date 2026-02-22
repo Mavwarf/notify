@@ -1,13 +1,5 @@
 # TODO
 
-### Generic Webhook Step
-
-New `webhook` step type — HTTP POST to an arbitrary URL with the message
-as body. Covers ntfy.sh, Pushover, Home Assistant, IFTTT, or any custom
-endpoint. One implementation, infinite integrations. Support configurable
-headers in credentials for auth tokens. Would make a dedicated `ntfy`
-step unnecessary since ntfy is just `POST https://ntfy.sh/topic`.
-
 ### Custom Sound Files
 
 Let `"sound"` accept a file path alongside the 7 built-in sound names.

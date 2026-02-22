@@ -63,18 +63,20 @@ type Action struct {
 
 // Step is a single unit of work within an action.
 type Step struct {
-	Type    string `json:"type"`              // "sound" | "say" | "toast" | "discord" | "discord_voice" | "slack" | "telegram" | "telegram_audio" | "telegram_voice"
-	Sound   string `json:"sound,omitempty"`   // type=sound
-	Text    string `json:"text,omitempty"`    // type=say, discord, discord_voice, slack, telegram, telegram_audio
-	Title   string `json:"title,omitempty"`   // type=toast
-	Message string `json:"message,omitempty"` // type=toast
-	Volume  *int   `json:"volume,omitempty"`  // per-step override, nil = use default
-	When    string `json:"when,omitempty"`    // "" | "never" | "afk" | "present" | "run" | "direct" | "hours:X-Y"
+	Type    string            `json:"type"`              // "sound" | "say" | "toast" | "discord" | "discord_voice" | "slack" | "telegram" | "telegram_audio" | "telegram_voice" | "webhook"
+	Sound   string            `json:"sound,omitempty"`   // type=sound
+	Text    string            `json:"text,omitempty"`    // type=say, discord, discord_voice, slack, telegram, telegram_audio, webhook
+	Title   string            `json:"title,omitempty"`   // type=toast
+	Message string            `json:"message,omitempty"` // type=toast
+	URL     string            `json:"url,omitempty"`     // type=webhook
+	Headers map[string]string `json:"headers,omitempty"` // type=webhook
+	Volume  *int              `json:"volume,omitempty"`  // per-step override, nil = use default
+	When    string            `json:"when,omitempty"`    // "" | "never" | "afk" | "present" | "run" | "direct" | "hours:X-Y"
 }
 
 // validStepTypes is the set of recognized step types.
 var validStepTypes = map[string]bool{
-	"sound": true, "say": true, "toast": true, "discord": true, "discord_voice": true, "slack": true, "telegram": true, "telegram_audio": true, "telegram_voice": true,
+	"sound": true, "say": true, "toast": true, "discord": true, "discord_voice": true, "slack": true, "telegram": true, "telegram_audio": true, "telegram_voice": true, "webhook": true,
 }
 
 // Validate checks a parsed Config for common mistakes and returns a
@@ -169,6 +171,13 @@ func Validate(cfg Config) error {
 					}
 					if cfg.Options.Credentials.TelegramToken == "" || cfg.Options.Credentials.TelegramChatID == "" {
 						errs = append(errs, fmt.Sprintf("%s: telegram_voice step requires credentials.telegram_token and telegram_chat_id", sp))
+					}
+				case "webhook":
+					if s.URL == "" {
+						errs = append(errs, fmt.Sprintf("%s: webhook step requires \"url\" field", sp))
+					}
+					if s.Text == "" {
+						errs = append(errs, fmt.Sprintf("%s: webhook step requires \"text\" field", sp))
 					}
 				}
 			}

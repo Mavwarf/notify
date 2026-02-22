@@ -17,6 +17,7 @@ import (
 	"github.com/Mavwarf/notify/internal/telegram"
 	"github.com/Mavwarf/notify/internal/tmpl"
 	"github.com/Mavwarf/notify/internal/toast"
+	"github.com/Mavwarf/notify/internal/webhook"
 )
 
 // remoteVolume is used for TTS in remote voice steps. Volume control
@@ -238,6 +239,9 @@ func execStep(step config.Step, defaultVolume int, creds config.Credentials, var
 		}
 		defer os.Remove(oggPath)
 		return retryOnce(func() error { return telegram.SendVoice(creds.TelegramToken, creds.TelegramChatID, oggPath, text) })
+	case "webhook":
+		msg := tmpl.Expand(step.Text, vars)
+		return retryOnce(func() error { return webhook.Send(step.URL, msg, step.Headers) })
 	default:
 		return fmt.Errorf("unknown step type: %q", step.Type)
 	}

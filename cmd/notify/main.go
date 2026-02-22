@@ -615,7 +615,9 @@ func dryRun(args []string, configPath string) {
 
 func stepInList(s config.Step, list []config.Step) bool {
 	for _, l := range list {
-		if l == s {
+		if l.Type == s.Type && l.When == s.When && l.Text == s.Text &&
+			l.Sound == s.Sound && l.Title == s.Title && l.Message == s.Message &&
+			l.URL == s.URL {
 			return true
 		}
 	}
@@ -635,6 +637,9 @@ func stepSummary(s config.Step) string {
 		}
 		parts = append(parts, fmt.Sprintf("message=%q", s.Message))
 	case "discord", "discord_voice", "slack", "telegram", "telegram_audio", "telegram_voice":
+		parts = append(parts, fmt.Sprintf("text=%q", s.Text))
+	case "webhook":
+		parts = append(parts, fmt.Sprintf("url=%s", s.URL))
 		parts = append(parts, fmt.Sprintf("text=%q", s.Text))
 	}
 	if s.When != "" {

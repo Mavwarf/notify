@@ -2,6 +2,7 @@
 
 ## Features
 
+- Generic webhook step for ntfy.sh, Pushover, Home Assistant, IFTTT, etc. *(Feb 22)*
 - Automatic retry for remote steps (discord, slack, telegram) *(Feb 22)*
 - Environment variables in credentials (`$VAR` / `${VAR}`) *(Feb 22)*
 - Sound preview (`notify play`) to audition built-in sounds *(Feb 22)*
@@ -21,6 +22,16 @@
 ---
 
 ## 2026-02-22
+
+### Generic Webhook Step
+New `webhook` step type — HTTP POST to an arbitrary URL with the message as
+body. Covers ntfy.sh, Pushover, Home Assistant, IFTTT, or any custom endpoint.
+URL and optional headers live on the step itself (not in credentials), so one
+config can target multiple endpoints. Headers support `$VAR` / `${VAR}`
+expansion for secrets via `os.ExpandEnv`. Default `Content-Type` is
+`text/plain`; custom headers can override it. Body uses template variable
+expansion like other step types. Requires `url` and `text` fields. Runs in
+parallel with automatic retry on transient errors.
 
 ### Retry for Remote Steps
 Remote notification steps (`discord`, `discord_voice`, `slack`, `telegram`,

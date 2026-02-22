@@ -6,8 +6,8 @@ present, a Discord, Slack, or Telegram ping when you're not.
 
 A single binary, zero-dependency notification engine for the command line.
 Chain sounds, speech, toast popups, Discord messages, Discord voice messages,
-Slack messages, Telegram messages, Telegram audio messages, and Telegram voice
-bubbles into pipelines
+Slack messages, Telegram messages, Telegram audio messages, Telegram voice
+bubbles, and generic webhooks into pipelines
 — all configured in one JSON file.
 
 ## What is this for?
@@ -45,7 +45,7 @@ go install github.com/Mavwarf/notify/cmd/notify@latest
 
 - **Written in Go** for easy cross-compilation and single-binary distribution.
 - **Config-driven** — define notification pipelines as JSON. Each action
-  combines sound, speech, toast, Discord, Slack, and Telegram steps.
+  combines sound, speech, toast, Discord, Slack, Telegram, and webhook steps.
 - **Built-in sounds** — 7 generated tones (success, error, warning, etc.)
   created programmatically as sine-wave patterns.
 - **Text-to-speech** — uses OS-native TTS engines
@@ -65,6 +65,8 @@ go install github.com/Mavwarf/notify/cmd/notify@latest
 - **Telegram voice bubbles** — generate TTS audio, convert WAV to OGG/OPUS
   via `ffmpeg`, and upload to Telegram via `sendVoice`. Renders as a native
   voice bubble in Telegram clients. Requires `ffmpeg` on PATH.
+- **Generic webhooks** — HTTP POST to any URL with custom headers. Covers
+  ntfy.sh, Pushover, Home Assistant, IFTTT, or any custom endpoint.
 - **AFK detection** — conditionally run steps based on whether the user is
   at their desk or away. Play a sound when present, send a Discord, Slack,
   or Telegram message when AFK.
@@ -105,8 +107,10 @@ internal/
     idle_windows.go      User idle time via GetLastInputInfo (Win32)
     idle_darwin.go       User idle time via ioreg HIDIdleTime
     idle_linux.go        User idle time via xprintidle
+  webhook/
+    webhook.go           Generic HTTP POST webhook integration
   runner/
-    runner.go            Step executor (dispatches to audio/speech/toast/discord/discord_voice/slack/telegram/telegram_audio/telegram_voice)
+    runner.go            Step executor (dispatches to audio/speech/toast/discord/discord_voice/slack/telegram/telegram_audio/telegram_voice/webhook)
   eventlog/
     eventlog.go          Append-only invocation log (notify.log)
   httputil/
@@ -190,7 +194,8 @@ notify help                            # Show help
           { "type": "slack", "text": "Ready!", "when": "afk" },
           { "type": "telegram", "text": "Ready!", "when": "afk" },
           { "type": "telegram_audio", "text": "Ready!", "when": "afk" },
-          { "type": "telegram_voice", "text": "Ready!", "when": "afk" }
+          { "type": "telegram_voice", "text": "Ready!", "when": "afk" },
+          { "type": "webhook", "url": "https://ntfy.sh/mytopic", "text": "Ready!", "when": "afk" }
         ]
       }
     },
@@ -217,12 +222,14 @@ notify help                            # Show help
   `discord_voice` (TTS audio uploaded to Discord as WAV), `slack` (post to Slack
   channel via webhook), `telegram` (send to Telegram chat via bot),
   `telegram_audio` (TTS audio uploaded to Telegram as WAV),
-  `telegram_voice` (TTS audio converted to OGG/OPUS and uploaded as voice bubble).
+  `telegram_voice` (TTS audio converted to OGG/OPUS and uploaded as voice bubble),
+  `webhook` (HTTP POST to any URL with custom headers).
 - **Volume priority:** per-step `volume` > CLI `--volume` > config
   `"default_volume"` > 100.
 - Toast `title` defaults to the profile name if omitted.
 - **Template variables:** use `{profile}` in `say` text, `toast` title/message,
-  `discord`, `discord_voice`, `slack`, `telegram`, `telegram_audio`, or `telegram_voice` text to inject the runtime profile name, or `{Profile}` for
+  `discord`, `discord_voice`, `slack`, `telegram`, `telegram_audio`,
+  `telegram_voice`, or `webhook` text to inject the runtime profile name, or `{Profile}` for
   title case (e.g. `boss` → `Boss`). When using `notify run`, `{command}`,
   `{duration}` (compact: `2m15s`), and `{Duration}` (spoken: `2 minutes and
   15 seconds`) are also available. Use `{Duration}` in `say` steps for
@@ -240,7 +247,8 @@ notify help                            # Show help
   was triggered within the cooldown window.
 - `sound` and `say` steps run sequentially (shared audio pipeline).
   All other steps (`toast`, `discord`, `discord_voice`, `slack`,
-  `telegram`, `telegram_audio`, `telegram_voice`) fire in parallel immediately.
+  `telegram`, `telegram_audio`, `telegram_voice`, `webhook`) fire in parallel
+  immediately.
 
 ### Available sounds
 
@@ -256,7 +264,8 @@ notify help                            # Show help
 
 ### Credentials
 
-Remote notification steps (`discord`, `discord_voice`, `slack`, `telegram`, `telegram_audio`, `telegram_voice`) need credentials stored in
+Remote notification steps (`discord`, `discord_voice`, `slack`, `telegram`,
+`telegram_audio`, `telegram_voice`) need credentials stored in
 the `"credentials"` object inside `"config"`:
 
 ```json
@@ -380,6 +389,37 @@ Renders as a native voice bubble in Telegram clients:
 Uses the same platform-native TTS engines as `say` steps. Requires
 `telegram_token` and `telegram_chat_id` in `"credentials"`, and `ffmpeg`
 installed on PATH. If `ffmpeg` is not available, the step returns an error.
+
+### Webhook notifications
+
+The `webhook` step type sends an HTTP POST to any URL with the message as the
+body. Covers ntfy.sh, Pushover, Home Assistant, IFTTT, or any custom endpoint
+— one step type, infinite integrations:
+
+```json
+{ "type": "webhook", "url": "https://ntfy.sh/mytopic", "text": "{Profile} build is ready", "when": "afk" }
+```
+
+The URL and optional headers live on the step itself (not in credentials), so
+one config can target multiple endpoints. Custom headers can override the
+default `Content-Type: text/plain` and use `$VAR` / `${VAR}` syntax for
+secrets:
+
+```json
+{
+  "type": "webhook",
+  "url": "https://api.pushover.net/1/messages.json",
+  "text": "{Profile} is ready",
+  "headers": {
+    "Content-Type": "application/x-www-form-urlencoded",
+    "Authorization": "Bearer $PUSHOVER_TOKEN"
+  },
+  "when": "afk"
+}
+```
+
+The `text` field supports template variables. Webhook steps run in parallel
+(they don't block the audio pipeline). Requires `url` and `text` fields.
 
 ### AFK detection
 
@@ -673,6 +713,7 @@ cmake --install build --prefix /usr/local
 | Telegram Bot API | `net/http` (built-in) | `net/http` (built-in) | `net/http` (built-in) |
 | Telegram audio | TTS + `net/http` | TTS + `net/http` | TTS + `net/http` |
 | Telegram voice | TTS + `ffmpeg` + `net/http` | TTS + `ffmpeg` + `net/http` | TTS + `ffmpeg` + `net/http` |
+| Webhook | `net/http` (built-in) | `net/http` (built-in) | `net/http` (built-in) |
 
 > **Note:** Development and testing has been done primarily on Windows.
 > macOS and Linux support is implemented but has not been extensively
