@@ -130,6 +130,7 @@ internal/
 ```bash
 notify [options] [profile] <action>
 notify run [options] [profile] -- <command...>
+notify play [sound]                    # Preview a built-in sound (or list all)
 notify test [profile]                  # Dry-run: show what would happen
 notify history [N]                     # Show last N log entries (default 10)
 notify silent [duration|off]           # Suppress notifications temporarily
@@ -478,6 +479,9 @@ notify test boss                  # Dry-run boss profile
 notify silent 1h                  # Suppress all notifications for 1 hour
 notify history                    # Show last 10 log entries
 notify history 5                  # Show last 5 log entries
+notify play                       # List all built-in sounds
+notify play success               # Preview the success sound
+notify -v 50 play blip            # Preview at 50% volume
 notify silent                     # Show current silent status
 notify silent off                 # Disable silent mode
 ```

@@ -2,6 +2,7 @@
 
 ## Features
 
+- Sound preview (`notify play`) to audition built-in sounds *(Feb 22)*
 - Notification history (`notify history`) to view recent log entries *(Feb 22)*
 - Echo option (`--echo`) to print execution summary *(Feb 22)*
 - Silent mode (`notify silent`) for temporary suppression *(Feb 22)*
@@ -18,6 +19,13 @@
 ---
 
 ## 2026-02-22
+
+### Sound Preview (`notify play`)
+New `notify play [sound]` command lets you audition built-in sounds without
+creating a config action. With no arguments, lists all 7 available sounds
+with descriptions. With a sound name, plays it immediately using the CLI
+`--volume` flag or full volume by default. Unknown sound names show an error
+with the list of valid names.
 
 ### Notification History (`notify history`)
 New `notify history [N]` command pretty-prints the last N entries from

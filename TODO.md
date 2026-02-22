@@ -26,12 +26,6 @@ If a remote step (discord, slack, telegram, webhook) fails due to a
 network error, retry once after a short delay. Best-effort, no config
 needed — sensible default for flaky networks.
 
-### Sound Preview (`notify play`)
-
-`notify play <sound>` to audition built-in sounds without creating an
-action. Lists available sounds with `notify play` (no args). Trivial
-to implement — wire the sound name directly to the audio player.
-
 ### Environment Variables in Credentials
 
 Support `"$DISCORD_WEBHOOK"` or `"${env:DISCORD_WEBHOOK}"` in credential
