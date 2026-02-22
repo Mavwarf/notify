@@ -56,6 +56,14 @@ setup.
 Allow custom mappings so specific exit codes trigger different actions,
 e.g. exit 2 → `warning` with a different notification pipeline.
 
+### MQTT Publish
+
+Publish a message to an MQTT broker topic. Useful for home automation —
+e.g. flash a desk light when a build finishes, or trigger any
+Home Assistant automation via MQTT. Config would need broker URL, topic,
+and optional auth in credentials. Payload could use template variables
+like other steps.
+
 ### More Remote Notification Actions (low priority)
 
 Additional step types beyond `discord`, `slack`, and `telegram`:
