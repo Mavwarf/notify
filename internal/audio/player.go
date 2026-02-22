@@ -31,15 +31,22 @@ func getContext() (*oto.Context, error) {
 	return otoCtx, otoInitErr
 }
 
-// Play plays the named sound, blocking until playback completes.
-// volume is a multiplier from 0.0 (silent) to 1.0 (full volume).
+// Play plays a sound, blocking until playback completes. If name matches a
+// built-in sound, plays the generated tone; otherwise treats name as a WAV
+// file path. volume is a multiplier from 0.0 (silent) to 1.0 (full volume).
 func Play(name string, volume float64) error {
+	var pcm []byte
 	if def, ok := Sounds[name]; ok {
-		pcm := GeneratePCM(def)
-		applyVolume16(pcm, volume)
-		return playStereo16(pcm)
+		pcm = GeneratePCM(def)
+	} else {
+		var err error
+		pcm, err = LoadWAV(name)
+		if err != nil {
+			return err
+		}
 	}
-	return fmt.Errorf("unknown sound: %q", name)
+	applyVolume16(pcm, volume)
+	return playStereo16(pcm)
 }
 
 // applyVolume16 scales 16-bit signed little-endian PCM samples by the given volume.

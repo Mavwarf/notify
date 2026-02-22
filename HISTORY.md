@@ -2,6 +2,7 @@
 
 ## Features
 
+- Custom sound files — use your own WAV files in `sound` steps *(Feb 22)*
 - Generic webhook step for ntfy.sh, Pushover, Home Assistant, IFTTT, etc. *(Feb 22)*
 - Automatic retry for remote steps (discord, slack, telegram) *(Feb 22)*
 - Environment variables in credentials (`$VAR` / `${VAR}`) *(Feb 22)*
@@ -22,6 +23,17 @@
 ---
 
 ## 2026-02-22
+
+### Custom Sound Files
+The `sound` step now accepts a WAV file path alongside the 7 built-in sound
+names. If the value isn't a recognized built-in name, it's treated as a file
+path. Relative paths are resolved against the config file's directory, so
+`"pling.wav"` finds the file next to `notify-config.json`. Supports PCM WAV
+files with 8-bit, 16-bit, or 24-bit sample depth, mono or stereo, at any
+sample rate. Files are automatically decoded and resampled to 44100 Hz stereo
+16-bit for playback through the same audio pipeline as built-in sounds.
+Compressed WAV formats (A-law, mu-law, ADPCM, etc.) are rejected with a
+clear error. `notify play` also accepts WAV file paths for previewing.
 
 ### Generic Webhook Step
 New `webhook` step type — HTTP POST to an arbitrary URL with the message as

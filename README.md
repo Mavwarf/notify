@@ -47,7 +47,7 @@ go install github.com/Mavwarf/notify/cmd/notify@latest
 - **Config-driven** — define notification pipelines as JSON. Each action
   combines sound, speech, toast, Discord, Slack, Telegram, and webhook steps.
 - **Built-in sounds** — 7 generated tones (success, error, warning, etc.)
-  created programmatically as sine-wave patterns.
+  created programmatically as sine-wave patterns. Also supports custom WAV files.
 - **Text-to-speech** — uses OS-native TTS engines
   (Windows SAPI, macOS `say`, Linux `espeak`).
 - **Toast notifications** — native desktop notifications on all platforms
@@ -217,7 +217,7 @@ notify help                            # Show help
   notification pipelines.
 - Each profile maps **action** names to `{ "steps": [...] }`.
   `"default"` is the fallback profile.
-- **Step types:** `sound` (play a built-in sound), `say` (text-to-speech),
+- **Step types:** `sound` (play a built-in sound or WAV file), `say` (text-to-speech),
   `toast` (desktop notification), `discord` (post to Discord channel via webhook),
   `discord_voice` (TTS audio uploaded to Discord as WAV), `slack` (post to Slack
   channel via webhook), `telegram` (send to Telegram chat via bot),
@@ -261,6 +261,23 @@ notify help                            # Show help
 | `alert`        | Rapid high-pitched attention signal     |
 | `notification` | Gentle two-note doorbell chime          |
 | `blip`         | Ultra-short confirmation blip           |
+
+### Custom sound files
+
+Set `"sound"` to a file path instead of a built-in name to play your own WAV:
+
+```json
+{ "type": "sound", "sound": "doorbell.wav" }
+{ "type": "sound", "sound": "C:/sounds/doorbell.wav" }
+```
+
+Relative paths are resolved against the config file's directory, so
+`"doorbell.wav"` looks for the file next to your `notify-config.json`.
+Absolute paths work too.
+
+Requirements: WAV format, PCM only (no compression). Any sample rate, bit
+depth (8/16/24-bit), and channel count (mono/stereo) are supported — files
+are automatically converted to 44100 Hz stereo for playback.
 
 ### Credentials
 

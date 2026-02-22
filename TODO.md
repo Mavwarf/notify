@@ -1,11 +1,5 @@
 # TODO
 
-### Custom Sound Files
-
-Let `"sound"` accept a file path alongside the 7 built-in sound names.
-Users can bring their own WAV files. The audio player already handles
-PCM — adding WAV file loading is straightforward.
-
 ### Profile Inheritance
 
 `"extends": "default"` on a profile so it only needs to override

@@ -79,6 +79,14 @@ var validStepTypes = map[string]bool{
 	"sound": true, "say": true, "toast": true, "discord": true, "discord_voice": true, "slack": true, "telegram": true, "telegram_audio": true, "telegram_voice": true, "webhook": true,
 }
 
+// builtinSounds is the set of built-in sound names. Kept in sync with
+// audio.Sounds — used here to distinguish built-in names from file paths
+// without importing the audio package.
+var builtinSounds = map[string]bool{
+	"warning": true, "success": true, "error": true, "info": true,
+	"alert": true, "notification": true, "blip": true,
+}
+
 // Validate checks a parsed Config for common mistakes and returns a
 // multi-line error listing all problems found, or nil if valid.
 func Validate(cfg Config) error {
@@ -273,7 +281,34 @@ func readConfig(path string) (Config, error) {
 		return Config{}, fmt.Errorf("parsing config %s: %w", path, err)
 	}
 	expandEnvCredentials(&cfg)
+	resolveSoundPaths(&cfg, filepath.Dir(path))
 	return cfg, nil
+}
+
+// resolveSoundPaths resolves relative sound file paths against the config
+// file's directory. Built-in sound names are left unchanged.
+func resolveSoundPaths(cfg *Config, configDir string) {
+	for _, profile := range cfg.Profiles {
+		for actionName, action := range profile {
+			changed := false
+			for i := range action.Steps {
+				s := &action.Steps[i]
+				if s.Type != "sound" || s.Sound == "" {
+					continue
+				}
+				if _, ok := builtinSounds[s.Sound]; ok {
+					continue
+				}
+				if !filepath.IsAbs(s.Sound) {
+					s.Sound = filepath.Join(configDir, s.Sound)
+					changed = true
+				}
+			}
+			if changed {
+				profile[actionName] = action
+			}
+		}
+	}
 }
 
 // expandEnvCredentials expands $VAR and ${VAR} references in credential

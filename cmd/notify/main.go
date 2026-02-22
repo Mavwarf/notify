@@ -489,17 +489,6 @@ func playCmd(args []string, volume int) {
 	}
 
 	name := args[0]
-	if _, ok := audio.Sounds[name]; !ok {
-		names := make([]string, 0, len(audio.Sounds))
-		for n := range audio.Sounds {
-			names = append(names, n)
-		}
-		sort.Strings(names)
-		fmt.Fprintf(os.Stderr, "Error: unknown sound %q\n", name)
-		fmt.Fprintf(os.Stderr, "Available sounds: %s\n", strings.Join(names, ", "))
-		os.Exit(1)
-	}
-
 	vol := 1.0
 	if volume >= 0 {
 		vol = float64(volume) / 100.0
@@ -680,7 +669,7 @@ Options:
 
 Commands:
   run                    Wrap a command; notify ready on success, error on failure
-  play [sound]           Preview a built-in sound (no args lists all sounds)
+  play [sound|file.wav]  Preview a built-in sound or WAV file (no args lists built-ins)
   test [profile]         Dry-run: show what would happen without sending
   history [N]            Show last N log entries (default 10)
   silent [duration|off]  Suppress all notifications for a duration (e.g. 1h, 30m)
