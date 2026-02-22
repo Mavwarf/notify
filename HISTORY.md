@@ -2,6 +2,10 @@
 
 ## Features
 
+- Profile aliases — shorthand names for profiles *(Feb 22)*
+- Template variables: `{time}`, `{date}`, `{hostname}` *(Feb 22)*
+- Config validate command (`notify config validate`) *(Feb 22)*
+- History export (`notify history export`) — JSON export of log entries *(Feb 22)*
 - History summary (`notify history summary`) — aggregated usage stats per day *(Feb 22)*
 - Profile inheritance (`"extends"`) — inherit actions from a parent profile *(Feb 22)*
 - Exit code mapping for `notify run` — map specific codes to custom actions *(Feb 22)*
@@ -26,6 +30,40 @@
 ---
 
 ## 2026-02-22
+
+### Profile Aliases
+Profiles can now define `"aliases"` — shorthand names that resolve to the
+full profile. `notify mp ready` works the same as `notify myproject ready`
+when `"aliases": ["mp"]` is set on the `myproject` profile. Aliases resolve
+to the canonical profile name for template variables (`{profile}` expands to
+`myproject`, not `mp`) and event logging. Aliases are checked after direct
+profile match but before the default fallback. `notify list` shows aliases
+in the output. Config validation catches duplicate aliases (two profiles
+claiming the same alias) and aliases that shadow existing profile names.
+`Resolve()` now returns `(string, *Action, error)` with the canonical name.
+
+### Template Variables: `{time}`, `{date}`, `{hostname}`
+Three new template variables available in all text fields (`say`, `toast`,
+`discord`, `slack`, `telegram`, `webhook`): `{time}` expands to the current
+time in `HH:MM` format, `{date}` to `YYYY-MM-DD`, and `{hostname}` to the
+machine's hostname. Useful for multi-machine setups and timestamped
+messages. A new `baseVars()` helper in `main.go` eliminates duplication
+between `runAction` and `runWrapped`.
+
+### Config Validate Command (`notify config validate`)
+New `notify config validate` command checks the config file for errors
+without running any notifications. On success prints `Config OK: <path>`;
+on error prints the full multi-line validation error and exits 1. Reuses
+the existing `Validate()` function — zero new validation code. Also adds
+`config.FindPath()` to expose config path resolution independently of
+loading.
+
+### History Export (`notify history export`)
+New `notify history export [days]` subcommand outputs all log entries as a
+JSON array to stdout. Each entry includes `time`, `profile`, `action`, and
+`kind` (execution, cooldown, silent, other). Optional `[days]` argument
+filters to recent entries. Pipe to `jq` for ad-hoc analysis. Empty logs
+output `[]`.
 
 ### History Summary (`notify history summary`)
 New `notify history summary [days]` subcommand parses the event log and shows

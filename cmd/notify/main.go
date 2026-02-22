@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -87,6 +88,8 @@ func main() {
 		playCmd(filtered[1:], volume)
 	case "history":
 		historyCmd(filtered[1:])
+	case "config":
+		configCmd(filtered[1:], configPath)
 	case "silent":
 		silentCmd(filtered[1:], configPath, logFlag)
 	case "run":
@@ -124,14 +127,14 @@ func runAction(args []string, configPath string, volume int, logFlag bool, echoF
 
 	volume = resolveVolume(volume, cfg)
 
-	act, err := config.Resolve(cfg, profile, action)
+	resolved, act, err := config.Resolve(cfg, profile, action)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 
-	vars := tmpl.Vars{Profile: profile}
-	if err := executeAction(cfg, profile, action, act, volume, logFlag, echoFlag, cooldownFlag, false, vars); err != nil {
+	vars := baseVars(resolved)
+	if err := executeAction(cfg, resolved, action, act, volume, logFlag, echoFlag, cooldownFlag, false, vars); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
@@ -204,19 +207,17 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 
 	volume = resolveVolume(volume, cfg)
 
-	act, err := config.Resolve(cfg, profile, action)
+	resolved, act, err := config.Resolve(cfg, profile, action)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(exitCode)
 	}
 
-	vars := tmpl.Vars{
-		Profile:     profile,
-		Command:     strings.Join(cmdArgs, " "),
-		Duration:    formatDuration(elapsed),
-		DurationSay: formatDurationSay(elapsed),
-	}
-	if err := executeAction(cfg, profile, action, act, volume, logFlag, echoFlag, cooldownFlag, true, vars); err != nil {
+	vars := baseVars(resolved)
+	vars.Command = strings.Join(cmdArgs, " ")
+	vars.Duration = formatDuration(elapsed)
+	vars.DurationSay = formatDurationSay(elapsed)
+	if err := executeAction(cfg, resolved, action, act, volume, logFlag, echoFlag, cooldownFlag, true, vars); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 	}
 
@@ -266,6 +267,18 @@ func executeAction(cfg config.Config, profile, action string, act *config.Action
 		printEcho(filtered)
 	}
 	return err
+}
+
+// baseVars returns a Vars with profile, time, date, and hostname pre-filled.
+func baseVars(profile string) tmpl.Vars {
+	host, _ := os.Hostname()
+	now := time.Now()
+	return tmpl.Vars{
+		Profile:  profile,
+		Time:     now.Format("15:04"),
+		Date:     now.Format("2006-01-02"),
+		Hostname: host,
+	}
 }
 
 // resolveVolume returns the CLI volume if set, otherwise the config default.
@@ -435,6 +448,9 @@ func historyCmd(args []string) {
 		case "clear":
 			historyClear()
 			return
+		case "export":
+			historyExport(args[1:])
+			return
 		}
 	}
 
@@ -545,6 +561,86 @@ func historyClear() {
 	fmt.Println("Log file cleared.")
 }
 
+func configCmd(args []string, configPath string) {
+	if len(args) == 0 || args[0] == "validate" {
+		configValidate(configPath)
+		return
+	}
+	fmt.Fprintf(os.Stderr, "Unknown config subcommand: %s\n", args[0])
+	os.Exit(1)
+}
+
+func configValidate(configPath string) {
+	p, err := config.FindPath(configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	if _, err := loadAndValidate(configPath); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Config OK: %s\n", p)
+}
+
+func historyExport(args []string) {
+	days := 0
+	if len(args) > 0 {
+		n, err := strconv.Atoi(args[0])
+		if err != nil || n <= 0 {
+			fmt.Fprintf(os.Stderr, "Error: days must be a positive integer\n")
+			os.Exit(1)
+		}
+		days = n
+	}
+
+	path := eventlog.LogPath()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Println("[]")
+			return
+		}
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	entries := eventlog.ParseEntries(string(data))
+
+	if days > 0 {
+		now := time.Now()
+		today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		cutoff := today.AddDate(0, 0, -(days - 1))
+		var filtered []eventlog.Entry
+		for _, e := range entries {
+			if !e.Time.In(now.Location()).Before(cutoff) {
+				filtered = append(filtered, e)
+			}
+		}
+		entries = filtered
+	}
+
+	type exportEntry struct {
+		Time    string `json:"time"`
+		Profile string `json:"profile"`
+		Action  string `json:"action"`
+		Kind    string `json:"kind"`
+	}
+	out := make([]exportEntry, len(entries))
+	for i, e := range entries {
+		out[i] = exportEntry{
+			Time:    e.Time.Format(time.RFC3339),
+			Profile: e.Profile,
+			Action:  e.Action,
+			Kind:    eventlog.KindString(e.Kind),
+		}
+	}
+
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	enc.Encode(out)
+}
+
 func playCmd(args []string, volume int) {
 	if len(args) == 0 {
 		// List available sounds.
@@ -588,8 +684,15 @@ func listProfiles(configPath string) {
 	for _, pName := range profiles {
 		p := cfg.Profiles[pName]
 		label := pName
+		var annotations []string
 		if p.Extends != "" {
-			label = fmt.Sprintf("%s (extends %s)", pName, p.Extends)
+			annotations = append(annotations, fmt.Sprintf("extends %s", p.Extends))
+		}
+		if len(p.Aliases) > 0 {
+			annotations = append(annotations, fmt.Sprintf("aliases: %s", strings.Join(p.Aliases, ", ")))
+		}
+		if len(annotations) > 0 {
+			label = fmt.Sprintf("%s (%s)", pName, strings.Join(annotations, ", "))
 		}
 		fmt.Printf("%s:\n", label)
 		actions := make([]string, 0, len(p.Actions))
@@ -728,8 +831,10 @@ Commands:
   run                    Wrap a command; map exit code to action (default: 0=ready, else=error)
   play [sound|file.wav]  Preview a built-in sound or WAV file (no args lists built-ins)
   test [profile]         Dry-run: show what would happen without sending
+  config validate        Check config file for errors
   history [N]            Show last N log entries (default 10)
   history summary [days] Show action counts per day (default 7 days)
+  history export [days]  Export log entries as JSON (default: all)
   history clear          Delete the log file
   silent [duration|off]  Suppress all notifications for a duration (e.g. 1h, 30m)
   list, -l, --list       List all profiles and actions

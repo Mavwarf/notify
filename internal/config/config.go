@@ -56,8 +56,10 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 // Profile holds a set of actions and an optional parent profile name.
 // When "extends" is set, the profile inherits all actions from the
 // parent, with its own actions taking priority on conflicts.
+// Aliases provide shorthand names for the profile.
 type Profile struct {
 	Extends string            `json:"-"`
+	Aliases []string          `json:"-"`
 	Actions map[string]Action `json:"-"`
 }
 
@@ -75,6 +77,12 @@ func (p *Profile) UnmarshalJSON(data []byte) error {
 			return fmt.Errorf("extends: %w", err)
 		}
 		delete(raw, "extends")
+	}
+	if al, ok := raw["aliases"]; ok {
+		if err := json.Unmarshal(al, &p.Aliases); err != nil {
+			return fmt.Errorf("aliases: %w", err)
+		}
+		delete(raw, "aliases")
 	}
 	p.Actions = make(map[string]Action, len(raw))
 	for k, v := range raw {
@@ -140,6 +148,20 @@ func Validate(cfg Config) error {
 		}
 		if v == "" {
 			errs = append(errs, fmt.Sprintf("config: exit_codes[%q] action must not be empty", k))
+		}
+	}
+
+	// Alias validation.
+	aliasOwner := map[string]string{} // alias → profile name
+	for pName, profile := range cfg.Profiles {
+		for _, alias := range profile.Aliases {
+			if _, ok := cfg.Profiles[alias]; ok {
+				errs = append(errs, fmt.Sprintf("profiles.%s: alias %q shadows an existing profile name", pName, alias))
+			}
+			if prev, ok := aliasOwner[alias]; ok {
+				errs = append(errs, fmt.Sprintf("profiles.%s: alias %q already claimed by profile %q", pName, alias, prev))
+			}
+			aliasOwner[alias] = pName
 		}
 	}
 
@@ -244,13 +266,11 @@ func validateHoursSpec(spec string) error {
 	return nil
 }
 
-// Load reads and parses a config file. It tries, in order:
-//  1. explicitPath (if non-empty)
-//  2. notify-config.json next to the running binary
-//  3. ~/.config/notify/notify-config.json
-func Load(explicitPath string) (Config, error) {
+// FindPath resolves the config file path using the same resolution order
+// as Load. Returns the resolved path or an error if no config file is found.
+func FindPath(explicitPath string) (string, error) {
 	if explicitPath != "" {
-		return readConfig(explicitPath)
+		return explicitPath, nil
 	}
 
 	// Next to binary
@@ -258,36 +278,64 @@ func Load(explicitPath string) (Config, error) {
 	if err == nil {
 		p := filepath.Join(filepath.Dir(exe), paths.ConfigFileName)
 		if _, err := os.Stat(p); err == nil {
-			return readConfig(p)
+			return p, nil
 		}
 	}
 
 	// User config directory
 	p := filepath.Join(paths.DataDir(), paths.ConfigFileName)
 	if _, err := os.Stat(p); err == nil {
-		return readConfig(p)
+		return p, nil
 	}
 
-	return Config{}, fmt.Errorf("no notify-config.json found (use --config to specify a path)")
+	return "", fmt.Errorf("no notify-config.json found (use --config to specify a path)")
+}
+
+// Load reads and parses a config file. It tries, in order:
+//  1. explicitPath (if non-empty)
+//  2. notify-config.json next to the running binary
+//  3. ~/.config/notify/notify-config.json
+func Load(explicitPath string) (Config, error) {
+	p, err := FindPath(explicitPath)
+	if err != nil {
+		return Config{}, err
+	}
+	return readConfig(p)
 }
 
 // Resolve looks up an action by profile and action name.
-// Falls back to the "default" profile if the requested profile
-// doesn't contain the action.
-func Resolve(cfg Config, profile, action string) (*Action, error) {
+// Returns the canonical profile name (resolving aliases), the action,
+// and an error. Checks direct match first, then alias match, then
+// falls back to the "default" profile.
+func Resolve(cfg Config, profile, action string) (string, *Action, error) {
+	// Direct match.
 	if p, ok := cfg.Profiles[profile]; ok {
 		if a, ok := p.Actions[action]; ok {
-			return &a, nil
+			return profile, &a, nil
 		}
 	}
-	if profile != "default" {
-		if p, ok := cfg.Profiles["default"]; ok {
-			if a, ok := p.Actions[action]; ok {
-				return &a, nil
+	// Alias match.
+	canonical := profile
+	for pName, p := range cfg.Profiles {
+		for _, alias := range p.Aliases {
+			if alias == profile {
+				if a, ok := p.Actions[action]; ok {
+					return pName, &a, nil
+				}
+				canonical = pName
+				break
 			}
 		}
 	}
-	return nil, fmt.Errorf("action %q not found in profile %q or default", action, profile)
+	// Default fallback.
+	if canonical != "default" {
+		if p, ok := cfg.Profiles["default"]; ok {
+			if a, ok := p.Actions[action]; ok {
+				return canonical, &a, nil
+			}
+		}
+	}
+	return "", nil, fmt.Errorf("action %q not found in profile %q or default", action, canonical)
 }
 
 func readConfig(path string) (Config, error) {

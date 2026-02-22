@@ -198,6 +198,20 @@ func extractField(line, key string) string {
 	return ""
 }
 
+// KindString returns a human-readable string for an EntryKind.
+func KindString(k EntryKind) string {
+	switch k {
+	case KindExecution:
+		return "execution"
+	case KindCooldown:
+		return "cooldown"
+	case KindSilent:
+		return "silent"
+	default:
+		return "other"
+	}
+}
+
 // hasField returns true if "key=" appears in the line.
 func hasField(line, key string) bool {
 	return extractField(line, key) != ""

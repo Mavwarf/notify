@@ -893,9 +893,12 @@ func TestResolveDirectMatch(t *testing.T) {
 		},
 	}
 
-	act, err := Resolve(cfg, "boss", "ready")
+	name, act, err := Resolve(cfg, "boss", "ready")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
+	}
+	if name != "boss" {
+		t.Errorf("resolved name = %q, want %q", name, "boss")
 	}
 	if len(act.Steps) != 1 || act.Steps[0].Sound != "success" {
 		t.Errorf("unexpected action: %+v", act)
@@ -912,7 +915,7 @@ func TestResolveFallbackToDefault(t *testing.T) {
 		},
 	}
 
-	act, err := Resolve(cfg, "boss", "ready")
+	_, act, err := Resolve(cfg, "boss", "ready")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -928,7 +931,7 @@ func TestResolveNotFound(t *testing.T) {
 		},
 	}
 
-	_, err := Resolve(cfg, "boss", "ready")
+	_, _, err := Resolve(cfg, "boss", "ready")
 	if err == nil {
 		t.Fatal("expected error for missing action")
 	}
@@ -1118,5 +1121,158 @@ func TestResolveInheritanceSelfExtend(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "circular") {
 		t.Errorf("expected circular error, got: %v", err)
+	}
+}
+
+// --- Profile alias tests ---
+
+func TestUnmarshalAliases(t *testing.T) {
+	data := []byte(`{
+		"profiles": {
+			"myproject": {
+				"aliases": ["mp", "proj"],
+				"ready": { "steps": [{"type": "sound", "sound": "success"}] }
+			}
+		}
+	}`)
+
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	p := cfg.Profiles["myproject"]
+	if len(p.Aliases) != 2 {
+		t.Fatalf("len(Aliases) = %d, want 2", len(p.Aliases))
+	}
+	if p.Aliases[0] != "mp" || p.Aliases[1] != "proj" {
+		t.Errorf("Aliases = %v, want [mp proj]", p.Aliases)
+	}
+}
+
+func TestUnmarshalNoAliases(t *testing.T) {
+	data := []byte(`{
+		"profiles": {
+			"default": {
+				"ready": { "steps": [{"type": "sound", "sound": "success"}] }
+			}
+		}
+	}`)
+
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	if len(cfg.Profiles["default"].Aliases) != 0 {
+		t.Errorf("Aliases = %v, want empty", cfg.Profiles["default"].Aliases)
+	}
+}
+
+func TestResolveAlias(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"myproject": {
+				Aliases: []string{"mp", "proj"},
+				Actions: map[string]Action{
+					"ready": {Steps: []Step{{Type: "sound", Sound: "success"}}},
+				},
+			},
+		},
+	}
+
+	name, act, err := Resolve(cfg, "mp", "ready")
+	if err != nil {
+		t.Fatalf("Resolve via alias: %v", err)
+	}
+	if name != "myproject" {
+		t.Errorf("resolved name = %q, want %q", name, "myproject")
+	}
+	if act.Steps[0].Sound != "success" {
+		t.Errorf("unexpected action: %+v", act)
+	}
+
+	name, act, err = Resolve(cfg, "proj", "ready")
+	if err != nil {
+		t.Fatalf("Resolve via alias: %v", err)
+	}
+	if name != "myproject" {
+		t.Errorf("resolved name = %q, want %q", name, "myproject")
+	}
+	if act.Steps[0].Sound != "success" {
+		t.Errorf("unexpected action: %+v", act)
+	}
+}
+
+func TestResolveAliasDefaultFallback(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"default": {
+				Actions: map[string]Action{
+					"error": {Steps: []Step{{Type: "sound", Sound: "error"}}},
+				},
+			},
+			"myproject": {
+				Aliases: []string{"mp"},
+				Actions: map[string]Action{
+					"ready": {Steps: []Step{{Type: "sound", Sound: "success"}}},
+				},
+			},
+		},
+	}
+
+	// Action not in aliased profile, should fall back to default.
+	name, act, err := Resolve(cfg, "mp", "error")
+	if err != nil {
+		t.Fatalf("Resolve alias with default fallback: %v", err)
+	}
+	if name != "myproject" {
+		t.Errorf("resolved name = %q, want %q", name, "myproject")
+	}
+	if act.Steps[0].Sound != "error" {
+		t.Errorf("expected default fallback, got %+v", act)
+	}
+}
+
+func TestValidateAliasShadowsProfile(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"default": {
+				Actions: map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}}},
+			},
+			"myproject": {
+				Aliases: []string{"default"},
+				Actions: map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}}},
+			},
+		},
+	}
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for alias shadowing profile name")
+	}
+	if !strings.Contains(err.Error(), "shadows an existing profile") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateDuplicateAlias(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"project1": {
+				Aliases: []string{"p"},
+				Actions: map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}}},
+			},
+			"project2": {
+				Aliases: []string{"p"},
+				Actions: map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}}},
+			},
+		},
+	}
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for duplicate alias")
+	}
+	if !strings.Contains(err.Error(), "already claimed by") {
+		t.Errorf("unexpected error: %v", err)
 	}
 }

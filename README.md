@@ -137,8 +137,10 @@ notify [options] [profile] <action>
 notify run [options] [profile] -- <command...>
 notify play [sound]                    # Preview a built-in sound (or list all)
 notify test [profile]                  # Dry-run: show what would happen
+notify config validate                 # Check config file for errors
 notify history [N]                     # Show last N log entries (default 10)
 notify history summary [days]          # Show action counts per day (default 7)
+notify history export [days]           # Export log entries as JSON (default: all)
 notify history clear                   # Delete the log file
 notify silent [duration|off]           # Suppress notifications temporarily
 notify list                            # List all profiles and actions
@@ -206,6 +208,7 @@ notify help                            # Show help
       }
     },
     "boss": {
+      "aliases": ["b"],
       "ready": {
         "cooldown_seconds": 10,
         "steps": [
@@ -234,6 +237,11 @@ notify help                            # Show help
 - **Profile inheritance:** add `"extends": "parent"` to inherit all actions
   from another profile and override only specific ones. Chains are supported
   (A extends B extends C). Circular chains are detected at load time.
+- **Profile aliases:** add `"aliases": ["b", "boss2"]` to create shorthand
+  names for a profile. `notify b ready` resolves to the profile that
+  declares `b` as an alias. Template variables like `{profile}` use the
+  real profile name, not the alias. Duplicates and shadowing of real
+  profile names are caught at validation time.
 - **Step types:** `sound` (play a built-in sound or WAV file), `say` (text-to-speech),
   `toast` (desktop notification), `discord` (post to Discord channel via webhook),
   `discord_voice` (TTS audio uploaded to Discord as WAV), `slack` (post to Slack
@@ -247,7 +255,9 @@ notify help                            # Show help
 - **Template variables:** use `{profile}` in `say` text, `toast` title/message,
   `discord`, `discord_voice`, `slack`, `telegram`, `telegram_audio`,
   `telegram_voice`, or `webhook` text to inject the runtime profile name, or `{Profile}` for
-  title case (e.g. `boss` → `Boss`). When using `notify run`, `{command}`,
+  title case (e.g. `boss` → `Boss`). `{time}` expands to the current time
+  (`HH:MM`), `{date}` to the current date (`YYYY-MM-DD`), and `{hostname}`
+  to the machine's hostname. When using `notify run`, `{command}`,
   `{duration}` (compact: `2m15s`), and `{Duration}` (spoken: `2 minutes and
   15 seconds`) are also available. Use `{Duration}` in `say` steps for
   natural speech output. This is especially useful with the default fallback —
@@ -543,7 +553,17 @@ notify run -v 50 -- npm run build     # with volume override
 `"exit_codes"` override this default (e.g. exit 2 → `warning`). The `--`
 separator is required to distinguish notify options from the wrapped command.
 
-Additional template variables are available in `run` mode:
+Template variables available in all modes:
+
+| Variable     | Description                          | Example                        |
+|--------------|--------------------------------------|--------------------------------|
+| `{profile}`  | Profile name as-is                   | `boss`                         |
+| `{Profile}`  | Profile name title-cased             | `Boss`                         |
+| `{time}`     | Current time (HH:MM)                 | `14:30`                        |
+| `{date}`     | Current date (YYYY-MM-DD)            | `2026-02-22`                   |
+| `{hostname}` | Machine hostname                     | `mypc`                         |
+
+Additional variables available in `run` mode:
 
 | Variable     | Description                          | Example                        |
 |--------------|--------------------------------------|--------------------------------|
@@ -582,7 +602,11 @@ notify history                    # Show last 10 log entries
 notify history 5                  # Show last 5 log entries
 notify history summary            # Show action counts for last 7 days
 notify history summary 30         # Show action counts for last 30 days
+notify history export              # Export all log entries as JSON
+notify history export 7            # Export last 7 days as JSON
 notify history clear              # Delete the log file
+notify config validate            # Check config for errors
+notify b ready                    # Use alias "b" for the boss profile
 notify play                       # List all built-in sounds
 notify play success               # Preview the success sound
 notify -v 50 play blip            # Preview at 50% volume

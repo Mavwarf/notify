@@ -40,6 +40,13 @@ func TestExpand(t *testing.T) {
 		{"empty command", "{command}", Vars{}, ""},
 		{"empty duration", "{duration}", Vars{}, ""},
 		{"empty Duration", "{Duration}", Vars{}, ""},
+		{"time var", "at {time}", Vars{Time: "14:30"}, "at 14:30"},
+		{"date var", "on {date}", Vars{Date: "2026-02-22"}, "on 2026-02-22"},
+		{"hostname var", "from {hostname}", Vars{Hostname: "mypc"}, "from mypc"},
+		{"empty time", "{time}", Vars{}, ""},
+		{"empty date", "{date}", Vars{}, ""},
+		{"empty hostname", "{hostname}", Vars{}, ""},
+		{"all new vars", "{date} {time} {hostname}", Vars{Time: "09:00", Date: "2026-01-01", Hostname: "srv"}, "2026-01-01 09:00 srv"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
