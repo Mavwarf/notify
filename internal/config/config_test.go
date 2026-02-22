@@ -375,7 +375,7 @@ func TestValidateUnknownStepType(t *testing.T) {
 	}
 }
 
-func TestValidateUnknownWhenCondition(t *testing.T) {
+func TestValidateNeverCondition(t *testing.T) {
 	cfg := Config{
 		Profiles: map[string]Profile{
 			"default": {
@@ -383,11 +383,24 @@ func TestValidateUnknownWhenCondition(t *testing.T) {
 			},
 		},
 	}
+	if err := Validate(cfg); err != nil {
+		t.Errorf("expected valid config with when=never, got: %v", err)
+	}
+}
+
+func TestValidateUnknownWhenCondition(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"default": {
+				"ready": Action{Steps: []Step{{Type: "sound", Sound: "blip", When: "bogus"}}},
+			},
+		},
+	}
 	err := Validate(cfg)
 	if err == nil {
 		t.Fatal("expected error for unknown when condition")
 	}
-	if !strings.Contains(err.Error(), `unknown when condition "never"`) {
+	if !strings.Contains(err.Error(), `unknown when condition "bogus"`) {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
@@ -518,7 +531,7 @@ func TestValidateMultipleErrors(t *testing.T) {
 		Options: Options{DefaultVolume: 200},
 		Profiles: map[string]Profile{
 			"default": {
-				"ready": Action{Steps: []Step{{Type: "bogus", When: "never"}}},
+				"ready": Action{Steps: []Step{{Type: "bogus", When: "bogus"}}},
 			},
 		},
 	}

@@ -68,7 +68,7 @@ type Step struct {
 	Title   string `json:"title,omitempty"`   // type=toast
 	Message string `json:"message,omitempty"` // type=toast
 	Volume  *int   `json:"volume,omitempty"`  // per-step override, nil = use default
-	When    string `json:"when,omitempty"`    // "" | "afk" | "present" | "run" | "direct" | "hours:X-Y"
+	When    string `json:"when,omitempty"`    // "" | "never" | "afk" | "present" | "run" | "direct" | "hours:X-Y"
 }
 
 // validStepTypes is the set of recognized step types.
@@ -183,7 +183,7 @@ func Validate(cfg Config) error {
 // validateWhen checks that a when condition string is recognized.
 func validateWhen(when string) error {
 	switch when {
-	case "", "afk", "present", "run", "direct":
+	case "", "afk", "present", "run", "direct", "never":
 		return nil
 	default:
 		if strings.HasPrefix(when, "hours:") {

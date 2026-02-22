@@ -48,6 +48,8 @@ func matchWhen(when string, afk, run bool, now time.Time) bool {
 	switch when {
 	case "":
 		return true
+	case "never":
+		return false
 	case "afk":
 		return afk
 	case "present":

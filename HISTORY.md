@@ -17,6 +17,11 @@
 
 ## 2026-02-22
 
+### `"when": "never"` Condition
+New `"when": "never"` condition that always skips the step. Add it to
+temporarily disable a step without removing it from config; remove it
+to re-enable.
+
 ### Telegram Voice Bubbles (`telegram_voice`)
 New `telegram_voice` step type generates TTS audio, converts WAV to OGG/OPUS
 via `ffmpeg`, and uploads to Telegram via the Bot API `sendVoice` endpoint.

@@ -367,6 +367,7 @@ conditions distinguish `notify run` from direct calls:
 | `"afk"`        | User is **away** (idle time at or above threshold) |
 | `"run"`        | Invoked via `notify run` (command wrapper) |
 | `"direct"`     | Invoked directly (not via `notify run`) |
+| `"never"`      | Never runs (temporarily disable a step) |
 | `"hours:X-Y"`  | Current hour is within range (24h local time) |
 
 Set the threshold (in seconds) in `"config"`. Default is 300 (5 minutes):
