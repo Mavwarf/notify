@@ -253,7 +253,7 @@ func executeAction(cfg config.Config, profile, action string, act *config.Action
 	afk := detectAFK(cfg)
 
 	filtered := runner.FilterSteps(act.Steps, afk, run)
-	err := runner.Execute(act, volume, cfg.Options.Credentials, vars, afk, run)
+	err := runner.Execute(filtered, volume, cfg.Options.Credentials, vars)
 	if cdEnabled && cdSec > 0 {
 		cooldown.Record(profile, action)
 		if shouldLog(cfg, logFlag) {

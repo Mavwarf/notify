@@ -142,12 +142,11 @@ func matchHours(spec string, now time.Time) bool {
 	return h >= start || h < end
 }
 
-// Execute runs the steps in the given action.
+// Execute runs the given steps (already filtered by the caller).
 // Steps that don't use the audio pipeline (toast, etc.) are fired in
 // parallel at the start. Audio-pipeline steps (sound, say) run
 // sequentially in order.
-func Execute(action *config.Action, defaultVolume int, creds config.Credentials, vars tmpl.Vars, afk, run bool) error {
-	steps := FilterSteps(action.Steps, afk, run)
+func Execute(steps []config.Step, defaultVolume int, creds config.Credentials, vars tmpl.Vars) error {
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex

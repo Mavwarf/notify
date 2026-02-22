@@ -463,6 +463,8 @@ func TestValidateMissingRequiredFields(t *testing.T) {
 		{"telegram without text", Step{Type: "telegram"}, "requires \"text\" field"},
 		{"telegram_audio without text", Step{Type: "telegram_audio"}, "requires \"text\" field"},
 		{"telegram_voice without text", Step{Type: "telegram_voice"}, "requires \"text\" field"},
+		{"webhook without url", Step{Type: "webhook", Text: "hi"}, "requires \"url\" field"},
+		{"webhook without text", Step{Type: "webhook", URL: "https://example.com"}, "requires \"text\" field"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
