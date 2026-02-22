@@ -138,6 +138,8 @@ notify run [options] [profile] -- <command...>
 notify play [sound]                    # Preview a built-in sound (or list all)
 notify test [profile]                  # Dry-run: show what would happen
 notify history [N]                     # Show last N log entries (default 10)
+notify history summary [days]          # Show action counts per day (default 7)
+notify history clear                   # Delete the log file
 notify silent [duration|off]           # Suppress notifications temporarily
 notify list                            # List all profiles and actions
 notify version                         # Show version and build date
@@ -578,6 +580,9 @@ notify test boss                  # Dry-run boss profile
 notify silent 1h                  # Suppress all notifications for 1 hour
 notify history                    # Show last 10 log entries
 notify history 5                  # Show last 5 log entries
+notify history summary            # Show action counts for last 7 days
+notify history summary 30         # Show action counts for last 30 days
+notify history clear              # Delete the log file
 notify play                       # List all built-in sounds
 notify play success               # Preview the success sound
 notify -v 50 play blip            # Preview at 50% volume

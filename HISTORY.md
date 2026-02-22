@@ -2,6 +2,7 @@
 
 ## Features
 
+- History summary (`notify history summary`) — aggregated usage stats per day *(Feb 22)*
 - Profile inheritance (`"extends"`) — inherit actions from a parent profile *(Feb 22)*
 - Exit code mapping for `notify run` — map specific codes to custom actions *(Feb 22)*
 - Custom sound files — use your own WAV files in `sound` steps *(Feb 22)*
@@ -25,6 +26,15 @@
 ---
 
 ## 2026-02-22
+
+### History Summary (`notify history summary`)
+New `notify history summary [days]` subcommand parses the event log and shows
+per-profile/action execution counts grouped by day (descending). Default
+lookback is 7 days. Cooldown-skipped and silent-skipped invocations are shown
+as a "(N skipped)" annotation alongside the execution count. `cooldown=recorded`
+and `silent=enabled/disabled` entries are ignored. Also adds `notify history
+clear` to delete the log file. Parser lives in `internal/eventlog/parse.go`,
+co-located with the writer so format changes stay coordinated.
 
 ### Profile Inheritance (`"extends"`)
 Profiles can now inherit all actions from a parent profile using

@@ -427,6 +427,17 @@ func silentCmd(args []string, configPath string, logFlag bool) {
 }
 
 func historyCmd(args []string) {
+	if len(args) > 0 {
+		switch args[0] {
+		case "summary":
+			historySummary(args[1:])
+			return
+		case "clear":
+			historyClear()
+			return
+		}
+	}
+
 	count := 10
 	if len(args) > 0 {
 		n, err := strconv.Atoi(args[0])
@@ -465,6 +476,73 @@ func historyCmd(args []string) {
 			fmt.Println()
 		}
 	}
+}
+
+func historySummary(args []string) {
+	days := 7
+	if len(args) > 0 {
+		n, err := strconv.Atoi(args[0])
+		if err != nil || n <= 0 {
+			fmt.Fprintf(os.Stderr, "Error: days must be a positive integer\n")
+			os.Exit(1)
+		}
+		days = n
+	}
+
+	path := eventlog.LogPath()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Println("No log file found. Enable logging with --log or \"log\": true in config.")
+			return
+		}
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	entries := eventlog.ParseEntries(string(data))
+	groups := eventlog.SummarizeByDay(entries, days)
+
+	if len(groups) == 0 {
+		fmt.Println("No activity in the last", days, "days.")
+		return
+	}
+
+	totalExec := 0
+	totalSkip := 0
+	for i, dg := range groups {
+		if i > 0 {
+			fmt.Println()
+		}
+		fmt.Printf("%s  (%s)\n", dg.Date.Format("2006-01-02"), dg.Date.Format("Monday"))
+		for _, s := range dg.Summaries {
+			label := s.Profile + "/" + s.Action
+			if s.Skipped > 0 {
+				fmt.Printf("  %-24s %d   (%d skipped)\n", label, s.Executions, s.Skipped)
+			} else {
+				fmt.Printf("  %-24s %d\n", label, s.Executions)
+			}
+			totalExec += s.Executions
+			totalSkip += s.Skipped
+		}
+	}
+
+	fmt.Println()
+	if totalSkip > 0 {
+		fmt.Printf("Total: %d executions, %d skipped\n", totalExec, totalSkip)
+	} else {
+		fmt.Printf("Total: %d executions\n", totalExec)
+	}
+}
+
+func historyClear() {
+	path := eventlog.LogPath()
+	err := os.Remove(path)
+	if err != nil && !os.IsNotExist(err) {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("Log file cleared.")
 }
 
 func playCmd(args []string, volume int) {
@@ -651,6 +729,8 @@ Commands:
   play [sound|file.wav]  Preview a built-in sound or WAV file (no args lists built-ins)
   test [profile]         Dry-run: show what would happen without sending
   history [N]            Show last N log entries (default 10)
+  history summary [days] Show action counts per day (default 7 days)
+  history clear          Delete the log file
   silent [duration|off]  Suppress all notifications for a duration (e.g. 1h, 30m)
   list, -l, --list       List all profiles and actions
   version, -V           Show version and build date
