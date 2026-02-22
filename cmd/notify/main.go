@@ -527,14 +527,19 @@ func listProfiles(configPath string) {
 	sort.Strings(profiles)
 
 	for _, pName := range profiles {
-		fmt.Printf("%s:\n", pName)
-		actions := make([]string, 0, len(cfg.Profiles[pName]))
-		for aName := range cfg.Profiles[pName] {
+		p := cfg.Profiles[pName]
+		label := pName
+		if p.Extends != "" {
+			label = fmt.Sprintf("%s (extends %s)", pName, p.Extends)
+		}
+		fmt.Printf("%s:\n", label)
+		actions := make([]string, 0, len(p.Actions))
+		for aName := range p.Actions {
 			actions = append(actions, aName)
 		}
 		sort.Strings(actions)
 		for _, aName := range actions {
-			act := cfg.Profiles[pName][aName]
+			act := p.Actions[aName]
 			types := make([]string, len(act.Steps))
 			for i, s := range act.Steps {
 				types[i] = s.Type
@@ -588,15 +593,15 @@ func dryRun(args []string, configPath string) {
 		os.Exit(1)
 	}
 
-	actionNames := make([]string, 0, len(p))
-	for name := range p {
+	actionNames := make([]string, 0, len(p.Actions))
+	for name := range p.Actions {
 		actionNames = append(actionNames, name)
 	}
 	sort.Strings(actionNames)
 
 	fmt.Printf("\nActions:\n")
 	for _, aName := range actionNames {
-		act := p[aName]
+		act := p.Actions[aName]
 		filtered := runner.FilterSteps(act.Steps, afk, false)
 		fmt.Printf("\n  %s (%d/%d steps would run):\n", aName, len(filtered), len(act.Steps))
 		for i, s := range act.Steps {

@@ -6,6 +6,11 @@ import (
 	"testing"
 )
 
+// p is a shorthand for constructing Profile with Actions in tests.
+func p(actions map[string]Action) Profile {
+	return Profile{Actions: actions}
+}
+
 func TestUnmarshalBasic(t *testing.T) {
 	data := []byte(`{
 		"profiles": {
@@ -31,11 +36,11 @@ func TestUnmarshalBasic(t *testing.T) {
 	if len(cfg.Profiles) != 1 {
 		t.Fatalf("len(Profiles) = %d, want 1", len(cfg.Profiles))
 	}
-	p := cfg.Profiles["default"]
-	if len(p) != 1 {
-		t.Fatalf("len(default) = %d, want 1", len(p))
+	prof := cfg.Profiles["default"]
+	if len(prof.Actions) != 1 {
+		t.Fatalf("len(default.Actions) = %d, want 1", len(prof.Actions))
 	}
-	act := p["ready"]
+	act := prof.Actions["ready"]
 	if len(act.Steps) != 2 {
 		t.Fatalf("len(steps) = %d, want 2", len(act.Steps))
 	}
@@ -132,7 +137,7 @@ func TestUnmarshalWhenField(t *testing.T) {
 		t.Fatalf("Unmarshal: %v", err)
 	}
 
-	steps := cfg.Profiles["default"]["ready"].Steps
+	steps := cfg.Profiles["default"].Actions["ready"].Steps
 	if steps[0].When != "" {
 		t.Errorf("step 0 When = %q, want empty", steps[0].When)
 	}
@@ -163,7 +168,7 @@ func TestUnmarshalVolume(t *testing.T) {
 		t.Fatalf("Unmarshal: %v", err)
 	}
 
-	steps := cfg.Profiles["default"]["ready"].Steps
+	steps := cfg.Profiles["default"].Actions["ready"].Steps
 	if steps[0].Volume == nil || *steps[0].Volume != 50 {
 		t.Errorf("step 0 Volume = %v, want 50", steps[0].Volume)
 	}
@@ -314,7 +319,7 @@ func TestUnmarshalCooldownSeconds(t *testing.T) {
 		t.Fatalf("Unmarshal: %v", err)
 	}
 
-	act := cfg.Profiles["default"]["ready"]
+	act := cfg.Profiles["default"].Actions["ready"]
 	if act.CooldownSeconds != 30 {
 		t.Errorf("CooldownSeconds = %d, want 30", act.CooldownSeconds)
 	}
@@ -336,8 +341,8 @@ func TestValidateValidConfig(t *testing.T) {
 			},
 		},
 		Profiles: map[string]Profile{
-			"default": {
-				"ready": Action{
+			"default": p(map[string]Action{
+				"ready": {
 					Steps: []Step{
 						{Type: "sound", Sound: "blip"},
 						{Type: "say", Text: "Ready!", When: "present"},
@@ -350,7 +355,7 @@ func TestValidateValidConfig(t *testing.T) {
 						{Type: "telegram_voice", Text: "Done", When: "afk"},
 					},
 				},
-			},
+			}),
 		},
 	}
 	if err := Validate(cfg); err != nil {
@@ -361,9 +366,9 @@ func TestValidateValidConfig(t *testing.T) {
 func TestValidateUnknownStepType(t *testing.T) {
 	cfg := Config{
 		Profiles: map[string]Profile{
-			"default": {
-				"ready": Action{Steps: []Step{{Type: "email", Text: "hi"}}},
-			},
+			"default": p(map[string]Action{
+				"ready": {Steps: []Step{{Type: "email", Text: "hi"}}},
+			}),
 		},
 	}
 	err := Validate(cfg)
@@ -378,9 +383,9 @@ func TestValidateUnknownStepType(t *testing.T) {
 func TestValidateNeverCondition(t *testing.T) {
 	cfg := Config{
 		Profiles: map[string]Profile{
-			"default": {
-				"ready": Action{Steps: []Step{{Type: "sound", Sound: "blip", When: "never"}}},
-			},
+			"default": p(map[string]Action{
+				"ready": {Steps: []Step{{Type: "sound", Sound: "blip", When: "never"}}},
+			}),
 		},
 	}
 	if err := Validate(cfg); err != nil {
@@ -391,9 +396,9 @@ func TestValidateNeverCondition(t *testing.T) {
 func TestValidateUnknownWhenCondition(t *testing.T) {
 	cfg := Config{
 		Profiles: map[string]Profile{
-			"default": {
-				"ready": Action{Steps: []Step{{Type: "sound", Sound: "blip", When: "bogus"}}},
-			},
+			"default": p(map[string]Action{
+				"ready": {Steps: []Step{{Type: "sound", Sound: "blip", When: "bogus"}}},
+			}),
 		},
 	}
 	err := Validate(cfg)
@@ -416,9 +421,9 @@ func TestValidateInvalidHoursSpec(t *testing.T) {
 	for _, tt := range tests {
 		cfg := Config{
 			Profiles: map[string]Profile{
-				"default": {
-					"ready": Action{Steps: []Step{{Type: "sound", Sound: "blip", When: tt.when}}},
-				},
+				"default": p(map[string]Action{
+					"ready": {Steps: []Step{{Type: "sound", Sound: "blip", When: tt.when}}},
+				}),
 			},
 		}
 		if err := Validate(cfg); err == nil {
@@ -432,9 +437,9 @@ func TestValidateValidHoursSpec(t *testing.T) {
 	for _, when := range tests {
 		cfg := Config{
 			Profiles: map[string]Profile{
-				"default": {
-					"ready": Action{Steps: []Step{{Type: "sound", Sound: "blip", When: when}}},
-				},
+				"default": p(map[string]Action{
+					"ready": {Steps: []Step{{Type: "sound", Sound: "blip", When: when}}},
+				}),
 			},
 		}
 		if err := Validate(cfg); err != nil {
@@ -463,7 +468,7 @@ func TestValidateMissingRequiredFields(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := Config{
 				Profiles: map[string]Profile{
-					"default": {"ready": Action{Steps: []Step{tt.step}}},
+					"default": p(map[string]Action{"ready": {Steps: []Step{tt.step}}}),
 				},
 			}
 			err := Validate(cfg)
@@ -480,7 +485,7 @@ func TestValidateMissingRequiredFields(t *testing.T) {
 func TestValidateEmptyAction(t *testing.T) {
 	cfg := Config{
 		Profiles: map[string]Profile{
-			"default": {"ready": Action{Steps: []Step{}}},
+			"default": p(map[string]Action{"ready": {Steps: []Step{}}}),
 		},
 	}
 	err := Validate(cfg)
@@ -496,9 +501,9 @@ func TestValidateVolumeOutOfRange(t *testing.T) {
 	vol := 150
 	cfg := Config{
 		Profiles: map[string]Profile{
-			"default": {
-				"ready": Action{Steps: []Step{{Type: "sound", Sound: "blip", Volume: &vol}}},
-			},
+			"default": p(map[string]Action{
+				"ready": {Steps: []Step{{Type: "sound", Sound: "blip", Volume: &vol}}},
+			}),
 		},
 	}
 	err := Validate(cfg)
@@ -514,7 +519,7 @@ func TestValidateDefaultVolumeOutOfRange(t *testing.T) {
 	cfg := Config{
 		Options: Options{DefaultVolume: 200},
 		Profiles: map[string]Profile{
-			"default": {"ready": Action{Steps: []Step{{Type: "sound", Sound: "blip"}}}},
+			"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}}}),
 		},
 	}
 	err := Validate(cfg)
@@ -530,9 +535,9 @@ func TestValidateMultipleErrors(t *testing.T) {
 	cfg := Config{
 		Options: Options{DefaultVolume: 200},
 		Profiles: map[string]Profile{
-			"default": {
-				"ready": Action{Steps: []Step{{Type: "bogus", When: "bogus"}}},
-			},
+			"default": p(map[string]Action{
+				"ready": {Steps: []Step{{Type: "bogus", When: "bogus"}}},
+			}),
 		},
 	}
 	err := Validate(cfg)
@@ -555,7 +560,7 @@ func TestValidateMultipleErrors(t *testing.T) {
 func TestValidateDiscordMissingCredentials(t *testing.T) {
 	cfg := Config{
 		Profiles: map[string]Profile{
-			"default": {"ready": Action{Steps: []Step{{Type: "discord", Text: "hi"}}}},
+			"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "discord", Text: "hi"}}}}),
 		},
 	}
 	err := Validate(cfg)
@@ -571,7 +576,7 @@ func TestValidateDiscordWithCredentials(t *testing.T) {
 	cfg := Config{
 		Options: Options{Credentials: Credentials{DiscordWebhook: "https://example.com"}},
 		Profiles: map[string]Profile{
-			"default": {"ready": Action{Steps: []Step{{Type: "discord", Text: "hi"}}}},
+			"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "discord", Text: "hi"}}}}),
 		},
 	}
 	if err := Validate(cfg); err != nil {
@@ -582,7 +587,7 @@ func TestValidateDiscordWithCredentials(t *testing.T) {
 func TestValidateDiscordVoiceMissingCredentials(t *testing.T) {
 	cfg := Config{
 		Profiles: map[string]Profile{
-			"default": {"ready": Action{Steps: []Step{{Type: "discord_voice", Text: "hi"}}}},
+			"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "discord_voice", Text: "hi"}}}}),
 		},
 	}
 	err := Validate(cfg)
@@ -598,7 +603,7 @@ func TestValidateDiscordVoiceWithCredentials(t *testing.T) {
 	cfg := Config{
 		Options: Options{Credentials: Credentials{DiscordWebhook: "https://example.com"}},
 		Profiles: map[string]Profile{
-			"default": {"ready": Action{Steps: []Step{{Type: "discord_voice", Text: "hi"}}}},
+			"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "discord_voice", Text: "hi"}}}}),
 		},
 	}
 	if err := Validate(cfg); err != nil {
@@ -609,7 +614,7 @@ func TestValidateDiscordVoiceWithCredentials(t *testing.T) {
 func TestValidateSlackMissingCredentials(t *testing.T) {
 	cfg := Config{
 		Profiles: map[string]Profile{
-			"default": {"ready": Action{Steps: []Step{{Type: "slack", Text: "hi"}}}},
+			"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "slack", Text: "hi"}}}}),
 		},
 	}
 	err := Validate(cfg)
@@ -625,7 +630,7 @@ func TestValidateSlackWithCredentials(t *testing.T) {
 	cfg := Config{
 		Options: Options{Credentials: Credentials{SlackWebhook: "https://hooks.slack.com/services/T/B/X"}},
 		Profiles: map[string]Profile{
-			"default": {"ready": Action{Steps: []Step{{Type: "slack", Text: "hi"}}}},
+			"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "slack", Text: "hi"}}}}),
 		},
 	}
 	if err := Validate(cfg); err != nil {
@@ -636,7 +641,7 @@ func TestValidateSlackWithCredentials(t *testing.T) {
 func TestValidateTelegramMissingCredentials(t *testing.T) {
 	cfg := Config{
 		Profiles: map[string]Profile{
-			"default": {"ready": Action{Steps: []Step{{Type: "telegram", Text: "hi"}}}},
+			"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "telegram", Text: "hi"}}}}),
 		},
 	}
 	err := Validate(cfg)
@@ -652,7 +657,7 @@ func TestValidateTelegramPartialCredentials(t *testing.T) {
 	cfg := Config{
 		Options: Options{Credentials: Credentials{TelegramToken: "tok"}},
 		Profiles: map[string]Profile{
-			"default": {"ready": Action{Steps: []Step{{Type: "telegram", Text: "hi"}}}},
+			"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "telegram", Text: "hi"}}}}),
 		},
 	}
 	err := Validate(cfg)
@@ -665,7 +670,7 @@ func TestValidateTelegramWithCredentials(t *testing.T) {
 	cfg := Config{
 		Options: Options{Credentials: Credentials{TelegramToken: "tok", TelegramChatID: "123"}},
 		Profiles: map[string]Profile{
-			"default": {"ready": Action{Steps: []Step{{Type: "telegram", Text: "hi"}}}},
+			"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "telegram", Text: "hi"}}}}),
 		},
 	}
 	if err := Validate(cfg); err != nil {
@@ -676,7 +681,7 @@ func TestValidateTelegramWithCredentials(t *testing.T) {
 func TestValidateTelegramAudioMissingCredentials(t *testing.T) {
 	cfg := Config{
 		Profiles: map[string]Profile{
-			"default": {"ready": Action{Steps: []Step{{Type: "telegram_audio", Text: "hi"}}}},
+			"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "telegram_audio", Text: "hi"}}}}),
 		},
 	}
 	err := Validate(cfg)
@@ -692,7 +697,7 @@ func TestValidateTelegramAudioWithCredentials(t *testing.T) {
 	cfg := Config{
 		Options: Options{Credentials: Credentials{TelegramToken: "tok", TelegramChatID: "123"}},
 		Profiles: map[string]Profile{
-			"default": {"ready": Action{Steps: []Step{{Type: "telegram_audio", Text: "hi"}}}},
+			"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "telegram_audio", Text: "hi"}}}}),
 		},
 	}
 	if err := Validate(cfg); err != nil {
@@ -703,7 +708,7 @@ func TestValidateTelegramAudioWithCredentials(t *testing.T) {
 func TestValidateTelegramVoiceMissingCredentials(t *testing.T) {
 	cfg := Config{
 		Profiles: map[string]Profile{
-			"default": {"ready": Action{Steps: []Step{{Type: "telegram_voice", Text: "hi"}}}},
+			"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "telegram_voice", Text: "hi"}}}}),
 		},
 	}
 	err := Validate(cfg)
@@ -719,7 +724,7 @@ func TestValidateTelegramVoiceWithCredentials(t *testing.T) {
 	cfg := Config{
 		Options: Options{Credentials: Credentials{TelegramToken: "tok", TelegramChatID: "123"}},
 		Profiles: map[string]Profile{
-			"default": {"ready": Action{Steps: []Step{{Type: "telegram_voice", Text: "hi"}}}},
+			"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "telegram_voice", Text: "hi"}}}}),
 		},
 	}
 	if err := Validate(cfg); err != nil {
@@ -835,7 +840,7 @@ func TestValidateExitCodesValid(t *testing.T) {
 			ExitCodes: map[string]string{"0": "success", "2": "warning", "130": "cancelled"},
 		},
 		Profiles: map[string]Profile{
-			"default": {"ready": Action{Steps: []Step{{Type: "sound", Sound: "blip"}}}},
+			"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}}}),
 		},
 	}
 	if err := Validate(cfg); err != nil {
@@ -849,7 +854,7 @@ func TestValidateExitCodesInvalidKey(t *testing.T) {
 			ExitCodes: map[string]string{"abc": "warning"},
 		},
 		Profiles: map[string]Profile{
-			"default": {"ready": Action{Steps: []Step{{Type: "sound", Sound: "blip"}}}},
+			"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}}}),
 		},
 	}
 	err := Validate(cfg)
@@ -867,7 +872,7 @@ func TestValidateExitCodesEmptyValue(t *testing.T) {
 			ExitCodes: map[string]string{"2": ""},
 		},
 		Profiles: map[string]Profile{
-			"default": {"ready": Action{Steps: []Step{{Type: "sound", Sound: "blip"}}}},
+			"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}}}),
 		},
 	}
 	err := Validate(cfg)
@@ -882,9 +887,9 @@ func TestValidateExitCodesEmptyValue(t *testing.T) {
 func TestResolveDirectMatch(t *testing.T) {
 	cfg := Config{
 		Profiles: map[string]Profile{
-			"boss": {
-				"ready": Action{Steps: []Step{{Type: "sound", Sound: "success"}}},
-			},
+			"boss": p(map[string]Action{
+				"ready": {Steps: []Step{{Type: "sound", Sound: "success"}}},
+			}),
 		},
 	}
 
@@ -900,10 +905,10 @@ func TestResolveDirectMatch(t *testing.T) {
 func TestResolveFallbackToDefault(t *testing.T) {
 	cfg := Config{
 		Profiles: map[string]Profile{
-			"default": {
-				"ready": Action{Steps: []Step{{Type: "sound", Sound: "blip"}}},
-			},
-			"boss": {},
+			"default": p(map[string]Action{
+				"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}},
+			}),
+			"boss": p(map[string]Action{}),
 		},
 	}
 
@@ -919,12 +924,199 @@ func TestResolveFallbackToDefault(t *testing.T) {
 func TestResolveNotFound(t *testing.T) {
 	cfg := Config{
 		Profiles: map[string]Profile{
-			"default": {},
+			"default": p(map[string]Action{}),
 		},
 	}
 
 	_, err := Resolve(cfg, "boss", "ready")
 	if err == nil {
 		t.Fatal("expected error for missing action")
+	}
+}
+
+// --- Profile inheritance tests ---
+
+func TestUnmarshalExtends(t *testing.T) {
+	data := []byte(`{
+		"profiles": {
+			"default": {
+				"ready": { "steps": [{"type": "sound", "sound": "success"}] }
+			},
+			"quiet": {
+				"extends": "default",
+				"ready": { "steps": [{"type": "sound", "sound": "blip", "volume": 30}] }
+			}
+		}
+	}`)
+
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	q := cfg.Profiles["quiet"]
+	if q.Extends != "default" {
+		t.Errorf("Extends = %q, want %q", q.Extends, "default")
+	}
+	if len(q.Actions) != 1 {
+		t.Errorf("len(quiet.Actions) = %d, want 1 (before resolve)", len(q.Actions))
+	}
+}
+
+func TestUnmarshalNoExtends(t *testing.T) {
+	data := []byte(`{
+		"profiles": {
+			"default": {
+				"ready": { "steps": [{"type": "sound", "sound": "success"}] }
+			}
+		}
+	}`)
+
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	if cfg.Profiles["default"].Extends != "" {
+		t.Errorf("Extends = %q, want empty", cfg.Profiles["default"].Extends)
+	}
+}
+
+func TestResolveInheritance(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"default": p(map[string]Action{
+				"ready":   {Steps: []Step{{Type: "sound", Sound: "success"}}},
+				"error":   {Steps: []Step{{Type: "sound", Sound: "error"}}},
+				"warning": {Steps: []Step{{Type: "sound", Sound: "warning"}}},
+			}),
+			"quiet": {
+				Extends: "default",
+				Actions: map[string]Action{
+					"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}},
+				},
+			},
+		},
+	}
+
+	if err := resolveInheritance(&cfg); err != nil {
+		t.Fatalf("resolveInheritance: %v", err)
+	}
+
+	q := cfg.Profiles["quiet"]
+	// Should have all three actions: ready (overridden), error and warning (inherited).
+	if len(q.Actions) != 3 {
+		t.Fatalf("len(quiet.Actions) = %d, want 3", len(q.Actions))
+	}
+	if q.Actions["ready"].Steps[0].Sound != "blip" {
+		t.Errorf("quiet.ready should be overridden, got sound=%q", q.Actions["ready"].Steps[0].Sound)
+	}
+	if q.Actions["error"].Steps[0].Sound != "error" {
+		t.Errorf("quiet.error should be inherited, got sound=%q", q.Actions["error"].Steps[0].Sound)
+	}
+	if q.Actions["warning"].Steps[0].Sound != "warning" {
+		t.Errorf("quiet.warning should be inherited, got sound=%q", q.Actions["warning"].Steps[0].Sound)
+	}
+}
+
+func TestResolveInheritanceChain(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"base": p(map[string]Action{
+				"ready": {Steps: []Step{{Type: "sound", Sound: "success"}}},
+				"error": {Steps: []Step{{Type: "sound", Sound: "error"}}},
+			}),
+			"mid": {
+				Extends: "base",
+				Actions: map[string]Action{
+					"warning": {Steps: []Step{{Type: "sound", Sound: "warning"}}},
+				},
+			},
+			"leaf": {
+				Extends: "mid",
+				Actions: map[string]Action{
+					"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}},
+				},
+			},
+		},
+	}
+
+	if err := resolveInheritance(&cfg); err != nil {
+		t.Fatalf("resolveInheritance: %v", err)
+	}
+
+	leaf := cfg.Profiles["leaf"]
+	if len(leaf.Actions) != 3 {
+		t.Fatalf("len(leaf.Actions) = %d, want 3", len(leaf.Actions))
+	}
+	if leaf.Actions["ready"].Steps[0].Sound != "blip" {
+		t.Error("leaf.ready should be overridden")
+	}
+	if leaf.Actions["error"].Steps[0].Sound != "error" {
+		t.Error("leaf.error should be inherited from base")
+	}
+	if leaf.Actions["warning"].Steps[0].Sound != "warning" {
+		t.Error("leaf.warning should be inherited from mid")
+	}
+}
+
+func TestResolveInheritanceCircular(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"a": {
+				Extends: "b",
+				Actions: map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}}},
+			},
+			"b": {
+				Extends: "a",
+				Actions: map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}}},
+			},
+		},
+	}
+
+	err := resolveInheritance(&cfg)
+	if err == nil {
+		t.Fatal("expected error for circular extends")
+	}
+	if !strings.Contains(err.Error(), "circular") {
+		t.Errorf("expected circular error, got: %v", err)
+	}
+}
+
+func TestResolveInheritanceUnknownParent(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"quiet": {
+				Extends: "nonexistent",
+				Actions: map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}}},
+			},
+		},
+	}
+
+	err := resolveInheritance(&cfg)
+	if err == nil {
+		t.Fatal("expected error for unknown parent")
+	}
+	if !strings.Contains(err.Error(), "unknown profile") {
+		t.Errorf("expected unknown profile error, got: %v", err)
+	}
+}
+
+func TestResolveInheritanceSelfExtend(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"a": {
+				Extends: "a",
+				Actions: map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}}},
+			},
+		},
+	}
+
+	err := resolveInheritance(&cfg)
+	if err == nil {
+		t.Fatal("expected error for self-extending profile")
+	}
+	if !strings.Contains(err.Error(), "circular") {
+		t.Errorf("expected circular error, got: %v", err)
 	}
 }

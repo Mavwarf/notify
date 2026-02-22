@@ -2,6 +2,7 @@
 
 ## Features
 
+- Profile inheritance (`"extends"`) — inherit actions from a parent profile *(Feb 22)*
 - Exit code mapping for `notify run` — map specific codes to custom actions *(Feb 22)*
 - Custom sound files — use your own WAV files in `sound` steps *(Feb 22)*
 - Generic webhook step for ntfy.sh, Pushover, Home Assistant, IFTTT, etc. *(Feb 22)*
@@ -24,6 +25,19 @@
 ---
 
 ## 2026-02-22
+
+### Profile Inheritance (`"extends"`)
+Profiles can now inherit all actions from a parent profile using
+`"extends": "parent"`. The child only needs to define actions it wants to
+override — all other actions are inherited from the parent. Chains are
+supported (A extends B extends C) and circular chains are detected at load
+time with a clear error message. Inheritance is resolved eagerly after
+config load (before validation and env expansion) so all downstream code
+sees fully flattened profiles. `notify list` annotates child profiles with
+`(extends X)`. The `Profile` type changed from a plain map to a struct with
+`Extends` and `Actions` fields, with a custom `UnmarshalJSON` that keeps
+the JSON format backward-compatible — existing configs without `"extends"`
+work unchanged.
 
 ### Exit Code Mapping
 `notify run` previously hardcoded exit 0 → `ready` and non-zero → `error`.

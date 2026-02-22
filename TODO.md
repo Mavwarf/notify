@@ -1,11 +1,5 @@
 # TODO
 
-### Profile Inheritance
-
-`"extends": "default"` on a profile so it only needs to override
-specific actions instead of redefining everything. Reduces config
-duplication when multiple profiles share most steps.
-
 ### Heartbeat for Long Tasks
 
 With `notify run`, optionally ping every N minutes: "still running

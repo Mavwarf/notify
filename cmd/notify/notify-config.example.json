@@ -64,19 +64,10 @@
       }
     },
     "quiet": {
+      "extends": "default",
       "ready": {
         "steps": [
           { "type": "sound", "sound": "blip", "volume": 30 }
-        ]
-      },
-      "done": {
-        "steps": [
-          { "type": "sound", "sound": "blip", "volume": 30 }
-        ]
-      },
-      "error": {
-        "steps": [
-          { "type": "toast", "message": "Error occurred" }
         ]
       }
     }

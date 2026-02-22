@@ -53,8 +53,39 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	return json.Unmarshal(data, (*Alias)(c))
 }
 
-// Profile maps action names to actions.
-type Profile map[string]Action
+// Profile holds a set of actions and an optional parent profile name.
+// When "extends" is set, the profile inherits all actions from the
+// parent, with its own actions taking priority on conflicts.
+type Profile struct {
+	Extends string            `json:"-"`
+	Actions map[string]Action `json:"-"`
+}
+
+// UnmarshalJSON extracts the optional "extends" key and parses all
+// remaining keys as actions. This keeps the JSON format flat:
+//
+//	{ "extends": "default", "ready": { "steps": [...] } }
+func (p *Profile) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if ext, ok := raw["extends"]; ok {
+		if err := json.Unmarshal(ext, &p.Extends); err != nil {
+			return fmt.Errorf("extends: %w", err)
+		}
+		delete(raw, "extends")
+	}
+	p.Actions = make(map[string]Action, len(raw))
+	for k, v := range raw {
+		var a Action
+		if err := json.Unmarshal(v, &a); err != nil {
+			return fmt.Errorf("action %q: %w", k, err)
+		}
+		p.Actions[k] = a
+	}
+	return nil
+}
 
 // Action holds an ordered list of steps to execute.
 type Action struct {
@@ -114,7 +145,7 @@ func Validate(cfg Config) error {
 
 	// Profiles and steps.
 	for pName, profile := range cfg.Profiles {
-		for aName, action := range profile {
+		for aName, action := range profile.Actions {
 			prefix := fmt.Sprintf("profiles.%s.%s", pName, aName)
 			if len(action.Steps) == 0 {
 				errs = append(errs, fmt.Sprintf("%s: action has no steps", prefix))
@@ -266,13 +297,13 @@ func Load(explicitPath string) (Config, error) {
 // doesn't contain the action.
 func Resolve(cfg Config, profile, action string) (*Action, error) {
 	if p, ok := cfg.Profiles[profile]; ok {
-		if a, ok := p[action]; ok {
+		if a, ok := p.Actions[action]; ok {
 			return &a, nil
 		}
 	}
 	if profile != "default" {
 		if p, ok := cfg.Profiles["default"]; ok {
-			if a, ok := p[action]; ok {
+			if a, ok := p.Actions[action]; ok {
 				return &a, nil
 			}
 		}
@@ -289,16 +320,80 @@ func readConfig(path string) (Config, error) {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return Config{}, fmt.Errorf("parsing config %s: %w", path, err)
 	}
+	if err := resolveInheritance(&cfg); err != nil {
+		return Config{}, fmt.Errorf("config %s: %w", path, err)
+	}
 	expandEnvCredentials(&cfg)
 	resolveSoundPaths(&cfg, filepath.Dir(path))
 	return cfg, nil
 }
 
+// resolveInheritance flattens profile inheritance chains. For each
+// profile with an "extends" field, parent actions are merged in
+// (child actions take priority). Detects circular chains and unknown parents.
+func resolveInheritance(cfg *Config) error {
+	resolved := make(map[string]bool)
+	resolving := make(map[string]bool)
+
+	var resolve func(name string) error
+	resolve = func(name string) error {
+		if resolved[name] {
+			return nil
+		}
+		if resolving[name] {
+			return fmt.Errorf("circular extends chain involving %q", name)
+		}
+
+		profile, ok := cfg.Profiles[name]
+		if !ok {
+			return fmt.Errorf("profile %q not found", name)
+		}
+
+		if profile.Extends == "" {
+			resolved[name] = true
+			return nil
+		}
+
+		parent := profile.Extends
+		if _, ok := cfg.Profiles[parent]; !ok {
+			return fmt.Errorf("profile %q extends unknown profile %q", name, parent)
+		}
+
+		resolving[name] = true
+		if err := resolve(parent); err != nil {
+			return err
+		}
+		delete(resolving, name)
+
+		// Merge parent actions into child (child wins on conflict).
+		parentActions := cfg.Profiles[parent].Actions
+		merged := make(map[string]Action, len(parentActions)+len(profile.Actions))
+		for k, v := range parentActions {
+			merged[k] = v
+		}
+		for k, v := range profile.Actions {
+			merged[k] = v
+		}
+		profile.Actions = merged
+		cfg.Profiles[name] = profile
+
+		resolved[name] = true
+		return nil
+	}
+
+	for name := range cfg.Profiles {
+		if err := resolve(name); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // resolveSoundPaths resolves relative sound file paths against the config
 // file's directory. Built-in sound names are left unchanged.
 func resolveSoundPaths(cfg *Config, configDir string) {
-	for _, profile := range cfg.Profiles {
-		for actionName, action := range profile {
+	for pName, profile := range cfg.Profiles {
+		for actionName, action := range profile.Actions {
 			changed := false
 			for i := range action.Steps {
 				s := &action.Steps[i]
@@ -314,9 +409,10 @@ func resolveSoundPaths(cfg *Config, configDir string) {
 				}
 			}
 			if changed {
-				profile[actionName] = action
+				profile.Actions[actionName] = action
 			}
 		}
+		cfg.Profiles[pName] = profile
 	}
 }
 

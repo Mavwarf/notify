@@ -212,6 +212,14 @@ notify help                            # Show help
           { "type": "toast", "title": "Boss", "message": "Ready to go" }
         ]
       }
+    },
+    "quiet": {
+      "extends": "default",
+      "ready": {
+        "steps": [
+          { "type": "sound", "sound": "blip", "volume": 30 }
+        ]
+      }
     }
   }
 }
@@ -221,6 +229,9 @@ notify help                            # Show help
   notification pipelines.
 - Each profile maps **action** names to `{ "steps": [...] }`.
   `"default"` is the fallback profile.
+- **Profile inheritance:** add `"extends": "parent"` to inherit all actions
+  from another profile and override only specific ones. Chains are supported
+  (A extends B extends C). Circular chains are detected at load time.
 - **Step types:** `sound` (play a built-in sound or WAV file), `say` (text-to-speech),
   `toast` (desktop notification), `discord` (post to Discord channel via webhook),
   `discord_voice` (TTS audio uploaded to Discord as WAV), `slack` (post to Slack
@@ -509,9 +520,11 @@ local time). Useful for suppressing loud notifications at night:
 
 ### Lookup logic
 
-1. Try `profiles[profile][action]`
-2. If not found, fall back to `profiles["default"][action]`
-3. If neither exists, error
+1. Resolve `"extends"` chains (parent actions are merged into child,
+   child wins on conflict)
+2. Try `profiles[profile][action]`
+3. If not found, fall back to `profiles["default"][action]`
+4. If neither exists, error
 
 ### Command wrapper (`notify run`)
 
