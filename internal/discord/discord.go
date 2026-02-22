@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 
 	"github.com/Mavwarf/notify/internal/httputil"
-
 )
 
 // Send posts a message to a Discord channel via webhook URL.
