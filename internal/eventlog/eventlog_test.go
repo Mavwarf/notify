@@ -61,6 +61,15 @@ func TestStepDetailDiscordVoice(t *testing.T) {
 	}
 }
 
+func TestStepDetailSlack(t *testing.T) {
+	s := config.Step{Type: "slack", Text: "{Profile} is ready"}
+	got := stepDetail(s, tmpl.Vars{Profile: "boss"})
+	want := `text="Boss is ready"`
+	if got != want {
+		t.Errorf("stepDetail(slack) = %q, want %q", got, want)
+	}
+}
+
 func TestStepDetailTelegram(t *testing.T) {
 	s := config.Step{Type: "telegram", Text: "Done"}
 	got := stepDetail(s, tmpl.Vars{})

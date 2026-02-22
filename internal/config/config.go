@@ -64,7 +64,7 @@ type Action struct {
 type Step struct {
 	Type    string `json:"type"`              // "sound" | "say" | "toast" | "discord" | "discord_voice" | "slack" | "telegram" | "telegram_audio"
 	Sound   string `json:"sound,omitempty"`   // type=sound
-	Text    string `json:"text,omitempty"`    // type=say, discord, discord_voice, telegram, telegram_audio
+	Text    string `json:"text,omitempty"`    // type=say, discord, discord_voice, slack, telegram, telegram_audio
 	Title   string `json:"title,omitempty"`   // type=toast
 	Message string `json:"message,omitempty"` // type=toast
 	Volume  *int   `json:"volume,omitempty"`  // per-step override, nil = use default
@@ -141,7 +141,7 @@ func Validate(cfg Config) error {
 					if cfg.Options.Credentials.DiscordWebhook == "" {
 						errs = append(errs, fmt.Sprintf("%s: discord_voice step requires credentials.discord_webhook", sp))
 					}
-			case "slack":
+				case "slack":
 					if s.Text == "" {
 						errs = append(errs, fmt.Sprintf("%s: slack step requires \"text\" field", sp))
 					}
