@@ -23,6 +23,17 @@ import (
 // is left to the receiving side, so we always render at full volume.
 const remoteVolume = 100
 
+// retryOnce calls fn and, if it fails, waits 2 seconds and tries once
+// more. Used for remote network calls so a single transient error
+// doesn't lose the notification.
+func retryOnce(fn func() error) error {
+	if err := fn(); err != nil {
+		time.Sleep(2 * time.Second)
+		return fn()
+	}
+	return nil
+}
+
 // sequential returns true for step types that use the audio pipeline
 // and must run one after another.
 func sequential(typ string) bool {
@@ -162,7 +173,8 @@ func execStep(step config.Step, defaultVolume int, creds config.Credentials, var
 		}
 		return toast.Show(tmpl.Expand(title, vars), tmpl.Expand(step.Message, vars))
 	case "discord":
-		return discord.Send(creds.DiscordWebhook, tmpl.Expand(step.Text, vars))
+		msg := tmpl.Expand(step.Text, vars)
+		return retryOnce(func() error { return discord.Send(creds.DiscordWebhook, msg) })
 	case "discord_voice":
 		text := tmpl.Expand(step.Text, vars)
 		wavFile, err := os.CreateTemp("", "notify-voice-*.wav")
@@ -177,11 +189,13 @@ func execStep(step config.Step, defaultVolume int, creds config.Credentials, var
 			return fmt.Errorf("discord_voice tts: %w", err)
 		}
 		defer os.Remove(wavPath)
-		return discord.SendVoice(creds.DiscordWebhook, wavPath, text)
+		return retryOnce(func() error { return discord.SendVoice(creds.DiscordWebhook, wavPath, text) })
 	case "slack":
-		return slack.Send(creds.SlackWebhook, tmpl.Expand(step.Text, vars))
+		msg := tmpl.Expand(step.Text, vars)
+		return retryOnce(func() error { return slack.Send(creds.SlackWebhook, msg) })
 	case "telegram":
-		return telegram.Send(creds.TelegramToken, creds.TelegramChatID, tmpl.Expand(step.Text, vars))
+		msg := tmpl.Expand(step.Text, vars)
+		return retryOnce(func() error { return telegram.Send(creds.TelegramToken, creds.TelegramChatID, msg) })
 	case "telegram_audio":
 		text := tmpl.Expand(step.Text, vars)
 		wavFile, err := os.CreateTemp("", "notify-tgaudio-*.wav")
@@ -196,7 +210,7 @@ func execStep(step config.Step, defaultVolume int, creds config.Credentials, var
 			return fmt.Errorf("telegram_audio tts: %w", err)
 		}
 		defer os.Remove(wavPath)
-		return telegram.SendAudio(creds.TelegramToken, creds.TelegramChatID, wavPath, text)
+		return retryOnce(func() error { return telegram.SendAudio(creds.TelegramToken, creds.TelegramChatID, wavPath, text) })
 	case "telegram_voice":
 		text := tmpl.Expand(step.Text, vars)
 		wavFile, err := os.CreateTemp("", "notify-tgvoice-*.wav")
@@ -223,7 +237,7 @@ func execStep(step config.Step, defaultVolume int, creds config.Credentials, var
 			return fmt.Errorf("telegram_voice convert: %w", err)
 		}
 		defer os.Remove(oggPath)
-		return telegram.SendVoice(creds.TelegramToken, creds.TelegramChatID, oggPath, text)
+		return retryOnce(func() error { return telegram.SendVoice(creds.TelegramToken, creds.TelegramChatID, oggPath, text) })
 	default:
 		return fmt.Errorf("unknown step type: %q", step.Type)
 	}

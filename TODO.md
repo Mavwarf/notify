@@ -20,12 +20,6 @@ PCM — adding WAV file loading is straightforward.
 specific actions instead of redefining everything. Reduces config
 duplication when multiple profiles share most steps.
 
-### Retry for Remote Steps
-
-If a remote step (discord, slack, telegram, webhook) fails due to a
-network error, retry once after a short delay. Best-effort, no config
-needed — sensible default for flaky networks.
-
 ### Heartbeat for Long Tasks
 
 With `notify run`, optionally ping every N minutes: "still running

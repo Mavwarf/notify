@@ -2,6 +2,7 @@
 
 ## Features
 
+- Automatic retry for remote steps (discord, slack, telegram) *(Feb 22)*
 - Environment variables in credentials (`$VAR` / `${VAR}`) *(Feb 22)*
 - Sound preview (`notify play`) to audition built-in sounds *(Feb 22)*
 - Notification history (`notify history`) to view recent log entries *(Feb 22)*
@@ -20,6 +21,15 @@
 ---
 
 ## 2026-02-22
+
+### Retry for Remote Steps
+Remote notification steps (`discord`, `discord_voice`, `slack`, `telegram`,
+`telegram_audio`, `telegram_voice`) now automatically retry once after a
+2-second delay if the network call fails. Only the HTTP send is retried —
+local prep work like TTS rendering, temp file creation, and ffmpeg conversion
+is not repeated. No configuration needed; the retry is always active. This
+makes notifications resilient to transient network errors without adding
+complexity to the config.
 
 ### Environment Variables in Credentials
 Credential values (`discord_webhook`, `slack_webhook`, `telegram_token`,

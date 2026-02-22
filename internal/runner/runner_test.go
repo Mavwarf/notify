@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -188,5 +189,50 @@ func TestMatchWhen(t *testing.T) {
 					tt.when, tt.afk, tt.run, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestRetryOnceSuccess(t *testing.T) {
+	calls := 0
+	err := retryOnce(func() error {
+		calls++
+		return nil
+	})
+	if err != nil {
+		t.Errorf("err = %v, want nil", err)
+	}
+	if calls != 1 {
+		t.Errorf("calls = %d, want 1", calls)
+	}
+}
+
+func TestRetryOnceFailThenSuccess(t *testing.T) {
+	calls := 0
+	err := retryOnce(func() error {
+		calls++
+		if calls == 1 {
+			return errors.New("transient")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Errorf("err = %v, want nil", err)
+	}
+	if calls != 2 {
+		t.Errorf("calls = %d, want 2", calls)
+	}
+}
+
+func TestRetryOnceBothFail(t *testing.T) {
+	calls := 0
+	err := retryOnce(func() error {
+		calls++
+		return errors.New("fail")
+	})
+	if err == nil {
+		t.Error("err = nil, want error")
+	}
+	if calls != 2 {
+		t.Errorf("calls = %d, want 2", calls)
 	}
 }
