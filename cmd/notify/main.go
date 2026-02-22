@@ -680,7 +680,7 @@ Commands:
   history [N]            Show last N log entries (default 10)
   silent [duration|off]  Suppress all notifications for a duration (e.g. 1h, 30m)
   list, -l, --list       List all profiles and actions
-  version, -V             Show version and build date
+  version, -V           Show version and build date
   help, -h, --help       Show this help message
 
 Config resolution:

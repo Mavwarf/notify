@@ -3,6 +3,7 @@
     "afk_threshold_seconds": 300,
     "default_volume": 100,
     "log": false,
+    "echo": false,
     "cooldown": false,
     "cooldown_seconds": 30,
     "credentials": {

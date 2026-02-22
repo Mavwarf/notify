@@ -115,6 +115,7 @@ internal/
     tmpl.go              Template variable expansion ({profile}, {command}, etc.)
   shell/
     escape.go            PowerShell string escaping
+    escape_darwin.go     AppleScript string escaping
   speech/
     say_windows.go       TTS via PowerShell System.Speech
     say_darwin.go        TTS via macOS say command
