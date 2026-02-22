@@ -99,6 +99,8 @@ internal/
     runner.go            Step executor (dispatches to audio/speech/toast/discord/discord_voice/telegram/telegram_audio)
   eventlog/
     eventlog.go          Append-only invocation log (notify.log)
+  httputil/
+    snippet.go           Shared HTTP response body snippet for error messages
   tmpl/
     tmpl.go              Template variable expansion ({profile}, {command}, etc.)
   shell/

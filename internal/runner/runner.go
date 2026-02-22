@@ -162,7 +162,9 @@ func execStep(step config.Step, defaultVolume int, creds config.Credentials, var
 			return fmt.Errorf("discord_voice temp file: %w", err)
 		}
 		wavPath := wavFile.Name()
-		wavFile.Close()
+		if err := wavFile.Close(); err != nil {
+			return fmt.Errorf("discord_voice close temp: %w", err)
+		}
 		if err := speech.SayToFile(text, vol, wavPath); err != nil {
 			return fmt.Errorf("discord_voice tts: %w", err)
 		}
@@ -177,7 +179,9 @@ func execStep(step config.Step, defaultVolume int, creds config.Credentials, var
 			return fmt.Errorf("telegram_audio temp file: %w", err)
 		}
 		wavPath := wavFile.Name()
-		wavFile.Close()
+		if err := wavFile.Close(); err != nil {
+			return fmt.Errorf("telegram_audio close temp: %w", err)
+		}
 		if err := speech.SayToFile(text, vol, wavPath); err != nil {
 			return fmt.Errorf("telegram_audio tts: %w", err)
 		}
