@@ -135,6 +135,7 @@ internal/
 ```bash
 notify [options] [profile] <action>
 notify run [options] [profile] -- <command...>
+notify send [--title <t>] <type> <msg> # Send a one-off notification directly
 notify play [sound]                    # Preview a built-in sound (or list all)
 notify test [profile]                  # Dry-run: show what would happen
 notify config validate                 # Check config file for errors
@@ -585,6 +586,29 @@ from it with `"when": "direct"`:
 { "type": "say", "text": "Ready!", "when": "direct" }
 ```
 
+### Direct send (`notify send`)
+
+Fire a one-off notification without defining a profile or action in config.
+Takes the step type and message as positional args, pulls credentials from
+the existing config:
+
+```bash
+notify send say "Build finished"                # Text-to-speech
+notify send toast "Deploy complete"             # Desktop notification
+notify send toast --title Deploy "All done"     # Toast with custom title
+notify send telegram "Tests passed"             # Telegram message
+notify send telegram_voice "Ready to review"    # Telegram voice bubble
+notify send discord "Pipeline green"            # Discord message
+notify send slack "Release shipped"             # Slack message
+```
+
+Supported types: `say`, `toast`, `discord`, `discord_voice`, `slack`,
+`telegram`, `telegram_audio`, `telegram_voice`. Not supported: `sound`
+(needs a sound name, not a message) and `webhook` (needs a URL and headers).
+
+Template variables (`{time}`, `{date}`, `{hostname}`, etc.) are expanded
+in the message text. Volume is resolved from `--volume` or the config default.
+
 ### Examples
 
 ```bash
@@ -596,6 +620,9 @@ notify -c myconfig.json dev done  # Use a specific config file
 notify --log ready                # Log this invocation to notify.log
 notify --echo ready               # Print summary: "notify: sound, say, toast"
 notify --cooldown ready           # Enable cooldown for this invocation
+notify send say "Build finished"  # Speak a one-off message via TTS
+notify send telegram "Deploy done"  # Send directly to Telegram
+notify send toast --title Build "Done"  # Toast with custom title
 notify run -- make build          # Wrap a command, auto ready/error
 notify run boss -- cargo test     # Wrap with a specific profile
 notify test                       # Dry-run default profile

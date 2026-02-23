@@ -90,6 +90,8 @@ func main() {
 		historyCmd(filtered[1:])
 	case "config":
 		configCmd(filtered[1:], configPath)
+	case "send":
+		sendCmd(filtered[1:], configPath, volume, logFlag, echoFlag)
 	case "silent":
 		silentCmd(filtered[1:], configPath, logFlag)
 	case "run":
@@ -222,6 +224,74 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 	}
 
 	os.Exit(exitCode)
+}
+
+// sendTypes is the set of step types supported by "notify send".
+var sendTypes = map[string]bool{
+	"say": true, "toast": true,
+	"discord": true, "discord_voice": true,
+	"slack": true,
+	"telegram": true, "telegram_audio": true, "telegram_voice": true,
+}
+
+func sendCmd(args []string, configPath string, volume int, logFlag bool, echoFlag bool) {
+	// Parse optional --title flag (for toast).
+	var title string
+	rest := make([]string, len(args))
+	copy(rest, args)
+	for i := 0; i < len(rest); i++ {
+		if rest[i] == "--title" && i+1 < len(rest) {
+			title = rest[i+1]
+			rest = append(rest[:i], rest[i+2:]...)
+			break
+		}
+	}
+
+	if len(rest) < 2 {
+		fmt.Fprintf(os.Stderr, "Usage: notify send [--title <title>] <type> <message>\n")
+		os.Exit(1)
+	}
+
+	stepType := rest[0]
+	message := rest[1]
+
+	if !sendTypes[stepType] {
+		fmt.Fprintf(os.Stderr, "Error: unsupported send type %q\n", stepType)
+		fmt.Fprintf(os.Stderr, "Supported: say, toast, discord, discord_voice, slack, telegram, telegram_audio, telegram_voice\n")
+		os.Exit(1)
+	}
+
+	cfg, err := loadAndValidate(configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	volume = resolveVolume(volume, cfg)
+
+	// Build a single step from the positional args.
+	step := config.Step{Type: stepType}
+	if stepType == "toast" {
+		step.Message = message
+		if title != "" {
+			step.Title = title
+		}
+	} else {
+		step.Text = message
+	}
+
+	vars := baseVars("send")
+	steps := []config.Step{step}
+	if err := runner.Execute(steps, volume, cfg.Options.Credentials, vars); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	if shouldLog(cfg, logFlag) {
+		eventlog.Log("send:"+stepType, steps, false, vars)
+	}
+	if shouldEcho(cfg, echoFlag) {
+		printEcho(steps)
+	}
 }
 
 // loadAndValidate loads and validates the config file, returning an error
@@ -821,6 +891,7 @@ Docs: https://github.com/Mavwarf/notify
 Usage:
   notify [options] [profile] <action>
   notify run [options] [profile] -- <command...>
+  notify send [--title <title>] <type> <message>
 
 Options:
   --volume, -v <0-100>   Override volume (default: config or 100)
@@ -830,6 +901,10 @@ Options:
   --cooldown, -C         Enable per-action cooldown (rate limiting)
 
 Commands:
+  send <type> <message>  Send a one-off notification (e.g. send telegram "hello")
+                         Supported: say, toast, discord, discord_voice, slack,
+                         telegram, telegram_audio, telegram_voice
+                         --title <title>  Set toast title (toast only)
   run                    Wrap a command; map exit code to action (default: 0=ready, else=error)
   play [sound|file.wav]  Preview a built-in sound or WAV file (no args lists built-ins)
   test [profile]         Dry-run: show what would happen without sending

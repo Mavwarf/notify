@@ -2,6 +2,7 @@
 
 ## Features
 
+- Direct send (`notify send`) — one-off notifications without a profile *(Feb 23)*
 - Profile aliases — shorthand names for profiles *(Feb 22)*
 - Template variables: `{time}`, `{Time}`, `{date}`, `{Date}`, `{hostname}` *(Feb 22)*
 - Config validate command (`notify config validate`) *(Feb 22)*
@@ -28,6 +29,21 @@
 - Multi-step notification pipelines: sound, speech, toast *(Feb 19)*
 
 ---
+
+## 2026-02-23
+
+### Direct Send (`notify send`)
+New `notify send <type> <message>` command fires a one-off notification
+without needing a profile or action defined in config. Takes the step type
+and message as positional args, pulls credentials from the existing config,
+and executes a single step directly. Supported types: `say`, `toast`,
+`discord`, `discord_voice`, `slack`, `telegram`, `telegram_audio`,
+`telegram_voice`. The `--title` flag sets a custom title for toast
+notifications. `sound` and `webhook` are not supported (they need a sound
+name or URL+headers, not a simple message). Template variables are expanded
+in the message text. Volume is resolved from `--volume` or the config default.
+Supports `--log` and `--echo` flags — log entries use `send:<type>` as the
+action name (e.g. `send:telegram_voice`).
 
 ## 2026-02-22
 
