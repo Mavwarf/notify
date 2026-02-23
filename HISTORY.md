@@ -2,6 +2,7 @@
 
 ## Features
 
+- Notification groups — comma-separated actions in a single call *(Feb 23)*
 - Direct send (`notify send`) — one-off notifications without a profile *(Feb 23)*
 - Profile aliases — shorthand names for profiles *(Feb 22)*
 - Template variables: `{time}`, `{Time}`, `{date}`, `{Date}`, `{hostname}` *(Feb 22)*
@@ -31,6 +32,16 @@
 ---
 
 ## 2026-02-23
+
+### Notification Groups (Comma-Separated Actions)
+Fire multiple actions in a single call by separating them with commas:
+`notify boss done,attention` runs `done` then `attention` in sequence.
+Each action gets its own resolve, cooldown check, step filtering,
+execution, logging, and echo — fully independent. If one action fails
+(e.g. unknown action name), the rest still run; the process exits 1 if
+any failed. Works in both direct mode and `notify run` (including
+`exit_codes` mappings like `"2": "done,attention"`). Single actions
+work exactly as before — no breaking changes.
 
 ### Direct Send (`notify send`)
 New `notify send <type> <message>` command fires a one-off notification

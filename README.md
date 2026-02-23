@@ -133,7 +133,7 @@ internal/
 ## Usage
 
 ```bash
-notify [options] [profile] <action>
+notify [options] [profile] <action[,action2,...]>
 notify run [options] [profile] -- <command...>
 notify send [--title <t>] <type> <msg> # Send a one-off notification directly
 notify play [sound]                    # Preview a built-in sound (or list all)
@@ -615,6 +615,7 @@ in the message text. Volume is resolved from `--volume` or the config default.
 notify ready                      # Run "ready" from the default profile
 notify default ready              # Same as above (explicit default)
 notify boss ready                 # Sound + speech + toast notification
+notify boss done,attention        # Run "done" then "attention" from boss
 notify -v 50 ready                # Run at 50% volume
 notify -c myconfig.json dev done  # Use a specific config file
 notify --log ready                # Log this invocation to notify.log

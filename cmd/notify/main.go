@@ -102,12 +102,12 @@ func main() {
 }
 
 func runAction(args []string, configPath string, volume int, logFlag bool, echoFlag bool, cooldownFlag bool) {
-	var profile, action string
+	var profile, actionArg string
 	switch len(args) {
 	case 1:
-		profile, action = "default", args[0]
+		profile, actionArg = "default", args[0]
 	case 2:
-		profile, action = args[0], args[1]
+		profile, actionArg = args[0], args[1]
 	default:
 		fmt.Fprintf(os.Stderr, "Error: expected [profile] <action>\n")
 		fmt.Fprintf(os.Stderr, "Run 'notify help' for usage.\n")
@@ -120,24 +120,33 @@ func runAction(args []string, configPath string, volume int, logFlag bool, echoF
 		os.Exit(1)
 	}
 
-	if silent.IsSilent() {
-		if shouldLog(cfg, logFlag) {
-			eventlog.LogSilent(profile, action)
-		}
-		return
-	}
-
 	volume = resolveVolume(volume, cfg)
+	actions := strings.Split(actionArg, ",")
+	var failed bool
 
-	resolved, act, err := config.Resolve(cfg, profile, action)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+	for _, action := range actions {
+		if silent.IsSilent() {
+			if shouldLog(cfg, logFlag) {
+				eventlog.LogSilent(profile, action)
+			}
+			continue
+		}
+
+		resolved, act, err := config.Resolve(cfg, profile, action)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			failed = true
+			continue
+		}
+
+		vars := baseVars(resolved)
+		if err := executeAction(cfg, resolved, action, act, volume, logFlag, echoFlag, cooldownFlag, false, vars); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			failed = true
+		}
 	}
 
-	vars := baseVars(resolved)
-	if err := executeAction(cfg, resolved, action, act, volume, logFlag, echoFlag, cooldownFlag, false, vars); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+	if failed {
 		os.Exit(1)
 	}
 }
@@ -198,29 +207,32 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 		os.Exit(exitCode)
 	}
 
-	action := resolveExitAction(cfg.Options.ExitCodes, exitCode)
-
-	if silent.IsSilent() {
-		if shouldLog(cfg, logFlag) {
-			eventlog.LogSilent(profile, action)
-		}
-		os.Exit(exitCode)
-	}
+	actionArg := resolveExitAction(cfg.Options.ExitCodes, exitCode)
 
 	volume = resolveVolume(volume, cfg)
+	actions := strings.Split(actionArg, ",")
 
-	resolved, act, err := config.Resolve(cfg, profile, action)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(exitCode)
-	}
+	for _, action := range actions {
+		if silent.IsSilent() {
+			if shouldLog(cfg, logFlag) {
+				eventlog.LogSilent(profile, action)
+			}
+			continue
+		}
 
-	vars := baseVars(resolved)
-	vars.Command = strings.Join(cmdArgs, " ")
-	vars.Duration = formatDuration(elapsed)
-	vars.DurationSay = formatDurationSay(elapsed)
-	if err := executeAction(cfg, resolved, action, act, volume, logFlag, echoFlag, cooldownFlag, true, vars); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		resolved, act, err := config.Resolve(cfg, profile, action)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			continue
+		}
+
+		vars := baseVars(resolved)
+		vars.Command = strings.Join(cmdArgs, " ")
+		vars.Duration = formatDuration(elapsed)
+		vars.DurationSay = formatDurationSay(elapsed)
+		if err := executeAction(cfg, resolved, action, act, volume, logFlag, echoFlag, cooldownFlag, true, vars); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		}
 	}
 
 	os.Exit(exitCode)
@@ -889,7 +901,7 @@ func printUsage() {
 Docs: https://github.com/Mavwarf/notify
 
 Usage:
-  notify [options] [profile] <action>
+  notify [options] [profile] <action[,action2,...]>
   notify run [options] [profile] -- <command...>
   notify send [--title <title>] <type> <message>
 
@@ -926,6 +938,7 @@ Config resolution:
 Examples:
   notify ready                     Run "ready" from the default profile
   notify boss ready                Run "ready" from the boss profile
+  notify boss done,attention       Run "done" then "attention" from boss
   notify -v 50 ready               Run at 50% volume
   notify run -- make build         Wrap a command (default profile)
   notify run boss -- cargo test    Wrap with a specific profile

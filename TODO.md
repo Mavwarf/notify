@@ -49,13 +49,6 @@ voice message to Telegram/Discord.
 - Concatenate PCM/WAV segments — normalize sample rate/format first
 - Bigger lift than most features; may benefit from an audio utility package
 
-### Notification Groups
-
-Fire multiple actions in one call: `notify boss done,attention` triggers
-both the `done` and `attention` actions in sequence. Useful for combining
-a notification with an escalation in a single invocation without shell
-chaining.
-
 ### `notify watch` (PID or File)
 
 Watch a running process or file for changes: `notify watch --pid 1234`
