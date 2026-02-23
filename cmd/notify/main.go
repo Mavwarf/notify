@@ -334,8 +334,10 @@ func executeAction(cfg config.Config, profile, action string, act *config.Action
 
 	afk := detectAFK(cfg)
 
+	creds := config.MergeCredentials(cfg.Options.Credentials, cfg.Profiles[profile].Credentials)
+
 	filtered := runner.FilterSteps(act.Steps, afk, run)
-	err := runner.Execute(filtered, volume, cfg.Options.Credentials, vars)
+	err := runner.Execute(filtered, volume, creds, vars)
 	if cdEnabled && cdSec > 0 {
 		cooldown.Record(profile, action)
 		if shouldLog(cfg, logFlag) {
@@ -811,7 +813,7 @@ func dryRun(args []string, configPath string) {
 	fmt.Printf("Profile: %s\n", profile)
 	fmt.Printf("Volume:  %d\n", cfg.Options.DefaultVolume)
 
-	creds := cfg.Options.Credentials
+	creds := config.MergeCredentials(cfg.Options.Credentials, cfg.Profiles[profile].Credentials)
 	fmt.Printf("Discord: %s\n", credStatus(creds.DiscordWebhook != ""))
 	fmt.Printf("Slack:   %s\n", credStatus(creds.SlackWebhook != ""))
 	fmt.Printf("Telegram:%s\n", credStatus(creds.TelegramToken != "" && creds.TelegramChatID != ""))

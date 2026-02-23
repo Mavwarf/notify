@@ -351,6 +351,44 @@ Credential values support environment variable expansion using `$VAR` or
 Undefined variables resolve to empty strings, which config validation
 catches as missing credentials. Literal URLs (no `$`) pass through unchanged.
 
+#### Per-profile credential overrides
+
+Profiles can override global credentials field-by-field so different
+profiles post to different channels. Set only the fields you want to
+change — the rest fall through to global:
+
+```json
+{
+  "config": {
+    "credentials": {
+      "discord_webhook": "https://discord.com/api/webhooks/.../general",
+      "telegram_token": "$TELEGRAM_TOKEN",
+      "telegram_chat_id": "$TELEGRAM_CHAT_ID"
+    }
+  },
+  "profiles": {
+    "projectA": {
+      "credentials": {
+        "discord_webhook": "https://discord.com/api/webhooks/.../project-a"
+      },
+      "done": {
+        "steps": [
+          { "type": "discord", "text": "Project A done!" },
+          { "type": "telegram", "text": "Project A done!" }
+        ]
+      }
+    }
+  }
+}
+```
+
+Here `projectA` uses its own Discord webhook but inherits the global
+Telegram credentials. Profile credentials support `$VAR` / `${VAR}`
+expansion just like global credentials. When a profile extends another,
+parent credentials are merged into child (child wins on conflict).
+Config validation uses merged credentials, so a `discord` step only
+needs `discord_webhook` set somewhere — globally or on the profile.
+
 - **Discord webhook URL:** Server Settings → Integrations → Webhooks →
   New Webhook → Copy Webhook URL.
 - **Slack webhook URL:** App settings → Incoming Webhooks → Add New Webhook

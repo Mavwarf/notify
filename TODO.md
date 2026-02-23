@@ -55,13 +55,6 @@ Watch a running process or file for changes: `notify watch --pid 1234`
 triggers when the PID exits, `notify watch --file build.log` triggers
 when the file is modified. Polling-based with configurable interval.
 
-### Conditional Credentials
-
-Per-profile credential overrides so different profiles can post to
-different Discord channels or Telegram chats. Currently credentials are
-global; this would allow `"credentials"` inside a profile to override
-specific fields.
-
 ### Plugin System
 
 External scripts as step types. A `"plugin"` step would run a user

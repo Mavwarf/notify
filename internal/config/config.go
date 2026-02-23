@@ -57,10 +57,12 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 // When "extends" is set, the profile inherits all actions from the
 // parent, with its own actions taking priority on conflicts.
 // Aliases provide shorthand names for the profile.
+// Credentials override global credentials field-by-field (nil = use global only).
 type Profile struct {
-	Extends string            `json:"-"`
-	Aliases []string          `json:"-"`
-	Actions map[string]Action `json:"-"`
+	Extends     string            `json:"-"`
+	Aliases     []string          `json:"-"`
+	Credentials *Credentials      `json:"-"`
+	Actions     map[string]Action `json:"-"`
 }
 
 // UnmarshalJSON extracts the optional "extends" key and parses all
@@ -83,6 +85,14 @@ func (p *Profile) UnmarshalJSON(data []byte) error {
 			return fmt.Errorf("aliases: %w", err)
 		}
 		delete(raw, "aliases")
+	}
+	if cr, ok := raw["credentials"]; ok {
+		var creds Credentials
+		if err := json.Unmarshal(cr, &creds); err != nil {
+			return fmt.Errorf("credentials: %w", err)
+		}
+		p.Credentials = &creds
+		delete(raw, "credentials")
 	}
 	p.Actions = make(map[string]Action, len(raw))
 	for k, v := range raw {
@@ -167,6 +177,7 @@ func Validate(cfg Config) error {
 
 	// Profiles and steps.
 	for pName, profile := range cfg.Profiles {
+		creds := MergeCredentials(cfg.Options.Credentials, profile.Credentials)
 		for aName, action := range profile.Actions {
 			prefix := fmt.Sprintf("profiles.%s.%s", pName, aName)
 			if len(action.Steps) == 0 {
@@ -204,21 +215,21 @@ func Validate(cfg Config) error {
 					if s.Text == "" {
 						errs = append(errs, fmt.Sprintf("%s: %s step requires \"text\" field", sp, s.Type))
 					}
-					if cfg.Options.Credentials.DiscordWebhook == "" {
+					if creds.DiscordWebhook == "" {
 						errs = append(errs, fmt.Sprintf("%s: %s step requires credentials.discord_webhook", sp, s.Type))
 					}
 				case "slack":
 					if s.Text == "" {
 						errs = append(errs, fmt.Sprintf("%s: slack step requires \"text\" field", sp))
 					}
-					if cfg.Options.Credentials.SlackWebhook == "" {
+					if creds.SlackWebhook == "" {
 						errs = append(errs, fmt.Sprintf("%s: slack step requires credentials.slack_webhook", sp))
 					}
 				case "telegram", "telegram_audio", "telegram_voice":
 					if s.Text == "" {
 						errs = append(errs, fmt.Sprintf("%s: %s step requires \"text\" field", sp, s.Type))
 					}
-					if cfg.Options.Credentials.TelegramToken == "" || cfg.Options.Credentials.TelegramChatID == "" {
+					if creds.TelegramToken == "" || creds.TelegramChatID == "" {
 						errs = append(errs, fmt.Sprintf("%s: %s step requires credentials.telegram_token and telegram_chat_id", sp, s.Type))
 					}
 				case "webhook":
@@ -392,16 +403,25 @@ func resolveInheritance(cfg *Config) error {
 		}
 		delete(resolving, name)
 
+		// Merge parent credentials into child (child wins on conflict).
+		parentProfile := cfg.Profiles[parent]
+		if profile.Credentials == nil {
+			profile.Credentials = parentProfile.Credentials
+		} else if parentProfile.Credentials != nil {
+			merged := MergeCredentials(*parentProfile.Credentials, profile.Credentials)
+			profile.Credentials = &merged
+		}
+
 		// Merge parent actions into child (child wins on conflict).
-		parentActions := cfg.Profiles[parent].Actions
-		merged := make(map[string]Action, len(parentActions)+len(profile.Actions))
+		parentActions := parentProfile.Actions
+		mergedActions := make(map[string]Action, len(parentActions)+len(profile.Actions))
 		for k, v := range parentActions {
-			merged[k] = v
+			mergedActions[k] = v
 		}
 		for k, v := range profile.Actions {
-			merged[k] = v
+			mergedActions[k] = v
 		}
-		profile.Actions = merged
+		profile.Actions = mergedActions
 		cfg.Profiles[name] = profile
 
 		resolved[name] = true
@@ -443,13 +463,43 @@ func resolveSoundPaths(cfg *Config, configDir string) {
 	}
 }
 
+// MergeCredentials returns global credentials with any non-empty profile
+// fields overriding. A nil profile returns global unchanged.
+func MergeCredentials(global Credentials, profile *Credentials) Credentials {
+	if profile == nil {
+		return global
+	}
+	merged := global
+	if profile.DiscordWebhook != "" {
+		merged.DiscordWebhook = profile.DiscordWebhook
+	}
+	if profile.SlackWebhook != "" {
+		merged.SlackWebhook = profile.SlackWebhook
+	}
+	if profile.TelegramToken != "" {
+		merged.TelegramToken = profile.TelegramToken
+	}
+	if profile.TelegramChatID != "" {
+		merged.TelegramChatID = profile.TelegramChatID
+	}
+	return merged
+}
+
 // expandEnvCredentials expands $VAR and ${VAR} references in credential
 // fields so users can keep secrets in environment variables instead of
 // hardcoding them in the JSON config.
 func expandEnvCredentials(cfg *Config) {
-	c := &cfg.Options.Credentials
-	c.DiscordWebhook = os.ExpandEnv(c.DiscordWebhook)
-	c.SlackWebhook = os.ExpandEnv(c.SlackWebhook)
-	c.TelegramToken = os.ExpandEnv(c.TelegramToken)
-	c.TelegramChatID = os.ExpandEnv(c.TelegramChatID)
+	expandCreds := func(c *Credentials) {
+		c.DiscordWebhook = os.ExpandEnv(c.DiscordWebhook)
+		c.SlackWebhook = os.ExpandEnv(c.SlackWebhook)
+		c.TelegramToken = os.ExpandEnv(c.TelegramToken)
+		c.TelegramChatID = os.ExpandEnv(c.TelegramChatID)
+	}
+	expandCreds(&cfg.Options.Credentials)
+	for pName, profile := range cfg.Profiles {
+		if profile.Credentials != nil {
+			expandCreds(profile.Credentials)
+			cfg.Profiles[pName] = profile
+		}
+	}
 }

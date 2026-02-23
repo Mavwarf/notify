@@ -2,6 +2,7 @@
 
 ## Features
 
+- Per-profile credential overrides — different profiles can target different channels *(Feb 23)*
 - Notification groups — comma-separated actions in a single call *(Feb 23)*
 - Direct send (`notify send`) — one-off notifications without a profile *(Feb 23)*
 - Profile aliases — shorthand names for profiles *(Feb 22)*
@@ -32,6 +33,18 @@
 ---
 
 ## 2026-02-23
+
+### Per-Profile Credential Overrides
+Credentials (`discord_webhook`, `slack_webhook`, `telegram_token`,
+`telegram_chat_id`) can now be set per-profile in addition to globally.
+Profile credentials override global ones field-by-field — set only the
+fields you want to change, the rest fall through to global. This lets
+different profiles post to different Discord channels, Slack channels,
+or Telegram chats. Profile credentials support the same `$VAR` / `${VAR}`
+environment variable expansion as global credentials. Profile inheritance
+(`"extends"`) merges parent credentials into child (child wins on conflict).
+Config validation uses merged credentials, so a profile with a `discord`
+step only needs `discord_webhook` set somewhere — globally or on the profile.
 
 ### Notification Groups (Comma-Separated Actions)
 Fire multiple actions in a single call by separating them with commas:

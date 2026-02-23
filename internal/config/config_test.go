@@ -1257,6 +1257,279 @@ func TestValidateAliasShadowsProfile(t *testing.T) {
 	}
 }
 
+// --- MergeCredentials tests ---
+
+func TestMergeCredentialsNilProfile(t *testing.T) {
+	global := Credentials{
+		DiscordWebhook: "https://discord.com/global",
+		SlackWebhook:   "https://slack.com/global",
+		TelegramToken:  "globaltoken",
+		TelegramChatID: "globalchat",
+	}
+	merged := MergeCredentials(global, nil)
+	if merged != global {
+		t.Errorf("expected global unchanged, got %+v", merged)
+	}
+}
+
+func TestMergeCredentialsPartialOverride(t *testing.T) {
+	global := Credentials{
+		DiscordWebhook: "https://discord.com/global",
+		SlackWebhook:   "https://slack.com/global",
+		TelegramToken:  "globaltoken",
+		TelegramChatID: "globalchat",
+	}
+	profile := &Credentials{
+		DiscordWebhook: "https://discord.com/override",
+	}
+	merged := MergeCredentials(global, profile)
+	if merged.DiscordWebhook != "https://discord.com/override" {
+		t.Errorf("DiscordWebhook = %q, want override", merged.DiscordWebhook)
+	}
+	if merged.SlackWebhook != "https://slack.com/global" {
+		t.Errorf("SlackWebhook = %q, want global", merged.SlackWebhook)
+	}
+	if merged.TelegramToken != "globaltoken" {
+		t.Errorf("TelegramToken = %q, want global", merged.TelegramToken)
+	}
+	if merged.TelegramChatID != "globalchat" {
+		t.Errorf("TelegramChatID = %q, want global", merged.TelegramChatID)
+	}
+}
+
+func TestMergeCredentialsFullOverride(t *testing.T) {
+	global := Credentials{
+		DiscordWebhook: "https://discord.com/global",
+		SlackWebhook:   "https://slack.com/global",
+		TelegramToken:  "globaltoken",
+		TelegramChatID: "globalchat",
+	}
+	profile := &Credentials{
+		DiscordWebhook: "https://discord.com/override",
+		SlackWebhook:   "https://slack.com/override",
+		TelegramToken:  "overridetoken",
+		TelegramChatID: "overridechat",
+	}
+	merged := MergeCredentials(global, profile)
+	if merged != *profile {
+		t.Errorf("expected full override, got %+v", merged)
+	}
+}
+
+// --- Per-profile credentials tests ---
+
+func TestUnmarshalProfileCredentials(t *testing.T) {
+	data := []byte(`{
+		"config": {
+			"credentials": {
+				"discord_webhook": "https://discord.com/global"
+			}
+		},
+		"profiles": {
+			"projectA": {
+				"credentials": {
+					"discord_webhook": "https://discord.com/project-a"
+				},
+				"done": { "steps": [{"type": "discord", "text": "Done!"}] }
+			}
+		}
+	}`)
+
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	p := cfg.Profiles["projectA"]
+	if p.Credentials == nil {
+		t.Fatal("expected profile credentials, got nil")
+	}
+	if p.Credentials.DiscordWebhook != "https://discord.com/project-a" {
+		t.Errorf("profile DiscordWebhook = %q", p.Credentials.DiscordWebhook)
+	}
+	if cfg.Options.Credentials.DiscordWebhook != "https://discord.com/global" {
+		t.Errorf("global DiscordWebhook = %q", cfg.Options.Credentials.DiscordWebhook)
+	}
+}
+
+func TestUnmarshalProfileNoCredentials(t *testing.T) {
+	data := []byte(`{
+		"profiles": {
+			"default": {
+				"ready": { "steps": [{"type": "sound", "sound": "blip"}] }
+			}
+		}
+	}`)
+
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	if cfg.Profiles["default"].Credentials != nil {
+		t.Errorf("expected nil credentials, got %+v", cfg.Profiles["default"].Credentials)
+	}
+}
+
+func TestValidateProfileCredentialsOverrideGlobal(t *testing.T) {
+	// Profile has discord_webhook but global does not — should pass.
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"projectA": {
+				Credentials: &Credentials{DiscordWebhook: "https://discord.com/project-a"},
+				Actions: map[string]Action{
+					"done": {Steps: []Step{{Type: "discord", Text: "Done!"}}},
+				},
+			},
+		},
+	}
+	if err := Validate(cfg); err != nil {
+		t.Errorf("expected valid with profile credentials, got: %v", err)
+	}
+}
+
+func TestValidateProfileCredentialsMissingBoth(t *testing.T) {
+	// Neither global nor profile has discord_webhook — should fail.
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"projectA": {
+				Actions: map[string]Action{
+					"done": {Steps: []Step{{Type: "discord", Text: "Done!"}}},
+				},
+			},
+		},
+	}
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for missing discord credentials")
+	}
+	if !strings.Contains(err.Error(), "credentials.discord_webhook") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestExpandEnvProfileCredentials(t *testing.T) {
+	t.Setenv("NOTIFY_TEST_PROFILE_DISCORD", "https://discord.com/profile-env")
+
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"projectA": {
+				Credentials: &Credentials{
+					DiscordWebhook: "$NOTIFY_TEST_PROFILE_DISCORD",
+				},
+				Actions: map[string]Action{
+					"done": {Steps: []Step{{Type: "sound", Sound: "blip"}}},
+				},
+			},
+		},
+	}
+	expandEnvCredentials(&cfg)
+
+	if cfg.Profiles["projectA"].Credentials.DiscordWebhook != "https://discord.com/profile-env" {
+		t.Errorf("profile DiscordWebhook = %q", cfg.Profiles["projectA"].Credentials.DiscordWebhook)
+	}
+}
+
+func TestResolveInheritanceCredentials(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"base": {
+				Credentials: &Credentials{
+					DiscordWebhook: "https://discord.com/base",
+					SlackWebhook:   "https://slack.com/base",
+				},
+				Actions: map[string]Action{
+					"ready": {Steps: []Step{{Type: "sound", Sound: "success"}}},
+				},
+			},
+			"child": {
+				Extends: "base",
+				Credentials: &Credentials{
+					DiscordWebhook: "https://discord.com/child",
+				},
+				Actions: map[string]Action{},
+			},
+		},
+	}
+
+	if err := resolveInheritance(&cfg); err != nil {
+		t.Fatalf("resolveInheritance: %v", err)
+	}
+
+	child := cfg.Profiles["child"]
+	if child.Credentials == nil {
+		t.Fatal("expected merged credentials, got nil")
+	}
+	if child.Credentials.DiscordWebhook != "https://discord.com/child" {
+		t.Errorf("child DiscordWebhook = %q, want child override", child.Credentials.DiscordWebhook)
+	}
+	if child.Credentials.SlackWebhook != "https://slack.com/base" {
+		t.Errorf("child SlackWebhook = %q, want base inherited", child.Credentials.SlackWebhook)
+	}
+}
+
+func TestResolveInheritanceCredentialsChildOnly(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"base": {
+				Actions: map[string]Action{
+					"ready": {Steps: []Step{{Type: "sound", Sound: "success"}}},
+				},
+			},
+			"child": {
+				Extends: "base",
+				Credentials: &Credentials{
+					DiscordWebhook: "https://discord.com/child",
+				},
+				Actions: map[string]Action{},
+			},
+		},
+	}
+
+	if err := resolveInheritance(&cfg); err != nil {
+		t.Fatalf("resolveInheritance: %v", err)
+	}
+
+	child := cfg.Profiles["child"]
+	if child.Credentials == nil {
+		t.Fatal("expected child credentials preserved, got nil")
+	}
+	if child.Credentials.DiscordWebhook != "https://discord.com/child" {
+		t.Errorf("child DiscordWebhook = %q", child.Credentials.DiscordWebhook)
+	}
+}
+
+func TestResolveInheritanceCredentialsParentOnly(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"base": {
+				Credentials: &Credentials{
+					DiscordWebhook: "https://discord.com/base",
+				},
+				Actions: map[string]Action{
+					"ready": {Steps: []Step{{Type: "sound", Sound: "success"}}},
+				},
+			},
+			"child": {
+				Extends: "base",
+				Actions: map[string]Action{},
+			},
+		},
+	}
+
+	if err := resolveInheritance(&cfg); err != nil {
+		t.Fatalf("resolveInheritance: %v", err)
+	}
+
+	child := cfg.Profiles["child"]
+	if child.Credentials == nil {
+		t.Fatal("expected inherited credentials, got nil")
+	}
+	if child.Credentials.DiscordWebhook != "https://discord.com/base" {
+		t.Errorf("child DiscordWebhook = %q, want inherited from base", child.Credentials.DiscordWebhook)
+	}
+}
+
 func TestValidateDuplicateAlias(t *testing.T) {
 	cfg := Config{
 		Profiles: map[string]Profile{
