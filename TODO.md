@@ -32,13 +32,6 @@ Additional step types beyond `discord`, `slack`, and `telegram`:
 Would extend `"config"` → `"credentials"` with additional webhook URLs
 and API tokens. Same pattern as the existing discord/slack/telegram integration.
 
-### Direct Send (`notify send`)
-
-Fire a single step directly from the command line without a profile or
-action: `notify send telegram_voice "Build finished"`. Takes the step
-type and message as positional args, pulls credentials from the existing
-config. Useful for quick one-off notifications and scripting.
-
 ### Inline Sound Effects in Voice Messages
 
 Mix TTS speech with sound effects in a single audio message using
