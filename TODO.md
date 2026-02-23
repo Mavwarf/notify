@@ -32,6 +32,30 @@ Additional step types beyond `discord`, `slack`, and `telegram`:
 Would extend `"config"` → `"credentials"` with additional webhook URLs
 and API tokens. Same pattern as the existing discord/slack/telegram integration.
 
+### Direct Send (`notify send`)
+
+Fire a single step directly from the command line without a profile or
+action: `notify send telegram_voice "Build finished"`. Takes the step
+type and message as positional args, pulls credentials from the existing
+config. Useful for quick one-off notifications and scripting.
+
+### Inline Sound Effects in Voice Messages
+
+Mix TTS speech with sound effects in a single audio message using
+template syntax: `"{sound:error} Warning! {sound:alarm.wav} Build failed"`.
+The output would stitch segments into one audio file: predefined sound,
+TTS speech, WAV file, more TTS — all concatenated and sent as a single
+voice message to Telegram/Discord.
+
+**Implementation notes:**
+- Parse message into segments (sound refs vs text-to-speech spans)
+- Capture TTS output to WAV buffer instead of playing directly
+  (Windows SAPI → WAV, macOS `say --output-file`)
+- Predefined sounds (error, success, etc.) bundled via Go `embed`
+  or resolved from a user sounds directory
+- Concatenate PCM/WAV segments — normalize sample rate/format first
+- Bigger lift than most features; may benefit from an audio utility package
+
 ### Notification Groups
 
 Fire multiple actions in one call: `notify boss done,attention` triggers
