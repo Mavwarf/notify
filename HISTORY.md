@@ -2,7 +2,8 @@
 
 ## Features
 
-- Per-profile credential overrides — different profiles can target different channels *(Feb 23)*
+- History clean (`notify history clean`) — prune old log entries by age *(Feb 24)*
+- Per-profile credential overrides — different profiles can target different channels *(Feb 24)*
 - Notification groups — comma-separated actions in a single call *(Feb 23)*
 - Direct send (`notify send`) — one-off notifications without a profile *(Feb 23)*
 - Profile aliases — shorthand names for profiles *(Feb 22)*
@@ -32,7 +33,14 @@
 
 ---
 
-## 2026-02-23
+## 2026-02-24
+
+### History Clean (`notify history clean`)
+New `notify history clean [days]` subcommand prunes old log entries by age.
+`notify history clean 7` removes all entries older than 7 days while keeping
+recent ones. `notify history clean` with no argument clears the entire log
+(same as `history clear`). Prints a summary of how many entries were removed
+and kept. Useful for periodic log maintenance without losing recent history.
 
 ### Per-Profile Credential Overrides
 Credentials (`discord_webhook`, `slack_webhook`, `telegram_token`,
@@ -45,6 +53,10 @@ environment variable expansion as global credentials. Profile inheritance
 (`"extends"`) merges parent credentials into child (child wins on conflict).
 Config validation uses merged credentials, so a profile with a `discord`
 step only needs `discord_webhook` set somewhere — globally or on the profile.
+
+---
+
+## 2026-02-23
 
 ### Notification Groups (Comma-Separated Actions)
 Fire multiple actions in a single call by separating them with commas:

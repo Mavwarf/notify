@@ -142,6 +142,7 @@ notify config validate                 # Check config file for errors
 notify history [N]                     # Show last N log entries (default 10)
 notify history summary [days]          # Show action counts per day (default 7)
 notify history export [days]           # Export log entries as JSON (default: all)
+notify history clean [days]             # Remove old entries, keep last N days
 notify history clear                   # Delete the log file
 notify silent [duration|off]           # Suppress notifications temporarily
 notify list                            # List all profiles and actions
@@ -673,6 +674,7 @@ notify history summary            # Show action counts for last 7 days
 notify history summary 30         # Show action counts for last 30 days
 notify history export              # Export all log entries as JSON
 notify history export 7            # Export last 7 days as JSON
+notify history clean 7            # Remove entries older than 7 days
 notify history clear              # Delete the log file
 notify config validate            # Check config for errors
 notify b ready                    # Use alias "b" for the boss profile

@@ -534,6 +534,9 @@ func historyCmd(args []string) {
 		case "clear":
 			historyClear()
 			return
+		case "clean":
+			historyClean(args[1:])
+			return
 		case "export":
 			historyExport(args[1:])
 			return
@@ -630,10 +633,11 @@ func historySummary(args []string) {
 	}
 
 	fmt.Println()
+	total := totalExec + totalSkip
 	if totalSkip > 0 {
-		fmt.Printf("Total: %d executions, %d skipped\n", totalExec, totalSkip)
+		fmt.Printf("Total: %d notifications (%d executions, %d skipped)\n", total, totalExec, totalSkip)
 	} else {
-		fmt.Printf("Total: %d executions\n", totalExec)
+		fmt.Printf("Total: %d notifications\n", total)
 	}
 }
 
@@ -645,6 +649,81 @@ func historyClear() {
 		os.Exit(1)
 	}
 	fmt.Println("Log file cleared.")
+}
+
+func historyClean(args []string) {
+	if len(args) == 0 {
+		// No days argument — clear everything.
+		historyClear()
+		return
+	}
+
+	days, err := strconv.Atoi(args[0])
+	if err != nil || days <= 0 {
+		fmt.Fprintf(os.Stderr, "Error: days must be a positive integer\n")
+		os.Exit(1)
+	}
+
+	path := eventlog.LogPath()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Println("Log file is empty.")
+			return
+		}
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	content := strings.TrimRight(string(data), "\n\r ")
+	if content == "" {
+		fmt.Println("Log file is empty.")
+		return
+	}
+
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	cutoff := today.AddDate(0, 0, -(days - 1))
+
+	blocks := strings.Split(content, "\n\n")
+	var kept []string
+	for _, block := range blocks {
+		block = strings.TrimSpace(block)
+		if block == "" {
+			continue
+		}
+		// Parse timestamp from first line.
+		firstLine := block
+		if idx := strings.Index(block, "\n"); idx > 0 {
+			firstLine = block[:idx]
+		}
+		tsEnd := strings.Index(firstLine, "  ")
+		if tsEnd < 0 {
+			continue
+		}
+		ts, err := time.Parse(time.RFC3339, firstLine[:tsEnd])
+		if err != nil {
+			continue
+		}
+		if !ts.In(now.Location()).Before(cutoff) {
+			kept = append(kept, block)
+		}
+	}
+
+	removed := len(blocks) - len(kept)
+
+	if len(kept) == 0 {
+		os.Remove(path)
+		fmt.Printf("Removed %d entries. Log file cleared.\n", removed)
+		return
+	}
+
+	out := strings.Join(kept, "\n\n") + "\n\n"
+	if err := os.WriteFile(path, []byte(out), 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Removed %d entries, kept %d (last %d days).\n", removed, len(kept), days)
 }
 
 func configCmd(args []string, configPath string) {
@@ -926,6 +1005,7 @@ Commands:
   history [N]            Show last N log entries (default 10)
   history summary [days] Show action counts per day (default 7 days)
   history export [days]  Export log entries as JSON (default: all)
+  history clean [days]   Remove old entries, keep last N days (no arg = clear all)
   history clear          Delete the log file
   silent [duration|off]  Suppress all notifications for a duration (e.g. 1h, 30m)
   list, -l, --list       List all profiles and actions
