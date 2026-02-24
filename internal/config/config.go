@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -53,15 +54,26 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	return json.Unmarshal(data, (*Alias)(c))
 }
 
+// MatchRule defines conditions for automatic profile selection.
+// All non-empty fields must match (AND logic). Dir is a substring
+// check against the working directory (forward-slash normalized).
+// Env is a KEY=VALUE check against an environment variable.
+type MatchRule struct {
+	Dir string `json:"dir,omitempty"`
+	Env string `json:"env,omitempty"`
+}
+
 // Profile holds a set of actions and an optional parent profile name.
 // When "extends" is set, the profile inherits all actions from the
 // parent, with its own actions taking priority on conflicts.
 // Aliases provide shorthand names for the profile.
 // Credentials override global credentials field-by-field (nil = use global only).
+// Match defines conditions for automatic profile selection (nil = never auto-selected).
 type Profile struct {
 	Extends     string            `json:"-"`
 	Aliases     []string          `json:"-"`
 	Credentials *Credentials      `json:"-"`
+	Match       *MatchRule        `json:"-"`
 	Actions     map[string]Action `json:"-"`
 }
 
@@ -93,6 +105,14 @@ func (p *Profile) UnmarshalJSON(data []byte) error {
 		}
 		p.Credentials = &creds
 		delete(raw, "credentials")
+	}
+	if m, ok := raw["match"]; ok {
+		var rule MatchRule
+		if err := json.Unmarshal(m, &rule); err != nil {
+			return fmt.Errorf("match: %w", err)
+		}
+		p.Match = &rule
+		delete(raw, "match")
 	}
 	p.Actions = make(map[string]Action, len(raw))
 	for k, v := range raw {
@@ -172,6 +192,21 @@ func Validate(cfg Config) error {
 				errs = append(errs, fmt.Sprintf("profiles.%s: alias %q already claimed by profile %q", pName, alias, prev))
 			}
 			aliasOwner[alias] = pName
+		}
+	}
+
+	// Match rule validation.
+	for pName, profile := range cfg.Profiles {
+		if profile.Match != nil {
+			if profile.Match.Dir == "" && profile.Match.Env == "" {
+				errs = append(errs, fmt.Sprintf("profiles.%s: match rule must have at least one condition (dir or env)", pName))
+			}
+			if profile.Match.Env != "" {
+				parts := strings.SplitN(profile.Match.Env, "=", 2)
+				if len(parts) < 2 || parts[0] == "" {
+					errs = append(errs, fmt.Sprintf("profiles.%s: match env must be KEY=VALUE (got %q)", pName, profile.Match.Env))
+				}
+			}
 		}
 	}
 
@@ -347,6 +382,38 @@ func Resolve(cfg Config, profile, action string) (string, *Action, error) {
 		}
 	}
 	return "", nil, fmt.Errorf("action %q not found in profile %q or default", action, canonical)
+}
+
+// MatchProfile returns the first profile whose match rule is satisfied
+// by the given working directory, or "default" if none match. Profiles
+// are checked alphabetically for deterministic tiebreaking. Profiles
+// without a match rule are skipped.
+func MatchProfile(cfg Config, dir string) string {
+	names := make([]string, 0, len(cfg.Profiles))
+	for name := range cfg.Profiles {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		rule := cfg.Profiles[name].Match
+		if rule == nil {
+			continue
+		}
+		if rule.Dir != "" {
+			if !strings.Contains(filepath.ToSlash(dir), rule.Dir) {
+				continue
+			}
+		}
+		if rule.Env != "" {
+			parts := strings.SplitN(rule.Env, "=", 2)
+			if len(parts) == 2 && os.Getenv(parts[0]) != parts[1] {
+				continue
+			}
+		}
+		return name
+	}
+	return "default"
 }
 
 func readConfig(path string) (Config, error) {

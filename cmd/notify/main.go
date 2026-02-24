@@ -103,6 +103,12 @@ func main() {
 	}
 }
 
+// cwd returns the current working directory, or "" if it cannot be determined.
+func cwd() string {
+	dir, _ := os.Getwd()
+	return dir
+}
+
 func runAction(args []string, configPath string, volume int, logFlag bool, echoFlag bool, cooldownFlag bool) {
 	var profile, actionArg string
 	switch len(args) {
@@ -120,6 +126,10 @@ func runAction(args []string, configPath string, volume int, logFlag bool, echoF
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
+	}
+
+	if len(args) == 1 {
+		profile = config.MatchProfile(cfg, cwd())
 	}
 
 	if err := dispatchActions(cfg, profile, actionArg, volume, logFlag, echoFlag, cooldownFlag, false, nil); err != nil {
@@ -156,6 +166,17 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 		profile = args[sepIdx-1]
 	}
 
+	// Load config early so we can auto-select profile before running command.
+	cfg, err := loadAndValidate(configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if sepIdx == 0 {
+		profile = config.MatchProfile(cfg, cwd())
+	}
+
 	// Execute the wrapped command.
 	start := time.Now()
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
@@ -176,13 +197,7 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 		}
 	}
 
-	// Load config and resolve action from exit code.
-	cfg, err := loadAndValidate(configPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(exitCode)
-	}
-
+	// Resolve action from exit code.
 	actionArg := resolveExitAction(cfg.Options.ExitCodes, exitCode)
 
 	// Error deliberately ignored: the wrapped command's exit code takes
@@ -1235,6 +1250,16 @@ func listProfiles(configPath string) {
 		if len(p.Aliases) > 0 {
 			annotations = append(annotations, fmt.Sprintf("aliases: %s", strings.Join(p.Aliases, ", ")))
 		}
+		if p.Match != nil {
+			var parts []string
+			if p.Match.Dir != "" {
+				parts = append(parts, "dir="+p.Match.Dir)
+			}
+			if p.Match.Env != "" {
+				parts = append(parts, "env="+p.Match.Env)
+			}
+			annotations = append(annotations, fmt.Sprintf("match: %s", strings.Join(parts, ", ")))
+		}
 		if len(annotations) > 0 {
 			label = fmt.Sprintf("%s (%s)", pName, strings.Join(annotations, ", "))
 		}
@@ -1265,6 +1290,10 @@ func dryRun(args []string, configPath string) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
+	}
+
+	if len(args) == 0 {
+		profile = config.MatchProfile(cfg, cwd())
 	}
 
 	fmt.Printf("Config:  OK\n")
@@ -1369,6 +1398,11 @@ Config resolution:
   1. --config <path>              (explicit)
   2. notify-config.json next to binary   (portable)
   3. ~/.config/notify/notify-config.json (user default)
+
+Profile auto-selection:
+  When profile is omitted, match rules select a profile by working
+  directory ("dir") or environment variable ("env"). First alphabetical
+  match wins. Falls back to "default" if none match.
 
 Examples:
   notify ready                     Run "ready" from the default profile

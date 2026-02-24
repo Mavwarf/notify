@@ -212,6 +212,7 @@ notify help                            # Show help
     },
     "boss": {
       "aliases": ["b"],
+      "match": { "dir": "/work/" },
       "ready": {
         "cooldown_seconds": 10,
         "steps": [
@@ -245,6 +246,13 @@ notify help                            # Show help
   declares `b` as an alias. Template variables like `{profile}` use the
   real profile name, not the alias. Duplicates and shadowing of real
   profile names are caught at validation time.
+- **Profile auto-selection:** add a `"match"` object to a profile to
+  auto-select it when the profile argument is omitted. Conditions:
+  `"dir"` (substring match against the working directory, forward-slash
+  normalized) and `"env"` (`KEY=VALUE` check). All conditions are AND —
+  both must match. If multiple profiles match, the first alphabetically
+  wins. Falls back to `"default"` when no match rule is satisfied.
+  Explicit profile (`notify boss done`) always takes priority.
 - **Step types:** `sound` (play a built-in sound or WAV file), `say` (text-to-speech),
   `toast` (desktop notification), `discord` (post to Discord channel via webhook),
   `discord_voice` (TTS audio uploaded to Discord as WAV), `slack` (post to Slack
@@ -571,6 +579,39 @@ local time). Useful for suppressing loud notifications at night:
 - `hours:8-22` — runs when the hour is >= 8 and < 22
 - `hours:22-8` — cross-midnight: runs when hour >= 22 **or** < 8
 - Invalid specs are skipped (fail-closed) with a stderr warning
+
+### Profile auto-selection (match rules)
+
+When the profile argument is omitted, `notify` can auto-select the right
+profile based on match rules — no extra typing needed. Add a `"match"`
+object to a profile with `"dir"` and/or `"env"` conditions:
+
+```json
+{
+  "profiles": {
+    "work": {
+      "match": { "dir": "/work/" },
+      "ready": { "steps": [...] }
+    },
+    "personal": {
+      "match": { "dir": "/hobby/", "env": "TEAM=personal" },
+      "ready": { "steps": [...] }
+    }
+  }
+}
+```
+
+- `"dir"` — substring match against the working directory (forward-slash
+  normalized). `"/work/"` matches any path containing `/work/`.
+- `"env"` — `KEY=VALUE` check: matches when `os.Getenv(KEY) == VALUE`.
+  Empty values (`KEY=`) match when the variable is set but empty.
+- All conditions are AND — both must match. For OR logic, use separate
+  profiles.
+- If multiple profiles match, the first alphabetically wins.
+- Falls back to `"default"` when no match rule is satisfied.
+- Explicit profile (`notify boss done`) always takes priority over
+  auto-selection.
+- `notify list` shows match rules in the output.
 
 ### Lookup logic
 

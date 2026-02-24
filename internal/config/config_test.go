@@ -1551,3 +1551,291 @@ func TestValidateDuplicateAlias(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
+
+// --- Match rule tests ---
+
+func TestUnmarshalMatch(t *testing.T) {
+	data := []byte(`{
+		"profiles": {
+			"work": {
+				"match": { "dir": "/work/" },
+				"ready": { "steps": [{"type": "sound", "sound": "success"}] }
+			}
+		}
+	}`)
+
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	prof := cfg.Profiles["work"]
+	if prof.Match == nil {
+		t.Fatal("Match is nil")
+	}
+	if prof.Match.Dir != "/work/" {
+		t.Errorf("Match.Dir = %q, want /work/", prof.Match.Dir)
+	}
+	if prof.Match.Env != "" {
+		t.Errorf("Match.Env = %q, want empty", prof.Match.Env)
+	}
+	if len(prof.Actions) != 1 {
+		t.Errorf("len(Actions) = %d, want 1", len(prof.Actions))
+	}
+}
+
+func TestUnmarshalMatchDirAndEnv(t *testing.T) {
+	data := []byte(`{
+		"profiles": {
+			"team": {
+				"match": { "dir": "/team/", "env": "TEAM=alpha" },
+				"ready": { "steps": [{"type": "sound", "sound": "blip"}] }
+			}
+		}
+	}`)
+
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	prof := cfg.Profiles["team"]
+	if prof.Match == nil {
+		t.Fatal("Match is nil")
+	}
+	if prof.Match.Dir != "/team/" {
+		t.Errorf("Match.Dir = %q, want /team/", prof.Match.Dir)
+	}
+	if prof.Match.Env != "TEAM=alpha" {
+		t.Errorf("Match.Env = %q, want TEAM=alpha", prof.Match.Env)
+	}
+}
+
+func TestMatchProfileDir(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}}}),
+			"work": {
+				Match:   &MatchRule{Dir: "/work/"},
+				Actions: map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "success"}}}},
+			},
+		},
+	}
+
+	got := MatchProfile(cfg, "/home/user/work/project")
+	if got != "work" {
+		t.Errorf("MatchProfile = %q, want work", got)
+	}
+}
+
+func TestMatchProfileDirWindows(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}}}),
+			"work": {
+				Match:   &MatchRule{Dir: "/work/"},
+				Actions: map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "success"}}}},
+			},
+		},
+	}
+
+	// Backslash path should be normalized to forward slash for matching.
+	got := MatchProfile(cfg, `C:\Users\me\work\project`)
+	if got != "work" {
+		t.Errorf("MatchProfile = %q, want work", got)
+	}
+}
+
+func TestMatchProfileEnv(t *testing.T) {
+	t.Setenv("NOTIFY_TEST_TEAM", "alpha")
+
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}}}),
+			"team": {
+				Match:   &MatchRule{Env: "NOTIFY_TEST_TEAM=alpha"},
+				Actions: map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "success"}}}},
+			},
+		},
+	}
+
+	got := MatchProfile(cfg, "/some/dir")
+	if got != "team" {
+		t.Errorf("MatchProfile = %q, want team", got)
+	}
+}
+
+func TestMatchProfileEnvEmpty(t *testing.T) {
+	t.Setenv("NOTIFY_TEST_EMPTY", "")
+
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}}}),
+			"empty": {
+				Match:   &MatchRule{Env: "NOTIFY_TEST_EMPTY="},
+				Actions: map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "success"}}}},
+			},
+		},
+	}
+
+	got := MatchProfile(cfg, "/some/dir")
+	if got != "empty" {
+		t.Errorf("MatchProfile = %q, want empty", got)
+	}
+}
+
+func TestMatchProfileAND(t *testing.T) {
+	t.Setenv("NOTIFY_TEST_AND", "yes")
+
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}}}),
+			"both": {
+				Match:   &MatchRule{Dir: "/project/", Env: "NOTIFY_TEST_AND=yes"},
+				Actions: map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "success"}}}},
+			},
+		},
+	}
+
+	// Both match.
+	if got := MatchProfile(cfg, "/home/project/foo"); got != "both" {
+		t.Errorf("both match: got %q, want both", got)
+	}
+
+	// Dir matches but env doesn't.
+	t.Setenv("NOTIFY_TEST_AND", "no")
+	if got := MatchProfile(cfg, "/home/project/foo"); got != "default" {
+		t.Errorf("env mismatch: got %q, want default", got)
+	}
+
+	// Env matches but dir doesn't.
+	t.Setenv("NOTIFY_TEST_AND", "yes")
+	if got := MatchProfile(cfg, "/home/other/foo"); got != "default" {
+		t.Errorf("dir mismatch: got %q, want default", got)
+	}
+}
+
+func TestMatchProfileNoMatch(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}}}),
+			"work": {
+				Match:   &MatchRule{Dir: "/work/"},
+				Actions: map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "success"}}}},
+			},
+		},
+	}
+
+	got := MatchProfile(cfg, "/home/personal/stuff")
+	if got != "default" {
+		t.Errorf("MatchProfile = %q, want default", got)
+	}
+}
+
+func TestMatchProfileAlphabetical(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}}}),
+			"beta": {
+				Match:   &MatchRule{Dir: "/shared/"},
+				Actions: map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "success"}}}},
+			},
+			"alpha": {
+				Match:   &MatchRule{Dir: "/shared/"},
+				Actions: map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "info"}}}},
+			},
+		},
+	}
+
+	got := MatchProfile(cfg, "/home/shared/project")
+	if got != "alpha" {
+		t.Errorf("MatchProfile = %q, want alpha (alphabetical tiebreaker)", got)
+	}
+}
+
+func TestMatchProfileNilMatch(t *testing.T) {
+	cfg := Config{
+		Profiles: map[string]Profile{
+			"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}}}),
+			"noMatch": p(map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "success"}}}}),
+		},
+	}
+
+	// Profile without match rule should never be selected.
+	got := MatchProfile(cfg, "/anything")
+	if got != "default" {
+		t.Errorf("MatchProfile = %q, want default", got)
+	}
+}
+
+func TestValidateMatchEmpty(t *testing.T) {
+	cfg := Config{
+		Options: Options{DefaultVolume: 100, AFKThresholdSeconds: 300},
+		Profiles: map[string]Profile{
+			"bad": {
+				Match:   &MatchRule{},
+				Actions: map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}}},
+			},
+		},
+	}
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for empty match rule")
+	}
+	if !strings.Contains(err.Error(), "must have at least one condition") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateMatchBadEnv(t *testing.T) {
+	tests := []struct {
+		name string
+		env  string
+	}{
+		{"no equals", "JUSTKEY"},
+		{"empty key", "=value"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := Config{
+				Options: Options{DefaultVolume: 100, AFKThresholdSeconds: 300},
+				Profiles: map[string]Profile{
+					"bad": {
+						Match:   &MatchRule{Env: tt.env},
+						Actions: map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}}},
+					},
+				},
+			}
+			err := Validate(cfg)
+			if err == nil {
+				t.Fatal("expected error for bad env")
+			}
+			if !strings.Contains(err.Error(), "match env must be KEY=VALUE") {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidateMatchGood(t *testing.T) {
+	cfg := Config{
+		Options: Options{DefaultVolume: 100, AFKThresholdSeconds: 300},
+		Profiles: map[string]Profile{
+			"work": {
+				Match:   &MatchRule{Dir: "/work/"},
+				Actions: map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}}},
+			},
+			"team": {
+				Match:   &MatchRule{Env: "TEAM=alpha"},
+				Actions: map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}}},
+			},
+			"both": {
+				Match:   &MatchRule{Dir: "/project/", Env: "ENV=prod"},
+				Actions: map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "blip"}}}},
+			},
+		},
+	}
+	if err := Validate(cfg); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}

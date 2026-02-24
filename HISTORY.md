@@ -2,6 +2,7 @@
 
 ## Features
 
+- Profile auto-selection — match rules auto-select profile by working directory or env var *(Feb 24)*
 - History watch (`notify history watch`) — live-updating today's summary dashboard *(Feb 24)*
 - Color summary table — profile grouping, percentage column, dynamic columns, ANSI colors, `NO_COLOR` support *(Feb 24)*
 - History clean (`notify history clean`) — prune old log entries by age *(Feb 24)*
@@ -36,6 +37,20 @@
 ---
 
 ## 2026-02-24
+
+### Profile Auto-Selection (Match Rules)
+Profiles can now define a `"match"` object with `"dir"` and/or `"env"`
+conditions. When the profile argument is omitted, `notify` checks match
+rules to auto-select the right profile — no extra typing needed. `"dir"`
+is a substring match against the working directory (forward-slash
+normalized, so Windows backslash paths work too). `"env"` is a
+`KEY=VALUE` check against an environment variable. All conditions within
+a match rule are AND (both must match). If multiple profiles match, the
+first alphabetically wins. Falls back to `"default"` when no rule
+matches. Explicit profile (`notify boss done`) always takes priority.
+Auto-selection works in direct mode, `notify run`, and `notify test`.
+`notify list` shows match rules alongside aliases and extends annotations.
+Config validation catches empty match rules and malformed env conditions.
 
 ### History Watch (`notify history watch`)
 Live-updating dashboard that shows today's summary as a formatted table.
