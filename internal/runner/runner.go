@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -182,7 +183,7 @@ func Execute(steps []config.Step, defaultVolume int, creds config.Credentials, v
 	wg.Wait()
 
 	if len(parallelErrs) > 0 {
-		return parallelErrs[0]
+		return errors.Join(parallelErrs...)
 	}
 	return nil
 }

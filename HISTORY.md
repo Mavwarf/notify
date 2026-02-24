@@ -74,6 +74,21 @@ environment variable expansion as global credentials. Profile inheritance
 Config validation uses merged credentials, so a profile with a `discord`
 step only needs `discord_webhook` set somewhere — globally or on the profile.
 
+### Surface all parallel step errors
+`runner.Execute()` now returns all errors from parallel steps via
+`errors.Join` instead of only the first. When multiple remote steps fail
+(e.g. Discord is down *and* Telegram token expired), the user sees every
+failure.
+
+### History command tests
+Added table-driven tests for `renderSummaryTable`, `aggregateGroups`,
+`buildBaseline`, `fmtNum`, and `fmtPct` in `cmd/notify/history_test.go`.
+
+### builtinSounds sync test
+`TestBuiltinSoundsMatchAudio` in `config/sounds_sync_test.go` asserts
+that `builtinSounds` stays in sync with `audio.Sounds` — fails if a
+sound is added to or removed from either side.
+
 ---
 
 ## 2026-02-23

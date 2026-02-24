@@ -78,23 +78,4 @@ patterns without shell scripting.
 
 ## Tech Debt / Cleanup
 
-### Add tests for history commands (medium)
-
-No test coverage for `historySummary`, `historyClean`, `historyExport`,
-`historyWatch`, `renderSummaryTable`, or `buildBaseline`. Add table-
-driven tests, especially for the table renderer.
-
-### Surface all parallel step errors (medium)
-
-`runner.Execute()` collects errors from parallel steps but only
-returns the first one. When multiple remote steps fail (e.g. Discord
-is down *and* Telegram token expired), the user only sees one error.
-Return or log all failures.
-
-### `builtinSounds` can drift from `audio.Sounds` (low)
-
-`config.go` hardcodes `builtinSounds` to avoid importing the audio
-package. If a sound is added to `audio.Sounds` but not mirrored here,
-config validation won't recognize it. Consider exporting a
-`audio.BuiltinNames()` helper or adding a test that asserts the two
-sets are equal.
+(none)
