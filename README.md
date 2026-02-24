@@ -135,7 +135,7 @@ internal/
 ```bash
 notify [options] [profile] <action[,action2,...]>
 notify run [options] [profile] -- <command...>
-notify send [--title <t>] <type> <msg> # Send a one-off notification directly
+notify send [--title <title>] <type> <message>  # Send a one-off notification
 notify play [sound]                    # Preview a built-in sound (or list all)
 notify test [profile]                  # Dry-run: show what would happen
 notify config validate                 # Check config file for errors

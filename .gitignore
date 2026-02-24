@@ -4,8 +4,10 @@ output/
 # Go
 *.exe
 
-# Claude Code (local permissions)
+# Claude Code (local permissions + MCP auto-generated files)
 .claude/
+**/CLAUDE.md
+!CLAUDE.md
 
 # IDE
 .idea/

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/Mavwarf/notify/internal/config"
 )
@@ -148,5 +149,79 @@ func TestDetectAFKErrorFailsOpen(t *testing.T) {
 	cfg := config.Config{Options: config.Options{AFKThresholdSeconds: 300}}
 	if detectAFK(cfg) {
 		t.Error("expected present (fail-open) on error")
+	}
+}
+
+// --- formatDuration ---
+
+func TestFormatDuration(t *testing.T) {
+	tests := []struct {
+		d    time.Duration
+		want string
+	}{
+		{0, "0ms"},
+		{500 * time.Millisecond, "500ms"},
+		{999 * time.Millisecond, "999ms"},
+		{1 * time.Second, "1s"},
+		{3 * time.Second, "3s"},
+		{65 * time.Second, "1m5s"},
+		{2*time.Minute + 15*time.Second, "2m15s"},
+		{1*time.Hour + 30*time.Minute, "1h30m0s"},
+		{1*time.Second + 499*time.Millisecond, "1s"},   // rounds down
+		{1*time.Second + 500*time.Millisecond, "2s"},   // rounds up
+	}
+	for _, tt := range tests {
+		if got := formatDuration(tt.d); got != tt.want {
+			t.Errorf("formatDuration(%v) = %q, want %q", tt.d, got, tt.want)
+		}
+	}
+}
+
+// --- formatDurationSay ---
+
+func TestFormatDurationSay(t *testing.T) {
+	tests := []struct {
+		d    time.Duration
+		want string
+	}{
+		{0, "less than a second"},
+		{500 * time.Millisecond, "less than a second"},
+		{1 * time.Second, "1 second"},
+		{2 * time.Second, "2 seconds"},
+		{60 * time.Second, "1 minute"},
+		{61 * time.Second, "1 minute and 1 second"},
+		{2*time.Minute + 15*time.Second, "2 minutes and 15 seconds"},
+		{1 * time.Hour, "1 hour"},
+		{1*time.Hour + 1*time.Second, "1 hour and 1 second"},
+		{1*time.Hour + 30*time.Minute + 5*time.Second, "1 hour, 30 minutes and 5 seconds"},
+		{2*time.Hour + 1*time.Minute, "2 hours and 1 minute"},
+	}
+	for _, tt := range tests {
+		if got := formatDurationSay(tt.d); got != tt.want {
+			t.Errorf("formatDurationSay(%v) = %q, want %q", tt.d, got, tt.want)
+		}
+	}
+}
+
+// --- pluralize ---
+
+func TestPluralize(t *testing.T) {
+	tests := []struct {
+		n         int
+		singular  string
+		plural    string
+		want      string
+	}{
+		{0, "second", "seconds", "0 seconds"},
+		{1, "second", "seconds", "1 second"},
+		{2, "second", "seconds", "2 seconds"},
+		{1, "hour", "hours", "1 hour"},
+		{42, "minute", "minutes", "42 minutes"},
+	}
+	for _, tt := range tests {
+		if got := pluralize(tt.n, tt.singular, tt.plural); got != tt.want {
+			t.Errorf("pluralize(%d, %q, %q) = %q, want %q",
+				tt.n, tt.singular, tt.plural, got, tt.want)
+		}
 	}
 }

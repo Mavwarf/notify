@@ -185,6 +185,8 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 
 	actionArg := resolveExitAction(cfg.Options.ExitCodes, exitCode)
 
+	// Error deliberately ignored: the wrapped command's exit code takes
+	// priority so the caller can distinguish command failure from notify failure.
 	dispatchActions(cfg, profile, actionArg, volume, logFlag, echoFlag, cooldownFlag, true,
 		func(v *tmpl.Vars) {
 			v.Command = strings.Join(cmdArgs, " ")
