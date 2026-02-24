@@ -157,6 +157,7 @@ notify help                            # Show help
 |--------------------|------------------------------------------|
 | `--volume`, `-v`   | Override volume, 0-100 (default: config or 100) |
 | `--config`, `-c`   | Path to notify-config.json               |
+| `--match`, `-M`    | Select action by output pattern: `--match <pattern> <action>` (repeatable, `run` mode only) |
 | `--log`, `-L`      | Write invocation to notify.log         |
 | `--echo`, `-E`     | Print summary of steps that ran        |
 | `--cooldown`, `-C` | Enable per-action cooldown (rate limiting) |
@@ -184,6 +185,7 @@ notify help                            # Show help
       "2": "warning",
       "130": "cancelled"
     },
+    "output_lines": 0,
     "credentials": {
       "discord_webhook": "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN",
       "slack_webhook": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
@@ -270,9 +272,10 @@ notify help                            # Show help
   (`14:30`), `{Time}` to a spoken form (`2:30 PM`), `{date}` to the current
   date (`2026-02-22`), `{Date}` to a spoken form (`February 22, 2026`), and
   `{hostname}` to the machine's hostname. When using `notify run`, `{command}`,
-  `{duration}` (compact: `2m15s`), and `{Duration}` (spoken: `2 minutes and
-  15 seconds`) are also available. Use `{Duration}` in `say` steps for
-  natural speech output. This is especially useful with the default fallback —
+  `{duration}` (compact: `2m15s`), `{Duration}` (spoken: `2 minutes and
+  15 seconds`), and `{output}` (last N lines of command output, requires
+  `"output_lines"` in config) are also available. Use `{Duration}` in `say`
+  steps for natural speech output. This is especially useful with the default fallback —
   a single action definition can produce different messages depending on which
   profile name was passed on the CLI.
 - **Event logging:** set `"log": true` to append every invocation to
@@ -655,6 +658,7 @@ Additional variables available in `run` mode:
 | `{command}`  | The wrapped command string           | `make build`                   |
 | `{duration}` | Compact elapsed time                 | `2m15s`                        |
 | `{Duration}` | Spoken elapsed time (for TTS)        | `2 minutes and 15 seconds`     |
+| `{output}`   | Last N lines of command output       | `3 failed, 47 passed`          |
 
 Use `{Duration}` in `say` steps for natural speech, `{duration}` in
 toast/discord/slack for compact display.
@@ -666,6 +670,55 @@ from it with `"when": "direct"`:
 { "type": "say", "text": "{command} finished in {Duration}", "when": "run" },
 { "type": "say", "text": "Ready!", "when": "direct" }
 ```
+
+### Output capture and pattern matching
+
+Capture command output for use in notifications and optionally select
+different actions based on output content.
+
+**Output capture** — set `"output_lines"` in config to include the last
+N lines of command output in the `{output}` template variable:
+
+```json
+{
+  "config": { "output_lines": 5 },
+  "profiles": {
+    "default": {
+      "ready": {
+        "steps": [
+          { "type": "discord", "text": "Done!\n{output}", "when": "afk" }
+        ]
+      }
+    }
+  }
+}
+```
+
+```bash
+notify run -- pytest
+# Discord message: "Done!\n3 failed, 47 passed"
+```
+
+`{output}` is empty when not in `run` mode or when `output_lines` is 0.
+Output capture uses a tee — the command's stdout and stderr still print
+to the terminal normally.
+
+**Pattern matching** — use `--match` (or `-M`) to select an action based
+on output content instead of exit code:
+
+```bash
+notify run --match "FAIL" error --match "passed" ready -- pytest
+```
+
+Patterns are scanned in order — first substring match wins. If no pattern
+matches, the normal exit-code resolution applies (exit codes map → 0=ready,
+non-zero=error). `--match` implicitly enables output capture even if
+`output_lines` is 0 (but `{output}` stays empty without `output_lines`).
+
+Action resolution order for `notify run`:
+1. `--match` patterns (first substring hit wins)
+2. `exit_codes` config map
+3. Exit 0 → `ready`, else → `error`
 
 ### Direct send (`notify send`)
 
@@ -707,6 +760,7 @@ notify send telegram "Deploy done"  # Send directly to Telegram
 notify send toast --title Build "Done"  # Toast with custom title
 notify run -- make build          # Wrap a command, auto ready/error
 notify run boss -- cargo test     # Wrap with a specific profile
+notify run -M FAIL error -M passed ready -- pytest  # Match output patterns
 notify test                       # Dry-run default profile
 notify test boss                  # Dry-run boss profile
 notify silent 1h                  # Suppress all notifications for 1 hour

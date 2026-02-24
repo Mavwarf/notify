@@ -52,6 +52,8 @@ func TestExpand(t *testing.T) {
 		{"empty hostname", "{hostname}", Vars{}, ""},
 		{"all new vars", "{date} {time} {hostname}", Vars{Time: "09:00", Date: "2026-01-01", Hostname: "srv"}, "2026-01-01 09:00 srv"},
 		{"spoken vars", "{Date} at {Time}", Vars{TimeSay: "9:00 AM", DateSay: "January 1, 2026"}, "January 1, 2026 at 9:00 AM"},
+		{"output var", "result:\n{output}", Vars{Output: "3 passed, 1 failed"}, "result:\n3 passed, 1 failed"},
+		{"empty output", "{output}", Vars{}, ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

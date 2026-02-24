@@ -1817,6 +1817,44 @@ func TestValidateMatchBadEnv(t *testing.T) {
 	}
 }
 
+func TestValidateOutputLinesValid(t *testing.T) {
+	cfg := Config{
+		Options:  Options{DefaultVolume: 100, OutputLines: 10},
+		Profiles: map[string]Profile{"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "success"}}}})},
+	}
+	if err := Validate(cfg); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateOutputLinesNegative(t *testing.T) {
+	cfg := Config{
+		Options:  Options{DefaultVolume: 100, OutputLines: -1},
+		Profiles: map[string]Profile{"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "success"}}}})},
+	}
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for negative output_lines")
+	}
+	if !strings.Contains(err.Error(), "output_lines") {
+		t.Errorf("error should mention output_lines: %v", err)
+	}
+}
+
+func TestValidateOutputLinesTooLarge(t *testing.T) {
+	cfg := Config{
+		Options:  Options{DefaultVolume: 100, OutputLines: 1001},
+		Profiles: map[string]Profile{"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "success"}}}})},
+	}
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for output_lines > 1000")
+	}
+	if !strings.Contains(err.Error(), "output_lines") {
+		t.Errorf("error should mention output_lines: %v", err)
+	}
+}
+
 func TestValidateMatchGood(t *testing.T) {
 	cfg := Config{
 		Options: Options{DefaultVolume: 100, AFKThresholdSeconds: 300},

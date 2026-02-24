@@ -2,6 +2,7 @@
 
 ## Features
 
+- Output capture (`{output}`) and pattern matching (`--match`) for `notify run` *(Feb 24)*
 - Profile auto-selection — match rules auto-select profile by working directory or env var *(Feb 24)*
 - History watch (`notify history watch`) — live-updating today's summary dashboard *(Feb 24)*
 - Color summary table — profile grouping, percentage column, dynamic columns, ANSI colors, `NO_COLOR` support *(Feb 24)*
@@ -37,6 +38,18 @@
 ---
 
 ## 2026-02-24
+
+### Output Capture and Pattern Matching
+`notify run` can now capture command output for use in notifications and
+select actions based on output content. Set `"output_lines": N` in config
+to populate the `{output}` template variable with the last N lines of
+stdout/stderr. Use `--match <pattern> <action>` (repeatable) to override
+exit-code-based action selection — first substring match wins, falling
+back to exit code resolution if no pattern matches. Output is tee'd to
+both the terminal and an internal buffer (mutex-protected for concurrent
+stdout/stderr writes). Capture is only enabled when needed: either
+`output_lines > 0` or `--match` flags are present, so there's zero
+overhead for existing users. `{output}` is empty in non-run contexts.
 
 ### Profile Auto-Selection (Match Rules)
 Profiles can now define a `"match"` object with `"dir"` and/or `"env"`

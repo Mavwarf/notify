@@ -225,3 +225,93 @@ func TestPluralize(t *testing.T) {
 		}
 	}
 }
+
+// --- resolveMatchAction ---
+
+func TestResolveMatchActionFirstWins(t *testing.T) {
+	matches := []matchPair{
+		{"FAIL", "error"},
+		{"passed", "ready"},
+	}
+	output := "3 failed, 47 passed\nFAIL"
+	if got := resolveMatchAction(matches, output); got != "error" {
+		t.Errorf("resolveMatchAction() = %q, want \"error\"", got)
+	}
+}
+
+func TestResolveMatchActionSecondMatch(t *testing.T) {
+	matches := []matchPair{
+		{"FAIL", "error"},
+		{"passed", "ready"},
+	}
+	output := "All tests passed"
+	if got := resolveMatchAction(matches, output); got != "ready" {
+		t.Errorf("resolveMatchAction() = %q, want \"ready\"", got)
+	}
+}
+
+func TestResolveMatchActionNoMatch(t *testing.T) {
+	matches := []matchPair{
+		{"FAIL", "error"},
+		{"passed", "ready"},
+	}
+	output := "something else entirely"
+	if got := resolveMatchAction(matches, output); got != "" {
+		t.Errorf("resolveMatchAction() = %q, want \"\"", got)
+	}
+}
+
+func TestResolveMatchActionEmpty(t *testing.T) {
+	if got := resolveMatchAction(nil, "anything"); got != "" {
+		t.Errorf("resolveMatchAction(nil, ...) = %q, want \"\"", got)
+	}
+}
+
+func TestResolveMatchActionEmptyOutput(t *testing.T) {
+	matches := []matchPair{{"FAIL", "error"}}
+	if got := resolveMatchAction(matches, ""); got != "" {
+		t.Errorf("resolveMatchAction(matches, \"\") = %q, want \"\"", got)
+	}
+}
+
+// --- lastNLines ---
+
+func TestLastNLinesMoreThanN(t *testing.T) {
+	input := "line1\nline2\nline3\nline4\nline5\n"
+	if got := lastNLines(input, 3); got != "line3\nline4\nline5" {
+		t.Errorf("lastNLines(5 lines, 3) = %q, want \"line3\\nline4\\nline5\"", got)
+	}
+}
+
+func TestLastNLinesExactN(t *testing.T) {
+	input := "line1\nline2\nline3"
+	if got := lastNLines(input, 3); got != "line1\nline2\nline3" {
+		t.Errorf("lastNLines(3 lines, 3) = %q, want \"line1\\nline2\\nline3\"", got)
+	}
+}
+
+func TestLastNLinesFewerThanN(t *testing.T) {
+	input := "line1\nline2"
+	if got := lastNLines(input, 5); got != "line1\nline2" {
+		t.Errorf("lastNLines(2 lines, 5) = %q, want \"line1\\nline2\"", got)
+	}
+}
+
+func TestLastNLinesEmpty(t *testing.T) {
+	if got := lastNLines("", 5); got != "" {
+		t.Errorf("lastNLines(\"\", 5) = %q, want \"\"", got)
+	}
+}
+
+func TestLastNLinesSingleLine(t *testing.T) {
+	if got := lastNLines("hello\n", 1); got != "hello" {
+		t.Errorf("lastNLines(\"hello\\n\", 1) = %q, want \"hello\"", got)
+	}
+}
+
+func TestLastNLinesTrailingNewlines(t *testing.T) {
+	input := "a\nb\nc\n\n"
+	if got := lastNLines(input, 2); got != "b\nc" {
+		t.Errorf("lastNLines(%q, 2) = %q, want \"b\\nc\"", input, got)
+	}
+}

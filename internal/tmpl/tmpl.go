@@ -13,6 +13,7 @@ type Vars struct {
 	Date        string // compact: "2006-01-02"
 	DateSay     string // spoken: "January 2, 2006"
 	Hostname    string
+	Output      string // last N lines of wrapped command output
 }
 
 // Expand replaces template placeholders in s with runtime values.
@@ -35,6 +36,7 @@ func Expand(s string, v Vars) string {
 	s = strings.ReplaceAll(s, "{Date}", v.DateSay)
 	s = strings.ReplaceAll(s, "{date}", v.Date)
 	s = strings.ReplaceAll(s, "{hostname}", v.Hostname)
+	s = strings.ReplaceAll(s, "{output}", v.Output)
 	return s
 }
 

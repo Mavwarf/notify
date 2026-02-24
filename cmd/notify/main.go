@@ -1,14 +1,17 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"runtime"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/term"
@@ -28,6 +31,31 @@ var (
 	buildDate = "unknown"
 )
 
+// lockedWriter is a concurrency-safe bytes.Buffer used to capture
+// stdout and stderr from a wrapped command simultaneously.
+type lockedWriter struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (w *lockedWriter) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.buf.Write(p)
+}
+
+func (w *lockedWriter) String() string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.buf.String()
+}
+
+// matchPair associates a substring pattern with an action name.
+type matchPair struct {
+	pattern string
+	action  string
+}
+
 func main() {
 	args := os.Args[1:]
 	volume := -1
@@ -35,6 +63,7 @@ func main() {
 	logFlag := false
 	echoFlag := false
 	cooldownFlag := false
+	var matches []matchPair
 
 	// Parse flags
 	filtered := args[:0]
@@ -59,6 +88,14 @@ func main() {
 				i++
 			} else {
 				fmt.Fprintf(os.Stderr, "Error: --config requires a file path\n")
+				os.Exit(1)
+			}
+		case "--match", "-M":
+			if i+2 < len(args) {
+				matches = append(matches, matchPair{pattern: args[i+1], action: args[i+2]})
+				i += 2
+			} else {
+				fmt.Fprintf(os.Stderr, "Error: --match requires <pattern> <action>\n")
 				os.Exit(1)
 			}
 		case "--log", "-L":
@@ -97,7 +134,7 @@ func main() {
 	case "silent":
 		silentCmd(filtered[1:], configPath, logFlag)
 	case "run":
-		runWrapped(filtered[1:], configPath, volume, logFlag, echoFlag, cooldownFlag)
+		runWrapped(filtered[1:], configPath, volume, logFlag, echoFlag, cooldownFlag, matches)
 	default:
 		runAction(filtered, configPath, volume, logFlag, echoFlag, cooldownFlag)
 	}
@@ -137,7 +174,7 @@ func runAction(args []string, configPath string, volume int, logFlag bool, echoF
 	}
 }
 
-func runWrapped(args []string, configPath string, volume int, logFlag bool, echoFlag bool, cooldownFlag bool) {
+func runWrapped(args []string, configPath string, volume int, logFlag bool, echoFlag bool, cooldownFlag bool, matches []matchPair) {
 	// Find "--" separator.
 	sepIdx := -1
 	for i, a := range args {
@@ -177,12 +214,24 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 		profile = config.MatchProfile(cfg, cwd())
 	}
 
+	// Determine whether output capture is needed.
+	captureOutput := len(matches) > 0 || cfg.Options.OutputLines > 0
+
 	// Execute the wrapped command.
 	start := time.Now()
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+
+	var captured *lockedWriter
+	if captureOutput {
+		captured = &lockedWriter{}
+		cmd.Stdout = io.MultiWriter(os.Stdout, captured)
+		cmd.Stderr = io.MultiWriter(os.Stderr, captured)
+	} else {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+
 	cmdErr := cmd.Run()
 	elapsed := time.Since(start)
 
@@ -197,8 +246,22 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 		}
 	}
 
-	// Resolve action from exit code.
-	actionArg := resolveExitAction(cfg.Options.ExitCodes, exitCode)
+	// Resolve action: match patterns → exit codes → default.
+	var fullOutput string
+	if captured != nil {
+		fullOutput = captured.String()
+	}
+
+	actionArg := resolveMatchAction(matches, fullOutput)
+	if actionArg == "" {
+		actionArg = resolveExitAction(cfg.Options.ExitCodes, exitCode)
+	}
+
+	// Extract last N lines for {output} template variable.
+	var outputSnippet string
+	if cfg.Options.OutputLines > 0 && fullOutput != "" {
+		outputSnippet = lastNLines(fullOutput, cfg.Options.OutputLines)
+	}
 
 	// Error deliberately ignored: the wrapped command's exit code takes
 	// priority so the caller can distinguish command failure from notify failure.
@@ -207,6 +270,7 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 			v.Command = strings.Join(cmdArgs, " ")
 			v.Duration = formatDuration(elapsed)
 			v.DurationSay = formatDurationSay(elapsed)
+			v.Output = outputSnippet
 		})
 
 	os.Exit(exitCode)
@@ -414,6 +478,30 @@ func resolveExitAction(codes map[string]string, exitCode int) string {
 		return "ready"
 	}
 	return "error"
+}
+
+// resolveMatchAction scans output for the first matching pattern and
+// returns the associated action name. Returns "" if no pattern matches.
+func resolveMatchAction(matches []matchPair, output string) string {
+	for _, m := range matches {
+		if strings.Contains(output, m.pattern) {
+			return m.action
+		}
+	}
+	return ""
+}
+
+// lastNLines returns the last n lines of s, trimming a trailing newline.
+func lastNLines(s string, n int) string {
+	s = strings.TrimRight(s, "\n")
+	if s == "" {
+		return ""
+	}
+	lines := strings.Split(s, "\n")
+	if len(lines) <= n {
+		return strings.Join(lines, "\n")
+	}
+	return strings.Join(lines[len(lines)-n:], "\n")
 }
 
 // idleFunc is the function used to get idle time. Replaced in tests.
@@ -1370,6 +1458,7 @@ Usage:
 Options:
   --volume, -v <0-100>   Override volume (default: config or 100)
   --config, -c <path>    Path to notify-config.json
+  --match, -M <pat> <action>  Select action by output pattern (repeatable, run mode only)
   --log, -L              Write invocation to notify.log
   --echo, -E             Print summary of steps that ran
   --cooldown, -C         Enable per-action cooldown (rate limiting)
@@ -1379,7 +1468,7 @@ Commands:
                          Supported: say, toast, discord, discord_voice, slack,
                          telegram, telegram_audio, telegram_voice
                          --title <title>  Set toast title (toast only)
-  run                    Wrap a command; map exit code to action (default: 0=ready, else=error)
+  run                    Wrap a command; map exit code or output pattern to action
   play [sound|file.wav]  Preview a built-in sound or WAV file (no args lists built-ins)
   test [profile]         Dry-run: show what would happen without sending
   config validate        Check config file for errors
@@ -1404,6 +1493,13 @@ Profile auto-selection:
   directory ("dir") or environment variable ("env"). First alphabetical
   match wins. Falls back to "default" if none match.
 
+Template variables:
+  {profile}, {Profile}, {time}, {Time}, {date}, {Date}, {hostname}
+  Run mode only: {command}, {duration}, {Duration}, {output}
+
+  {output} contains the last N lines of command output when
+  "output_lines" is set in config. Use in say/discord/slack/telegram text.
+
 Examples:
   notify ready                     Run "ready" from the default profile
   notify boss ready                Run "ready" from the boss profile
@@ -1411,6 +1507,8 @@ Examples:
   notify -v 50 ready               Run at 50% volume
   notify run -- make build         Wrap a command (default profile)
   notify run boss -- cargo test    Wrap with a specific profile
+  notify run -M FAIL error -M passed ready -- pytest
+                                   Select action by output pattern
 
 Created by Thomas Häuser
 https://mavwarf.netlify.app/
