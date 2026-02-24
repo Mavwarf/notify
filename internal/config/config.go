@@ -36,6 +36,7 @@ type Options struct {
 	CooldownSeconds     int               `json:"cooldown_seconds,omitempty"`
 	ExitCodes           map[string]string `json:"exit_codes,omitempty"`
 	OutputLines         int               `json:"output_lines,omitempty"`
+	HeartbeatSeconds    int               `json:"heartbeat_seconds,omitempty"`
 	Credentials         Credentials       `json:"credentials,omitempty"`
 }
 
@@ -175,6 +176,9 @@ func Validate(cfg Config) error {
 	}
 	if cfg.Options.OutputLines < 0 || cfg.Options.OutputLines > 1000 {
 		errs = append(errs, fmt.Sprintf("config: output_lines %d out of range 0-1000", cfg.Options.OutputLines))
+	}
+	if cfg.Options.HeartbeatSeconds < 0 {
+		errs = append(errs, fmt.Sprintf("config: heartbeat_seconds %d must not be negative", cfg.Options.HeartbeatSeconds))
 	}
 	for k, v := range cfg.Options.ExitCodes {
 		if _, err := strconv.Atoi(k); err != nil {

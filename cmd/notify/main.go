@@ -64,6 +64,7 @@ func main() {
 	logFlag := false
 	echoFlag := false
 	cooldownFlag := false
+	heartbeatSec := 0
 	var matches []matchPair
 
 	// Parse flags
@@ -105,6 +106,22 @@ func main() {
 			echoFlag = true
 		case "--cooldown", "-C":
 			cooldownFlag = true
+		case "--heartbeat", "-H":
+			if i+1 < len(args) {
+				d, err := time.ParseDuration(args[i+1])
+				if err != nil || d <= 0 {
+					fmt.Fprintf(os.Stderr, "Error: --heartbeat requires a positive duration (e.g. 5m, 2m30s)\n")
+					os.Exit(1)
+				}
+				heartbeatSec = int(d.Seconds())
+				if heartbeatSec == 0 {
+					heartbeatSec = 1 // sub-second rounds up to 1s
+				}
+				i++
+			} else {
+				fmt.Fprintf(os.Stderr, "Error: --heartbeat requires a duration (e.g. 5m, 2m30s)\n")
+				os.Exit(1)
+			}
 		default:
 			filtered = append(filtered, args[i])
 		}
@@ -135,7 +152,7 @@ func main() {
 	case "silent":
 		silentCmd(filtered[1:], configPath, logFlag)
 	case "run":
-		runWrapped(filtered[1:], configPath, volume, logFlag, echoFlag, cooldownFlag, matches)
+		runWrapped(filtered[1:], configPath, volume, logFlag, echoFlag, cooldownFlag, matches, heartbeatSec)
 	case "pipe":
 		runPipe(filtered[1:], configPath, volume, logFlag, echoFlag, cooldownFlag, matches)
 	default:
@@ -177,7 +194,7 @@ func runAction(args []string, configPath string, volume int, logFlag bool, echoF
 	}
 }
 
-func runWrapped(args []string, configPath string, volume int, logFlag bool, echoFlag bool, cooldownFlag bool, matches []matchPair) {
+func runWrapped(args []string, configPath string, volume int, logFlag bool, echoFlag bool, cooldownFlag bool, matches []matchPair, heartbeatFlag int) {
 	// Find "--" separator.
 	sepIdx := -1
 	for i, a := range args {
@@ -235,7 +252,33 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 		cmd.Stderr = os.Stderr
 	}
 
+	// Start heartbeat goroutine if enabled.
+	hbSec := resolveHeartbeat(cfg, heartbeatFlag)
+	done := make(chan struct{})
+	if hbSec > 0 {
+		go func() {
+			ticker := time.NewTicker(time.Duration(hbSec) * time.Second)
+			defer ticker.Stop()
+			cmdStr := strings.Join(cmdArgs, " ")
+			for {
+				select {
+				case <-done:
+					return
+				case <-ticker.C:
+					elapsed := time.Since(start)
+					dispatchActions(cfg, profile, "heartbeat", volume, logFlag, echoFlag, cooldownFlag, true,
+						func(v *tmpl.Vars) {
+							v.Command = cmdStr
+							v.Duration = formatDuration(elapsed)
+							v.DurationSay = formatDurationSay(elapsed)
+						})
+				}
+			}
+		}()
+	}
+
 	cmdErr := cmd.Run()
+	close(done)
 	elapsed := time.Since(start)
 
 	// Determine exit code and action.
@@ -511,6 +554,15 @@ func resolveCooldown(act *config.Action, cfg config.Config, flag bool) (bool, in
 		sec = cfg.Options.CooldownSeconds
 	}
 	return enabled, sec
+}
+
+// resolveHeartbeat returns the effective heartbeat interval in seconds.
+// CLI flag wins if > 0, otherwise config value is used. 0 = disabled.
+func resolveHeartbeat(cfg config.Config, flagSec int) int {
+	if flagSec > 0 {
+		return flagSec
+	}
+	return cfg.Options.HeartbeatSeconds
 }
 
 // resolveExitAction maps an exit code to an action name using the
@@ -1509,6 +1561,7 @@ Options:
   --log, -L              Write invocation to notify.log
   --echo, -E             Print summary of steps that ran
   --cooldown, -C         Enable per-action cooldown (rate limiting)
+  --heartbeat, -H <dur>  Periodic notification during "run" (e.g. 5m, 2m30s)
 
 Commands:
   send <type> <message>  Send a one-off notification (e.g. send telegram "hello")
@@ -1519,6 +1572,7 @@ Commands:
                          Without --match, every line triggers "ready"
                          {output} = the matched line
   run                    Wrap a command; map exit code or output pattern to action
+                         --heartbeat/-H fires the "heartbeat" action periodically
   play [sound|file.wav]  Preview a built-in sound or WAV file (no args lists built-ins)
   test [profile]         Dry-run: show what would happen without sending
   config validate        Check config file for errors
@@ -1558,6 +1612,10 @@ Examples:
   notify -v 50 ready               Run at 50% volume
   notify run -- make build         Wrap a command (default profile)
   notify run boss -- cargo test    Wrap with a specific profile
+  notify run --heartbeat 5m -- make build
+                                   Heartbeat every 5 minutes during build
+  notify run -H 2m boss -- cargo test
+                                   Heartbeat every 2 minutes for boss profile
   notify run -M FAIL error -M passed ready -- pytest
                                    Select action by output pattern
   tail -f build.log | notify pipe boss -M SUCCESS done -M FAIL error

@@ -1,11 +1,5 @@
 # TODO
 
-### Heartbeat for Long Tasks
-
-With `notify run`, optionally ping every N minutes: "still running
-(5m elapsed)...". Useful for 30min+ builds so you know the task
-hasn't hung. E.g. `notify run --heartbeat 5m -- make build`.
-
 ### Config Bootstrapper (`notify init`)
 
 Interactive config generator. Asks which platforms you want, generates

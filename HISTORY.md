@@ -2,6 +2,7 @@
 
 ## Features
 
+- Heartbeat for long tasks (`--heartbeat`) — periodic notifications during `notify run` *(Feb 24)*
 - Pipe / stream mode (`notify pipe`) — trigger notifications from stdin patterns *(Feb 24)*
 - Output capture (`{output}`) and pattern matching (`--match`) for `notify run` *(Feb 24)*
 - Profile auto-selection — match rules auto-select profile by working directory or env var *(Feb 24)*
@@ -39,6 +40,19 @@
 ---
 
 ## 2026-02-24
+
+### Heartbeat for Long Tasks (`--heartbeat`)
+New `--heartbeat` (`-H`) flag for `notify run` fires the `"heartbeat"` action
+periodically while the wrapped command runs. Useful for 30+ minute builds that
+give zero feedback — a heartbeat every few minutes confirms the task hasn't
+hung. `notify run --heartbeat 5m -- make build` dispatches the `"heartbeat"`
+action every 5 minutes with `{command}`, `{duration}`, and `{Duration}` set to
+the elapsed time. First tick fires after one interval (not immediately). If the
+command finishes before the first tick, no heartbeat fires. A config-level
+default (`"heartbeat_seconds"` in `"config"`) avoids needing the flag every
+time — the CLI flag overrides config when both are set. Zero or omitted means
+disabled. If the `"heartbeat"` action doesn't exist in the profile, an error
+is printed to stderr but the wrapped command keeps running.
 
 ### Pipe / Stream Mode (`notify pipe`)
 New `notify pipe [profile]` subcommand reads stdin line-by-line and triggers

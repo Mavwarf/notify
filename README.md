@@ -162,6 +162,7 @@ notify help                            # Show help
 | `--log`, `-L`      | Write invocation to notify.log         |
 | `--echo`, `-E`     | Print summary of steps that ran        |
 | `--cooldown`, `-C` | Enable per-action cooldown (rate limiting) |
+| `--heartbeat`, `-H` | Periodic notification during `run` (e.g. `5m`, `2m30s`) |
 
 ### Config file
 
@@ -187,6 +188,7 @@ notify help                            # Show help
       "130": "cancelled"
     },
     "output_lines": 0,
+    "heartbeat_seconds": 0,
     "credentials": {
       "discord_webhook": "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN",
       "slack_webhook": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
@@ -729,6 +731,55 @@ Action resolution order for `notify run`:
 2. `exit_codes` config map
 3. Exit 0 → `ready`, else → `error`
 
+### Heartbeat for long tasks
+
+Long-running commands (30+ minute builds, deploys, test suites) give no
+feedback while running — you don't know if the task hung or is still
+progressing. Heartbeat fires a periodic notification so you know it's alive:
+
+```bash
+notify run --heartbeat 5m -- make build
+notify run -H 2m boss -- cargo test
+```
+
+Every interval, the `"heartbeat"` action is dispatched for the resolved
+profile with `{command}`, `{duration}`, and `{Duration}` set to the elapsed
+time since the command started. The first tick fires after one interval (not
+immediately). If the command finishes before the first tick, no heartbeat
+fires.
+
+Set a default interval in config so you don't need the flag every time:
+
+```json
+{
+  "config": { "heartbeat_seconds": 300 }
+}
+```
+
+The `--heartbeat` flag overrides the config value. A zero or omitted config
+value means heartbeat is disabled unless the flag is passed.
+
+Define the `"heartbeat"` action in your profile (or in `"default"`):
+
+```json
+{
+  "profiles": {
+    "default": {
+      "heartbeat": {
+        "steps": [
+          { "type": "say", "text": "Still running, {Duration} elapsed", "when": "present" },
+          { "type": "toast", "message": "Still running ({duration})", "when": "present" },
+          { "type": "discord", "text": "Still running ({duration})", "when": "afk" }
+        ]
+      }
+    }
+  }
+}
+```
+
+If the `"heartbeat"` action doesn't exist in the profile, an error is printed
+to stderr but the wrapped command keeps running.
+
 ### Pipe / stream mode (`notify pipe`)
 
 Read lines from stdin and trigger notifications when patterns match.
@@ -795,6 +846,8 @@ notify send telegram "Deploy done"  # Send directly to Telegram
 notify send toast --title Build "Done"  # Toast with custom title
 notify run -- make build          # Wrap a command, auto ready/error
 notify run boss -- cargo test     # Wrap with a specific profile
+notify run --heartbeat 5m -- make build    # Heartbeat every 5 minutes
+notify run -H 2m boss -- cargo test       # Heartbeat with specific profile
 notify run -M FAIL error -M passed ready -- pytest  # Match output patterns
 tail -f build.log | notify pipe boss -M SUCCESS done -M FAIL error
                                   # Pipe mode: match patterns in stream
