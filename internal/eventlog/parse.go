@@ -104,11 +104,14 @@ func ParseEntries(content string) []Entry {
 
 // SummarizeByDay filters entries to the last N calendar days (local time),
 // groups by date + profile/action, and returns day groups sorted descending
-// with summaries sorted alphabetically.
+// with summaries sorted alphabetically. Pass days=0 to include all entries.
 func SummarizeByDay(entries []Entry, days int) []DayGroup {
 	now := time.Now()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	cutoff := today.AddDate(0, 0, -(days - 1))
+	var cutoff time.Time
+	if days > 0 {
+		today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		cutoff = today.AddDate(0, 0, -(days - 1))
+	}
 
 	// Group by date string + profile/action key.
 	type key struct {
@@ -124,7 +127,7 @@ func SummarizeByDay(entries []Entry, days int) []DayGroup {
 	for _, e := range entries {
 		local := e.Time.In(now.Location())
 		day := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, now.Location())
-		if day.Before(cutoff) {
+		if days > 0 && day.Before(cutoff) {
 			continue
 		}
 

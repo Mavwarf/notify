@@ -586,12 +586,16 @@ func historyCmd(args []string) {
 func historySummary(args []string) {
 	days := 7
 	if len(args) > 0 {
-		n, err := strconv.Atoi(args[0])
-		if err != nil || n <= 0 {
-			fmt.Fprintf(os.Stderr, "Error: days must be a positive integer\n")
-			os.Exit(1)
+		if args[0] == "all" {
+			days = 0
+		} else {
+			n, err := strconv.Atoi(args[0])
+			if err != nil || n <= 0 {
+				fmt.Fprintf(os.Stderr, "Error: days must be a positive integer or \"all\"\n")
+				os.Exit(1)
+			}
+			days = n
 		}
-		days = n
 	}
 
 	path := eventlog.LogPath()
@@ -609,12 +613,18 @@ func historySummary(args []string) {
 	groups := eventlog.SummarizeByDay(entries, days)
 
 	if len(groups) == 0 {
-		fmt.Println("No activity in the last", days, "days.")
+		if days == 0 {
+			fmt.Println("No activity found.")
+		} else {
+			fmt.Println("No activity in the last", days, "days.")
+		}
 		return
 	}
 
 	totalExec := 0
 	totalSkip := 0
+	type profileCounts struct{ exec, skip int }
+	perProfile := map[string]*profileCounts{}
 	for i, dg := range groups {
 		if i > 0 {
 			fmt.Println()
@@ -629,6 +639,33 @@ func historySummary(args []string) {
 			}
 			totalExec += s.Executions
 			totalSkip += s.Skipped
+			pc, ok := perProfile[s.Profile]
+			if !ok {
+				pc = &profileCounts{}
+				perProfile[s.Profile] = pc
+			}
+			pc.exec += s.Executions
+			pc.skip += s.Skipped
+		}
+	}
+
+	if len(perProfile) > 1 {
+		total := totalExec + totalSkip
+		profileNames := make([]string, 0, len(perProfile))
+		for name := range perProfile {
+			profileNames = append(profileNames, name)
+		}
+		sort.Strings(profileNames)
+		fmt.Printf("\nPer profile:\n")
+		for _, name := range profileNames {
+			pc := perProfile[name]
+			n := pc.exec + pc.skip
+			pct := float64(n) / float64(total) * 100
+			if pc.skip > 0 {
+				fmt.Printf("  %-24s %d  %5.1f%%   (%d skipped)\n", name, n, pct, pc.skip)
+			} else {
+				fmt.Printf("  %-24s %d  %5.1f%%\n", name, n, pct)
+			}
 		}
 	}
 
@@ -1003,7 +1040,7 @@ Commands:
   test [profile]         Dry-run: show what would happen without sending
   config validate        Check config file for errors
   history [N]            Show last N log entries (default 10)
-  history summary [days] Show action counts per day (default 7 days)
+  history summary [days|all] Show action counts per day (default 7 days)
   history export [days]  Export log entries as JSON (default: all)
   history clean [days]   Remove old entries, keep last N days (no arg = clear all)
   history clear          Delete the log file
