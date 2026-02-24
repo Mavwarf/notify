@@ -636,10 +636,9 @@ const (
 	colAction  = 22 // width of action name column (indented by 2)
 	colNumber  = 7  // width of numeric columns (Total, Skipped, New)
 	colGap     = 2  // gap between numeric columns
-	// Base separator width: "  " prefix (2) + profile col (24) + " " (1) + number col (7) = 34
-	// but the original formula used 33 + 9*extra_cols, meaning base=33 with separator
-	// spanning the fixed columns, plus 9 (colGap + colNumber) per optional column.
-	sepBase       = colProfile + colNumber + colGap + 1 // 33
+	colPct     = 5  // width of percentage column (fits " 100%")
+	// Base separator width covers the fixed columns: profile, Total, and %.
+	sepBase       = colProfile + colNumber + colGap + 1 + colGap + colPct // 40
 	sepPerCol     = colGap + colNumber                  // 9
 	watchInterval = 2 * time.Second
 )
@@ -691,6 +690,14 @@ func fmtNum(n int) string {
 		buf.WriteString(s[i : i+3])
 	}
 	return neg + buf.String()
+}
+
+// fmtPct formats n as a percentage of total (e.g. "68%"), or "" if total is 0.
+func fmtPct(n, total int) string {
+	if total == 0 {
+		return ""
+	}
+	return strconv.Itoa(n*100/total) + "%"
 }
 
 // padL pads s to width with spaces on the left.
@@ -797,7 +804,7 @@ func renderTableHeader(w *strings.Builder, groups []eventlog.DayGroup, hasSkippe
 			groups[len(groups)-1].Date.Format("2006-01-02"))))
 	}
 
-	hdr := fmt.Sprintf("  %-*s %*s", colProfile, "", colNumber, "Total")
+	hdr := fmt.Sprintf("  %-*s %*s  %*s", colProfile, "", colNumber, "Total", colPct, "%")
 	if hasSkipped {
 		hdr += fmt.Sprintf("  %*s", colNumber, "Skipped")
 	}
@@ -810,7 +817,7 @@ func renderTableHeader(w *strings.Builder, groups []eventlog.DayGroup, hasSkippe
 
 // renderTableRows writes profile subtotal and per-action rows.
 // Returns the total "new" count across all profiles.
-func renderTableRows(w *strings.Builder, td tableData, baseline map[string]int, hasNew bool) int {
+func renderTableRows(w *strings.Builder, td tableData, baseline map[string]int, hasNew bool, grandTotal int) int {
 	totalNew := 0
 
 	for pi, profile := range td.profileOrder {
@@ -824,6 +831,7 @@ func renderTableRows(w *strings.Builder, td tableData, baseline map[string]int, 
 		// Profile subtotal row.
 		w.WriteString("  " + padR(cyan(profile), colProfile+(len(cyan(profile))-len(profile))))
 		w.WriteString(" " + padL(fmtNum(pTotal), colNumber))
+		w.WriteString("  " + padL(fmtPct(pTotal, grandTotal), colPct))
 		if td.hasSkipped {
 			if pc.skip > 0 {
 				w.WriteString("  " + colorPadL(yellow, fmtNum(pc.skip), colNumber))
@@ -852,6 +860,7 @@ func renderTableRows(w *strings.Builder, td tableData, baseline map[string]int, 
 			c := td.perAction[ak]
 			aTotal := c.exec + c.skip
 			fmt.Fprintf(w, "    %-*s %*s", colAction, ak.action, colNumber, fmtNum(aTotal))
+			w.WriteString(fmt.Sprintf("  %*s", colPct, ""))
 			if td.hasSkipped {
 				if c.skip > 0 {
 					w.WriteString("  " + colorPadL(yellow, fmtNum(c.skip), colNumber))
@@ -885,7 +894,7 @@ func renderTableTotal(w *strings.Builder, td tableData, hasNew bool, totalNew in
 		grandSkip += pc.skip
 	}
 	grandTotal := grandExec + grandSkip
-	totalLine := fmt.Sprintf("  %-*s %*s", colProfile, "Total", colNumber, fmtNum(grandTotal))
+	totalLine := fmt.Sprintf("  %-*s %*s  %*s", colProfile, "Total", colNumber, fmtNum(grandTotal), colPct, "")
 
 	if td.hasSkipped {
 		if grandSkip > 0 {
@@ -920,10 +929,16 @@ func renderTableTotal(w *strings.Builder, td tableData, hasNew bool, totalNew in
 func renderSummaryTable(w *strings.Builder, groups []eventlog.DayGroup, baseline map[string]int) {
 	td := aggregateGroups(groups)
 	hasNew := baseline != nil
+
+	grandTotal := 0
+	for _, pc := range td.perProfile {
+		grandTotal += pc.exec + pc.skip
+	}
+
 	sep := dim("  " + strings.Repeat("─", sepBase+sepPerCol*btoi(td.hasSkipped)+sepPerCol*btoi(hasNew)))
 
 	renderTableHeader(w, groups, td.hasSkipped, hasNew, sep)
-	totalNew := renderTableRows(w, td, baseline, hasNew)
+	totalNew := renderTableRows(w, td, baseline, hasNew, grandTotal)
 	renderTableTotal(w, td, hasNew, totalNew, sep)
 }
 

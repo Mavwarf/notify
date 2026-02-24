@@ -3,7 +3,7 @@
 ## Features
 
 - History watch (`notify history watch`) — live-updating today's summary dashboard *(Feb 24)*
-- Color summary table — profile grouping, dynamic columns, ANSI colors, `NO_COLOR` support *(Feb 24)*
+- Color summary table — profile grouping, percentage column, dynamic columns, ANSI colors, `NO_COLOR` support *(Feb 24)*
 - History clean (`notify history clean`) — prune old log entries by age *(Feb 24)*
 - Per-profile credential overrides — different profiles can target different channels *(Feb 24)*
 - Notification groups — comma-separated actions in a single call *(Feb 23)*
@@ -47,10 +47,12 @@ shows start time and elapsed duration.
 ### Summary Table Format
 `notify history summary` and `watch` render a structured color table with
 profile subtotal rows (cyan), indented per-action rows, and a bold total.
+A `%` column on profile rows shows each profile's share of the grand total.
 Skipped counts in yellow, new deltas in green. Profiles are separated by
 blank lines. Large numbers use dot thousands separators (e.g. 1.234).
-Columns (Total, Skipped, New) appear dynamically. Separators and date
-are dim. Colors respect the `NO_COLOR` environment variable.
+Columns (Total, Skipped, New) appear dynamically; the `%` column is always
+visible. Separators and date are dim. Colors respect the `NO_COLOR`
+environment variable.
 `notify history summary all` shows all-time stats.
 
 ### History Clean (`notify history clean`)
