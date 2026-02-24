@@ -78,4 +78,27 @@ patterns without shell scripting.
 
 ## Tech Debt / Cleanup
 
-(none)
+### Template expansion is order-dependent (medium)
+
+In `tmpl.Expand()`, `{Duration}` must be replaced *before* `{duration}`,
+otherwise `{Duration}` partially matches as `{duration}` + leftover `}`
+characters. Same for `{Time}`/`{time}`, `{Date}`/`{date}`,
+`{Profile}`/`{profile}`. The current code is correct but the ordering
+constraint is implicit — reordering lines breaks output silently.
+Either add a prominent comment, or refactor to a loop over ordered
+pairs/regex that prevents partial matches.
+
+### Test runner.Execute() and execStep() (medium)
+
+The core execution engine — parallel vs sequential dispatch, volume
+override, template expansion inside steps — has zero test coverage.
+`FilterSteps` and `matchWhen` are well tested, but the actual step
+execution path is not. Could inject a step executor func to avoid
+real audio/network calls in tests.
+
+### Test platform-specific packages (low)
+
+`idle`, `speech`, and `toast` have no tests. All three shell out to
+OS commands (`xprintidle`, `espeak`, `notify-send`, `say`, `osascript`,
+PowerShell). Could mock `exec.Command` to verify argument construction
+and error handling without real system calls.
