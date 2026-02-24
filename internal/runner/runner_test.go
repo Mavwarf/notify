@@ -2,10 +2,13 @@ package runner
 
 import (
 	"errors"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/Mavwarf/notify/internal/config"
+	"github.com/Mavwarf/notify/internal/tmpl"
 )
 
 func TestFilterStepsAllRun(t *testing.T) {
@@ -234,5 +237,159 @@ func TestRetryOnceBothFail(t *testing.T) {
 	}
 	if calls != 2 {
 		t.Errorf("calls = %d, want 2", calls)
+	}
+}
+
+// --- Execute ---
+
+// mockStepExec replaces stepExec for testing and restores it on cleanup.
+func mockStepExec(t *testing.T, fn func(config.Step, int, config.Credentials, tmpl.Vars) error) {
+	t.Helper()
+	orig := stepExec
+	t.Cleanup(func() { stepExec = orig })
+	stepExec = fn
+}
+
+func TestExecuteEmpty(t *testing.T) {
+	mockStepExec(t, func(_ config.Step, _ int, _ config.Credentials, _ tmpl.Vars) error {
+		t.Fatal("should not be called")
+		return nil
+	})
+	if err := Execute(nil, 80, config.Credentials{}, tmpl.Vars{}); err != nil {
+		t.Errorf("err = %v, want nil", err)
+	}
+}
+
+func TestExecuteAllParallel(t *testing.T) {
+	var mu sync.Mutex
+	var ran []string
+
+	mockStepExec(t, func(s config.Step, _ int, _ config.Credentials, _ tmpl.Vars) error {
+		mu.Lock()
+		ran = append(ran, s.Type)
+		mu.Unlock()
+		return nil
+	})
+
+	steps := []config.Step{
+		{Type: "discord", Text: "a"},
+		{Type: "telegram", Text: "b"},
+		{Type: "toast", Message: "c"},
+	}
+	if err := Execute(steps, 80, config.Credentials{}, tmpl.Vars{}); err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(ran) != 3 {
+		t.Errorf("ran %d steps, want 3", len(ran))
+	}
+}
+
+func TestExecuteAllSequential(t *testing.T) {
+	var order []string
+
+	mockStepExec(t, func(s config.Step, _ int, _ config.Credentials, _ tmpl.Vars) error {
+		order = append(order, s.Type+":"+s.Sound)
+		return nil
+	})
+
+	steps := []config.Step{
+		{Type: "sound", Sound: "first"},
+		{Type: "say", Text: "second"},
+		{Type: "sound", Sound: "third"},
+	}
+	if err := Execute(steps, 80, config.Credentials{}, tmpl.Vars{}); err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	// Sequential steps must run in order.
+	if len(order) != 3 {
+		t.Fatalf("ran %d steps, want 3", len(order))
+	}
+	if order[0] != "sound:first" || order[1] != "say:" || order[2] != "sound:third" {
+		t.Errorf("order = %v", order)
+	}
+}
+
+func TestExecuteMixed(t *testing.T) {
+	var mu sync.Mutex
+	var ran []string
+
+	mockStepExec(t, func(s config.Step, _ int, _ config.Credentials, _ tmpl.Vars) error {
+		mu.Lock()
+		ran = append(ran, s.Type)
+		mu.Unlock()
+		return nil
+	})
+
+	steps := []config.Step{
+		{Type: "discord", Text: "a"},
+		{Type: "sound", Sound: "blip"},
+		{Type: "telegram", Text: "b"},
+		{Type: "say", Text: "hi"},
+	}
+	if err := Execute(steps, 80, config.Credentials{}, tmpl.Vars{}); err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(ran) != 4 {
+		t.Errorf("ran %d steps, want 4", len(ran))
+	}
+}
+
+func TestExecuteSequentialStopsOnError(t *testing.T) {
+	calls := 0
+	mockStepExec(t, func(s config.Step, _ int, _ config.Credentials, _ tmpl.Vars) error {
+		calls++
+		if s.Sound == "bad" {
+			return errors.New("boom")
+		}
+		return nil
+	})
+
+	steps := []config.Step{
+		{Type: "sound", Sound: "ok"},
+		{Type: "sound", Sound: "bad"},
+		{Type: "sound", Sound: "never"},
+	}
+	err := Execute(steps, 80, config.Credentials{}, tmpl.Vars{})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "boom") {
+		t.Errorf("err = %v, want 'boom'", err)
+	}
+	if calls != 2 {
+		t.Errorf("calls = %d, want 2 (should stop after error)", calls)
+	}
+}
+
+func TestExecuteParallelJoinsErrors(t *testing.T) {
+	mockStepExec(t, func(s config.Step, _ int, _ config.Credentials, _ tmpl.Vars) error {
+		return errors.New(s.Text)
+	})
+
+	steps := []config.Step{
+		{Type: "discord", Text: "fail-a"},
+		{Type: "telegram", Text: "fail-b"},
+	}
+	err := Execute(steps, 80, config.Credentials{}, tmpl.Vars{})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "fail-a") || !strings.Contains(msg, "fail-b") {
+		t.Errorf("err = %v, want both fail-a and fail-b", err)
+	}
+}
+
+func TestExecutePassesVolume(t *testing.T) {
+	var gotVol int
+	mockStepExec(t, func(_ config.Step, vol int, _ config.Credentials, _ tmpl.Vars) error {
+		gotVol = vol
+		return nil
+	})
+
+	steps := []config.Step{{Type: "sound", Sound: "blip"}}
+	Execute(steps, 42, config.Credentials{}, tmpl.Vars{})
+	if gotVol != 42 {
+		t.Errorf("volume = %d, want 42", gotVol)
 	}
 }

@@ -78,14 +78,6 @@ patterns without shell scripting.
 
 ## Tech Debt / Cleanup
 
-### Test runner.Execute() and execStep() (medium)
-
-The core execution engine — parallel vs sequential dispatch, volume
-override, template expansion inside steps — has zero test coverage.
-`FilterSteps` and `matchWhen` are well tested, but the actual step
-execution path is not. Could inject a step executor func to avoid
-real audio/network calls in tests.
-
 ### Test platform-specific packages (low)
 
 `idle`, `speech`, and `toast` have no tests. All three shell out to

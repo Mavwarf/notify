@@ -161,7 +161,7 @@ func Execute(steps []config.Step, defaultVolume int, creds config.Credentials, v
 		wg.Add(1)
 		go func(idx int, s config.Step) {
 			defer wg.Done()
-			if err := execStep(s, defaultVolume, creds, vars); err != nil {
+			if err := stepExec(s, defaultVolume, creds, vars); err != nil {
 				mu.Lock()
 				parallelErrs = append(parallelErrs, fmt.Errorf("step %d (%s): %w", idx+1, s.Type, err))
 				mu.Unlock()
@@ -174,7 +174,7 @@ func Execute(steps []config.Step, defaultVolume int, creds config.Credentials, v
 		if !sequential(step.Type) {
 			continue
 		}
-		if err := execStep(step, defaultVolume, creds, vars); err != nil {
+		if err := stepExec(step, defaultVolume, creds, vars); err != nil {
 			return fmt.Errorf("step %d (%s): %w", i+1, step.Type, err)
 		}
 	}
@@ -187,6 +187,10 @@ func Execute(steps []config.Step, defaultVolume int, creds config.Credentials, v
 	}
 	return nil
 }
+
+// stepExec is the function used to execute a single step. It can be
+// replaced in tests to avoid real audio/network calls.
+var stepExec = execStep
 
 func execStep(step config.Step, defaultVolume int, creds config.Credentials, vars tmpl.Vars) error {
 	vol := defaultVolume
