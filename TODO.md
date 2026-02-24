@@ -78,16 +78,6 @@ patterns without shell scripting.
 
 ## Tech Debt / Cleanup
 
-### Template expansion is order-dependent (medium)
-
-In `tmpl.Expand()`, `{Duration}` must be replaced *before* `{duration}`,
-otherwise `{Duration}` partially matches as `{duration}` + leftover `}`
-characters. Same for `{Time}`/`{time}`, `{Date}`/`{date}`,
-`{Profile}`/`{profile}`. The current code is correct but the ordering
-constraint is implicit — reordering lines breaks output silently.
-Either add a prominent comment, or refactor to a loop over ordered
-pairs/regex that prevents partial matches.
-
 ### Test runner.Execute() and execStep() (medium)
 
 The core execution engine — parallel vs sequential dispatch, volume

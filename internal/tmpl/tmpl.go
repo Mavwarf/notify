@@ -19,6 +19,11 @@ type Vars struct {
 // {profile} → profile name as-is, {Profile} → title-cased,
 // {command} → wrapped command string,
 // {duration} → compact elapsed time, {Duration} → spoken elapsed time.
+//
+// ORDER MATTERS: uppercase variants ({Duration}, {Time}, {Date}, {Profile})
+// must be replaced before their lowercase counterparts. Otherwise
+// "{Duration}" partially matches "{duration}" (a prefix), producing
+// corrupted output. Do not reorder these replacements.
 func Expand(s string, v Vars) string {
 	s = strings.ReplaceAll(s, "{Profile}", TitleCase(v.Profile))
 	s = strings.ReplaceAll(s, "{profile}", v.Profile)
