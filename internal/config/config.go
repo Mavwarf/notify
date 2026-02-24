@@ -401,7 +401,7 @@ func MatchProfile(cfg Config, dir string) string {
 			continue
 		}
 		if rule.Dir != "" {
-			if !strings.Contains(filepath.ToSlash(dir), rule.Dir) {
+			if !strings.Contains(strings.ReplaceAll(dir, `\`, "/"), rule.Dir) {
 				continue
 			}
 		}
