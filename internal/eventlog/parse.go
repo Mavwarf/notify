@@ -63,13 +63,8 @@ func ParseEntries(content string) []Entry {
 				continue
 			}
 
-			// Timestamp is everything before the first "  " (two spaces).
-			tsEnd := strings.Index(line, "  ")
-			if tsEnd < 0 {
-				continue
-			}
-			ts, err := time.Parse(time.RFC3339, line[:tsEnd])
-			if err != nil {
+			ts, ok := ExtractTimestamp(line)
+			if !ok {
 				continue
 			}
 
@@ -187,6 +182,21 @@ func SummarizeByDay(entries []Entry, days int) []DayGroup {
 	})
 
 	return groups
+}
+
+// ExtractTimestamp parses the RFC3339 timestamp at the start of a log line
+// (everything before the first "  " double-space separator). Returns the
+// parsed time and true on success, or zero time and false on failure.
+func ExtractTimestamp(line string) (time.Time, bool) {
+	tsEnd := strings.Index(line, "  ")
+	if tsEnd < 0 {
+		return time.Time{}, false
+	}
+	ts, err := time.Parse(time.RFC3339, line[:tsEnd])
+	if err != nil {
+		return time.Time{}, false
+	}
+	return ts, true
 }
 
 // extractField returns the value after "key=" in a space-separated line.

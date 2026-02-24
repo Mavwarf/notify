@@ -36,10 +36,10 @@ func ttsToTempFile(prefix, text string) (path string, cleanup func(), err error)
 		return "", nil, fmt.Errorf("close temp: %w", err)
 	}
 	if err := speech.SayToFile(text, remoteVolume, path); err != nil {
-		os.Remove(path)
+		_ = os.Remove(path)
 		return "", nil, fmt.Errorf("tts: %w", err)
 	}
-	cleanup = func() { os.Remove(path) }
+	cleanup = func() { _ = os.Remove(path) }
 	return path, cleanup, nil
 }
 
@@ -247,7 +247,7 @@ func execStep(step config.Step, defaultVolume int, creds config.Credentials, var
 		if err := ffmpeg.ToOGG(wavPath, oggPath); err != nil {
 			return fmt.Errorf("telegram_voice convert: %w", err)
 		}
-		defer os.Remove(oggPath)
+		defer func() { _ = os.Remove(oggPath) }()
 		return retryOnce(func() error { return telegram.SendVoice(creds.TelegramToken, creds.TelegramChatID, oggPath, text) })
 	case "webhook":
 		msg := tmpl.Expand(step.Text, vars)

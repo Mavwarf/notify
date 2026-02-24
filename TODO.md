@@ -78,46 +78,23 @@ patterns without shell scripting.
 
 ## Tech Debt / Cleanup
 
-### Deduplicate `runAction` / `runWrapped` (high)
-
-Both functions in `main.go` share near-identical logic: silent check,
-`config.Resolve()`, `baseVars()`, `executeAction()`. Extract a shared
-helper to eliminate the duplication.
-
-### Split `renderSummaryTable` (high)
-
-At ~200 lines with nested closures, inline helpers, and magic column
-widths, this function is hard to test and maintain. Break into smaller
-functions (header, rows, totals) and name the magic numbers.
-
-### Reuse eventlog parsing in `historyClean` (medium)
-
-`historyClean()` manually parses timestamps from raw log blocks instead
-of reusing `eventlog.ParseEntries()`. Should share the parsing logic.
-
-### Unify `stepDetail` / `stepSummary` (medium)
-
-`stepDetail()` in `eventlog.go` and `stepSummary()` in `main.go`
-duplicate the same step-type switch/case. Merge into one function in
-the eventlog package.
-
 ### Add tests for history commands (medium)
 
 No test coverage for `historySummary`, `historyClean`, `historyExport`,
 `historyWatch`, `renderSummaryTable`, or `buildBaseline`. Add table-
 driven tests, especially for the table renderer.
 
-### Consistent `os.Remove` error handling (medium)
+### Surface all parallel step errors (medium)
 
-Some `os.Remove()` calls check errors, others silently ignore them.
-Either add `// best-effort` comments or check consistently.
+`runner.Execute()` collects errors from parallel steps but only
+returns the first one. When multiple remote steps fail (e.g. Discord
+is down *and* Telegram token expired), the user only sees one error.
+Return or log all failures.
 
-### Extract ANSI color helpers (low)
+### `builtinSounds` can drift from `audio.Sounds` (low)
 
-`ansi()`, `bold()`, `dim()`, `cyan()`, `green()`, `yellow()` live in
-`main.go`. Move to `internal/color` if more UI features are added.
-
-### Name constants for watch/table (low)
-
-Watch refresh interval (2s), table column widths (7, 9), and separator
-base length (33) are magic numbers. Define as named constants.
+`config.go` hardcodes `builtinSounds` to avoid importing the audio
+package. If a sound is added to `audio.Sounds` but not mirrored here,
+config validation won't recognize it. Consider exporting a
+`audio.BuiltinNames()` helper or adding a test that asserts the two
+sets are equal.

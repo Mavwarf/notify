@@ -28,7 +28,7 @@ func SayToFile(text string, volume int, path string) error {
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("speech to file failed: %w\n%s", err, out)
 	}
-	defer os.Remove(aiff)
+	defer func() { _ = os.Remove(aiff) }()
 
 	cmd = exec.Command("afconvert", "-f", "WAVE", "-d", "LEI16", aiff, path)
 	if out, err := cmd.CombinedOutput(); err != nil {

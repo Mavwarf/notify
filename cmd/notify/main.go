@@ -122,33 +122,7 @@ func runAction(args []string, configPath string, volume int, logFlag bool, echoF
 		os.Exit(1)
 	}
 
-	volume = resolveVolume(volume, cfg)
-	actions := strings.Split(actionArg, ",")
-	var failed bool
-
-	for _, action := range actions {
-		if silent.IsSilent() {
-			if shouldLog(cfg, logFlag) {
-				eventlog.LogSilent(profile, action)
-			}
-			continue
-		}
-
-		resolved, act, err := config.Resolve(cfg, profile, action)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			failed = true
-			continue
-		}
-
-		vars := baseVars(resolved)
-		if err := executeAction(cfg, resolved, action, act, volume, logFlag, echoFlag, cooldownFlag, false, vars); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			failed = true
-		}
-	}
-
-	if failed {
+	if err := dispatchActions(cfg, profile, actionArg, volume, logFlag, echoFlag, cooldownFlag, false, nil); err != nil {
 		os.Exit(1)
 	}
 }
@@ -211,8 +185,27 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 
 	actionArg := resolveExitAction(cfg.Options.ExitCodes, exitCode)
 
+	dispatchActions(cfg, profile, actionArg, volume, logFlag, echoFlag, cooldownFlag, true,
+		func(v *tmpl.Vars) {
+			v.Command = strings.Join(cmdArgs, " ")
+			v.Duration = formatDuration(elapsed)
+			v.DurationSay = formatDurationSay(elapsed)
+		})
+
+	os.Exit(exitCode)
+}
+
+// dispatchActions is the shared action loop for runAction and runWrapped.
+// It iterates over comma-separated actions, checks silent mode, resolves
+// each action, applies optional extraVars, and calls executeAction.
+// Returns a non-nil error if any action failed.
+func dispatchActions(cfg config.Config, profile, actionArg string,
+	volume int, logFlag, echoFlag, cooldownFlag, runMode bool,
+	extraVars func(*tmpl.Vars)) error {
+
 	volume = resolveVolume(volume, cfg)
 	actions := strings.Split(actionArg, ",")
+	var failed bool
 
 	for _, action := range actions {
 		if silent.IsSilent() {
@@ -225,19 +218,24 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 		resolved, act, err := config.Resolve(cfg, profile, action)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			failed = true
 			continue
 		}
 
 		vars := baseVars(resolved)
-		vars.Command = strings.Join(cmdArgs, " ")
-		vars.Duration = formatDuration(elapsed)
-		vars.DurationSay = formatDurationSay(elapsed)
-		if err := executeAction(cfg, resolved, action, act, volume, logFlag, echoFlag, cooldownFlag, true, vars); err != nil {
+		if extraVars != nil {
+			extraVars(&vars)
+		}
+		if err := executeAction(cfg, resolved, action, act, volume, logFlag, echoFlag, cooldownFlag, runMode, vars); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			failed = true
 		}
 	}
 
-	os.Exit(exitCode)
+	if failed {
+		return fmt.Errorf("one or more actions failed")
+	}
+	return nil
 }
 
 // sendTypes is the set of step types supported by "notify send".
@@ -631,10 +629,23 @@ func historySummary(args []string) {
 	fmt.Print(out.String())
 }
 
-// renderSummaryTable writes a formatted table of notification stats.
-// When baseline is non-nil (watch mode), a "New" column shows deltas
-// per action, per profile, and in the total row.
-// ANSI color helpers. Disabled when NO_COLOR env var is set.
+// --- Table layout constants ---
+
+const (
+	colProfile = 24 // width of profile name column
+	colAction  = 22 // width of action name column (indented by 2)
+	colNumber  = 7  // width of numeric columns (Total, Skipped, New)
+	colGap     = 2  // gap between numeric columns
+	// Base separator width: "  " prefix (2) + profile col (24) + " " (1) + number col (7) = 34
+	// but the original formula used 33 + 9*extra_cols, meaning base=33 with separator
+	// spanning the fixed columns, plus 9 (colGap + colNumber) per optional column.
+	sepBase       = colProfile + colNumber + colGap + 1 // 33
+	sepPerCol     = colGap + colNumber                  // 9
+	watchInterval = 2 * time.Second
+)
+
+// --- ANSI color helpers (disabled when NO_COLOR env var is set) ---
+
 var noColor = os.Getenv("NO_COLOR") != ""
 
 func ansi(code, s string) string {
@@ -682,84 +693,101 @@ func fmtNum(n int) string {
 	return neg + buf.String()
 }
 
-func renderSummaryTable(w *strings.Builder, groups []eventlog.DayGroup, baseline map[string]int) {
-	// Aggregate across all day groups.
-	type actionKey struct{ profile, action string }
-	type counts struct{ exec, skip int }
-	perAction := map[actionKey]*counts{}
-	perProfile := map[string]*counts{}
-	var profileOrder []string
+// padL pads s to width with spaces on the left.
+func padL(s string, width int) string {
+	if pad := width - len(s); pad > 0 {
+		return strings.Repeat(" ", pad) + s
+	}
+	return s
+}
+
+// padR pads s to width with spaces on the right.
+func padR(s string, width int) string {
+	if pad := width - len(s); pad > 0 {
+		return s + strings.Repeat(" ", pad)
+	}
+	return s
+}
+
+// colorPadL applies a color function to s, then left-pads to width
+// (accounting for invisible ANSI escape bytes).
+func colorPadL(colorFn func(string) string, s string, width int) string {
+	colored := colorFn(s)
+	return padL(colored, width+(len(colored)-len(s)))
+}
+
+// --- Summary table types ---
+
+type actionKey struct{ profile, action string }
+type counts struct{ exec, skip int }
+
+type tableData struct {
+	perAction        map[actionKey]*counts
+	perProfile       map[string]*counts
+	profileOrder     []string
+	actionsByProfile map[string][]actionKey
+	hasSkipped       bool
+}
+
+// aggregateGroups collects per-action and per-profile counts from day groups.
+func aggregateGroups(groups []eventlog.DayGroup) tableData {
+	td := tableData{
+		perAction:        map[actionKey]*counts{},
+		perProfile:       map[string]*counts{},
+		actionsByProfile: map[string][]actionKey{},
+	}
 	profileSeen := map[string]bool{}
 
 	for _, dg := range groups {
 		for _, s := range dg.Summaries {
 			ak := actionKey{s.Profile, s.Action}
-			ac, ok := perAction[ak]
+			ac, ok := td.perAction[ak]
 			if !ok {
 				ac = &counts{}
-				perAction[ak] = ac
+				td.perAction[ak] = ac
 			}
 			ac.exec += s.Executions
 			ac.skip += s.Skipped
 
-			pc, ok := perProfile[s.Profile]
+			pc, ok := td.perProfile[s.Profile]
 			if !ok {
 				pc = &counts{}
-				perProfile[s.Profile] = pc
+				td.perProfile[s.Profile] = pc
 			}
 			pc.exec += s.Executions
 			pc.skip += s.Skipped
 
 			if !profileSeen[s.Profile] {
 				profileSeen[s.Profile] = true
-				profileOrder = append(profileOrder, s.Profile)
+				td.profileOrder = append(td.profileOrder, s.Profile)
 			}
 		}
 	}
-	sort.Strings(profileOrder)
+	sort.Strings(td.profileOrder)
 
-	// Collect ordered action keys per profile.
-	actionsByProfile := map[string][]actionKey{}
-	for ak := range perAction {
-		actionsByProfile[ak.profile] = append(actionsByProfile[ak.profile], ak)
+	for ak := range td.perAction {
+		td.actionsByProfile[ak.profile] = append(td.actionsByProfile[ak.profile], ak)
+		if ak.profile != "" && td.perAction[ak].skip > 0 {
+			td.hasSkipped = true
+		}
 	}
-	for _, aks := range actionsByProfile {
+	for _, aks := range td.actionsByProfile {
 		sort.Slice(aks, func(i, j int) bool { return aks[i].action < aks[j].action })
 	}
-
-	// Determine which columns to show.
-	hasSkipped := false
-	for _, c := range perAction {
-		if c.skip > 0 {
-			hasSkipped = true
-			break
+	if !td.hasSkipped {
+		for _, c := range td.perAction {
+			if c.skip > 0 {
+				td.hasSkipped = true
+				break
+			}
 		}
 	}
-	hasNew := baseline != nil
 
-	// padLeft pads s to width with spaces on the left (ignoring ANSI codes).
-	padL := func(s string, width int) string {
-		pad := width - len(s)
-		if pad <= 0 {
-			return s
-		}
-		return strings.Repeat(" ", pad) + s
-	}
-	// padRight pads s to width with spaces on the right.
-	padR := func(s string, width int) string {
-		pad := width - len(s)
-		if pad <= 0 {
-			return s
-		}
-		return s + strings.Repeat(" ", pad)
-	}
-	// colorNum applies color after padding.
-	colorSkip := func(s string, n int) string { return padL(yellow(s), n+(len(yellow(s))-len(s))) }
-	colorNew := func(s string, n int) string { return padL(green(s), n+(len(green(s))-len(s))) }
+	return td
+}
 
-	sep := dim("  " + strings.Repeat("─", 33+9*btoi(hasSkipped)+9*btoi(hasNew)))
-
-	// Date header.
+// renderTableHeader writes the date line, column header, and separator.
+func renderTableHeader(w *strings.Builder, groups []eventlog.DayGroup, hasSkipped, hasNew bool, sep string) {
 	if len(groups) == 1 {
 		dg := groups[0]
 		fmt.Fprintf(w, "%s\n", dim(fmt.Sprintf("%s  (%s)", dg.Date.Format("2006-01-02"), dg.Date.Format("Monday"))))
@@ -769,48 +797,51 @@ func renderSummaryTable(w *strings.Builder, groups []eventlog.DayGroup, baseline
 			groups[len(groups)-1].Date.Format("2006-01-02"))))
 	}
 
-	// Column header.
-	hdr := fmt.Sprintf("  %-24s %7s", "", "Total")
+	hdr := fmt.Sprintf("  %-*s %*s", colProfile, "", colNumber, "Total")
 	if hasSkipped {
-		hdr += fmt.Sprintf("  %7s", "Skipped")
+		hdr += fmt.Sprintf("  %*s", colNumber, "Skipped")
 	}
 	if hasNew {
-		hdr += fmt.Sprintf("  %7s", "New")
+		hdr += fmt.Sprintf("  %*s", colNumber, "New")
 	}
 	w.WriteString(bold(hdr) + "\n")
 	w.WriteString(sep + "\n")
+}
 
+// renderTableRows writes profile subtotal and per-action rows.
+// Returns the total "new" count across all profiles.
+func renderTableRows(w *strings.Builder, td tableData, baseline map[string]int, hasNew bool) int {
 	totalNew := 0
 
-	for pi, profile := range profileOrder {
+	for pi, profile := range td.profileOrder {
 		if pi > 0 {
 			w.WriteString("\n")
 		}
-		aks := actionsByProfile[profile]
-		pc := perProfile[profile]
+		aks := td.actionsByProfile[profile]
+		pc := td.perProfile[profile]
 		pTotal := pc.exec + pc.skip
 
 		// Profile subtotal row.
-		w.WriteString("  " + padR(cyan(profile), 24+(len(cyan(profile))-len(profile))))
-		w.WriteString(" " + padL(fmtNum(pTotal), 7))
-		if hasSkipped {
+		w.WriteString("  " + padR(cyan(profile), colProfile+(len(cyan(profile))-len(profile))))
+		w.WriteString(" " + padL(fmtNum(pTotal), colNumber))
+		if td.hasSkipped {
 			if pc.skip > 0 {
-				w.WriteString("  " + colorSkip(fmtNum(pc.skip), 7))
+				w.WriteString("  " + colorPadL(yellow, fmtNum(pc.skip), colNumber))
 			} else {
-				w.WriteString(fmt.Sprintf("  %7s", ""))
+				w.WriteString(fmt.Sprintf("  %*s", colNumber, ""))
 			}
 		}
 		if hasNew {
 			pNew := 0
 			for _, ak := range aks {
 				key := ak.profile + "/" + ak.action
-				c := perAction[ak]
+				c := td.perAction[ak]
 				pNew += (c.exec + c.skip) - baseline[key]
 			}
 			if pNew > 0 {
-				w.WriteString("  " + colorNew("+"+fmtNum(pNew), 7))
+				w.WriteString("  " + colorPadL(green, "+"+fmtNum(pNew), colNumber))
 			} else {
-				w.WriteString(fmt.Sprintf("  %7s", ""))
+				w.WriteString(fmt.Sprintf("  %*s", colNumber, ""))
 			}
 			totalNew += pNew
 		}
@@ -818,66 +849,82 @@ func renderSummaryTable(w *strings.Builder, groups []eventlog.DayGroup, baseline
 
 		// Action rows (indented).
 		for _, ak := range aks {
-			c := perAction[ak]
+			c := td.perAction[ak]
 			aTotal := c.exec + c.skip
-			fmt.Fprintf(w, "    %-22s %7s", ak.action, fmtNum(aTotal))
-			if hasSkipped {
+			fmt.Fprintf(w, "    %-*s %*s", colAction, ak.action, colNumber, fmtNum(aTotal))
+			if td.hasSkipped {
 				if c.skip > 0 {
-					w.WriteString("  " + colorSkip(fmtNum(c.skip), 7))
+					w.WriteString("  " + colorPadL(yellow, fmtNum(c.skip), colNumber))
 				} else {
-					w.WriteString(fmt.Sprintf("  %7s", ""))
+					w.WriteString(fmt.Sprintf("  %*s", colNumber, ""))
 				}
 			}
 			if hasNew {
 				key := ak.profile + "/" + ak.action
 				aN := aTotal - baseline[key]
 				if aN > 0 {
-					w.WriteString("  " + colorNew("+"+fmtNum(aN), 7))
+					w.WriteString("  " + colorPadL(green, "+"+fmtNum(aN), colNumber))
 				} else {
-					w.WriteString(fmt.Sprintf("  %7s", ""))
+					w.WriteString(fmt.Sprintf("  %*s", colNumber, ""))
 				}
 			}
 			w.WriteString("\n")
 		}
 	}
+	return totalNew
+}
 
-	// Separator + total.
+// renderTableTotal writes the separator and bold total row.
+func renderTableTotal(w *strings.Builder, td tableData, hasNew bool, totalNew int, sep string) {
 	w.WriteString(sep + "\n")
+
 	grandExec := 0
 	grandSkip := 0
-	for _, pc := range perProfile {
+	for _, pc := range td.perProfile {
 		grandExec += pc.exec
 		grandSkip += pc.skip
 	}
 	grandTotal := grandExec + grandSkip
-	totalLine := fmt.Sprintf("  %-24s %7s", "Total", fmtNum(grandTotal))
-	if hasSkipped {
+	totalLine := fmt.Sprintf("  %-*s %*s", colProfile, "Total", colNumber, fmtNum(grandTotal))
+
+	if td.hasSkipped {
 		if grandSkip > 0 {
-			// Bold total first, then append colored skip.
 			w.WriteString(bold(totalLine))
-			w.WriteString("  " + colorSkip(fmtNum(grandSkip), 7))
-			totalLine = "" // already written
+			w.WriteString("  " + colorPadL(yellow, fmtNum(grandSkip), colNumber))
+			totalLine = ""
 		} else {
-			totalLine += fmt.Sprintf("  %7s", "")
+			totalLine += fmt.Sprintf("  %*s", colNumber, "")
 		}
 	}
 	if hasNew && totalLine != "" {
 		w.WriteString(bold(totalLine))
 		if totalNew > 0 {
-			w.WriteString("  " + colorNew("+"+fmtNum(totalNew), 7))
+			w.WriteString("  " + colorPadL(green, "+"+fmtNum(totalNew), colNumber))
 		} else {
-			w.WriteString(fmt.Sprintf("  %7s", ""))
+			w.WriteString(fmt.Sprintf("  %*s", colNumber, ""))
 		}
 	} else if totalLine != "" {
 		w.WriteString(bold(totalLine))
 	} else if hasNew {
 		if totalNew > 0 {
-			w.WriteString("  " + colorNew("+"+fmtNum(totalNew), 7))
+			w.WriteString("  " + colorPadL(green, "+"+fmtNum(totalNew), colNumber))
 		} else {
-			w.WriteString(fmt.Sprintf("  %7s", ""))
+			w.WriteString(fmt.Sprintf("  %*s", colNumber, ""))
 		}
 	}
 	w.WriteString("\n")
+}
+
+// renderSummaryTable writes a formatted table of notification stats.
+// When baseline is non-nil (watch mode), a "New" column shows deltas.
+func renderSummaryTable(w *strings.Builder, groups []eventlog.DayGroup, baseline map[string]int) {
+	td := aggregateGroups(groups)
+	hasNew := baseline != nil
+	sep := dim("  " + strings.Repeat("─", sepBase+sepPerCol*btoi(td.hasSkipped)+sepPerCol*btoi(hasNew)))
+
+	renderTableHeader(w, groups, td.hasSkipped, hasNew, sep)
+	totalNew := renderTableRows(w, td, baseline, hasNew)
+	renderTableTotal(w, td, hasNew, totalNew, sep)
 }
 
 // buildBaseline snapshots current per-action totals for watch delta tracking.
@@ -942,17 +989,12 @@ func historyClean(args []string) {
 		if block == "" {
 			continue
 		}
-		// Parse timestamp from first line.
 		firstLine := block
 		if idx := strings.Index(block, "\n"); idx > 0 {
 			firstLine = block[:idx]
 		}
-		tsEnd := strings.Index(firstLine, "  ")
-		if tsEnd < 0 {
-			continue
-		}
-		ts, err := time.Parse(time.RFC3339, firstLine[:tsEnd])
-		if err != nil {
+		ts, ok := eventlog.ExtractTimestamp(firstLine)
+		if !ok {
 			continue
 		}
 		if !ts.In(now.Location()).Before(cutoff) {
@@ -963,7 +1005,7 @@ func historyClean(args []string) {
 	removed := len(blocks) - len(kept)
 
 	if len(kept) == 0 {
-		os.Remove(path)
+		_ = os.Remove(path)
 		fmt.Printf("Removed %d entries. Log file cleared.\n", removed)
 		return
 	}
@@ -1033,7 +1075,7 @@ func historyWatch() {
 		// In raw mode \n doesn't include \r, so convert.
 		os.Stdout.WriteString(strings.ReplaceAll(out.String(), "\n", "\r\n"))
 
-		timer := time.NewTimer(2 * time.Second)
+		timer := time.NewTimer(watchInterval)
 		select {
 		case key := <-keys:
 			timer.Stop()
@@ -1252,37 +1294,10 @@ func dryRun(args []string, configPath string) {
 			if wouldRun[i] {
 				marker = "  RUN  "
 			}
-			detail := stepSummary(s)
+			detail := eventlog.StepSummary(s, nil)
 			fmt.Printf("    %s[%d] %-10s %s\n", marker, i+1, s.Type, detail)
 		}
 	}
-}
-
-func stepSummary(s config.Step) string {
-	parts := []string{}
-	switch s.Type {
-	case "sound":
-		parts = append(parts, fmt.Sprintf("sound=%s", s.Sound))
-	case "say":
-		parts = append(parts, fmt.Sprintf("text=%q", s.Text))
-	case "toast":
-		if s.Title != "" {
-			parts = append(parts, fmt.Sprintf("title=%q", s.Title))
-		}
-		parts = append(parts, fmt.Sprintf("message=%q", s.Message))
-	case "discord", "discord_voice", "slack", "telegram", "telegram_audio", "telegram_voice":
-		parts = append(parts, fmt.Sprintf("text=%q", s.Text))
-	case "webhook":
-		parts = append(parts, fmt.Sprintf("url=%s", s.URL))
-		parts = append(parts, fmt.Sprintf("text=%q", s.Text))
-	}
-	if s.When != "" {
-		parts = append(parts, fmt.Sprintf("when=%s", s.When))
-	}
-	if s.Volume != nil {
-		parts = append(parts, fmt.Sprintf("volume=%d", *s.Volume))
-	}
-	return strings.Join(parts, "  ")
 }
 
 func credStatus(ok bool) string {

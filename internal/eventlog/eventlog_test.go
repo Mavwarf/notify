@@ -7,100 +7,130 @@ import (
 	"github.com/Mavwarf/notify/internal/tmpl"
 )
 
-func TestStepDetailSound(t *testing.T) {
+func TestStepSummarySound(t *testing.T) {
 	s := config.Step{Type: "sound", Sound: "blip"}
-	got := stepDetail(s, tmpl.Vars{})
+	vars := tmpl.Vars{}
+	got := StepSummary(s, &vars)
 	want := "sound=blip"
 	if got != want {
-		t.Errorf("stepDetail(sound) = %q, want %q", got, want)
+		t.Errorf("StepSummary(sound) = %q, want %q", got, want)
 	}
 }
 
-func TestStepDetailSay(t *testing.T) {
+func TestStepSummarySay(t *testing.T) {
 	s := config.Step{Type: "say", Text: "{profile} ready"}
-	got := stepDetail(s, tmpl.Vars{Profile: "boss"})
+	vars := tmpl.Vars{Profile: "boss"}
+	got := StepSummary(s, &vars)
 	want := `text="boss ready"`
 	if got != want {
-		t.Errorf("stepDetail(say) = %q, want %q", got, want)
+		t.Errorf("StepSummary(say) = %q, want %q", got, want)
 	}
 }
 
-func TestStepDetailToast(t *testing.T) {
+func TestStepSummaryToast(t *testing.T) {
 	s := config.Step{Type: "toast", Title: "Build", Message: "{Profile} done"}
-	got := stepDetail(s, tmpl.Vars{Profile: "boss"})
-	want := `title="Build" message="Boss done"`
+	vars := tmpl.Vars{Profile: "boss"}
+	got := StepSummary(s, &vars)
+	want := `title="Build"  message="Boss done"`
 	if got != want {
-		t.Errorf("stepDetail(toast) = %q, want %q", got, want)
+		t.Errorf("StepSummary(toast) = %q, want %q", got, want)
 	}
 }
 
-func TestStepDetailToastDefaultTitle(t *testing.T) {
+func TestStepSummaryToastDefaultTitle(t *testing.T) {
 	s := config.Step{Type: "toast", Message: "Done"}
-	got := stepDetail(s, tmpl.Vars{Profile: "boss"})
-	want := `title="boss" message="Done"`
+	vars := tmpl.Vars{Profile: "boss"}
+	got := StepSummary(s, &vars)
+	want := `title="boss"  message="Done"`
 	if got != want {
-		t.Errorf("stepDetail(toast default title) = %q, want %q", got, want)
+		t.Errorf("StepSummary(toast default title) = %q, want %q", got, want)
 	}
 }
 
-func TestStepDetailDiscord(t *testing.T) {
+func TestStepSummaryDiscord(t *testing.T) {
 	s := config.Step{Type: "discord", Text: "{Profile} is ready"}
-	got := stepDetail(s, tmpl.Vars{Profile: "boss"})
+	vars := tmpl.Vars{Profile: "boss"}
+	got := StepSummary(s, &vars)
 	want := `text="Boss is ready"`
 	if got != want {
-		t.Errorf("stepDetail(discord) = %q, want %q", got, want)
+		t.Errorf("StepSummary(discord) = %q, want %q", got, want)
 	}
 }
 
-func TestStepDetailDiscordVoice(t *testing.T) {
+func TestStepSummaryDiscordVoice(t *testing.T) {
 	s := config.Step{Type: "discord_voice", Text: "Done"}
-	got := stepDetail(s, tmpl.Vars{})
+	vars := tmpl.Vars{}
+	got := StepSummary(s, &vars)
 	want := `text="Done"`
 	if got != want {
-		t.Errorf("stepDetail(discord_voice) = %q, want %q", got, want)
+		t.Errorf("StepSummary(discord_voice) = %q, want %q", got, want)
 	}
 }
 
-func TestStepDetailSlack(t *testing.T) {
+func TestStepSummarySlack(t *testing.T) {
 	s := config.Step{Type: "slack", Text: "{Profile} is ready"}
-	got := stepDetail(s, tmpl.Vars{Profile: "boss"})
+	vars := tmpl.Vars{Profile: "boss"}
+	got := StepSummary(s, &vars)
 	want := `text="Boss is ready"`
 	if got != want {
-		t.Errorf("stepDetail(slack) = %q, want %q", got, want)
+		t.Errorf("StepSummary(slack) = %q, want %q", got, want)
 	}
 }
 
-func TestStepDetailTelegram(t *testing.T) {
+func TestStepSummaryTelegram(t *testing.T) {
 	s := config.Step{Type: "telegram", Text: "Done"}
-	got := stepDetail(s, tmpl.Vars{})
+	vars := tmpl.Vars{}
+	got := StepSummary(s, &vars)
 	want := `text="Done"`
 	if got != want {
-		t.Errorf("stepDetail(telegram) = %q, want %q", got, want)
+		t.Errorf("StepSummary(telegram) = %q, want %q", got, want)
 	}
 }
 
-func TestStepDetailTelegramAudio(t *testing.T) {
+func TestStepSummaryTelegramAudio(t *testing.T) {
 	s := config.Step{Type: "telegram_audio", Text: "Done"}
-	got := stepDetail(s, tmpl.Vars{})
+	vars := tmpl.Vars{}
+	got := StepSummary(s, &vars)
 	want := `text="Done"`
 	if got != want {
-		t.Errorf("stepDetail(telegram_audio) = %q, want %q", got, want)
+		t.Errorf("StepSummary(telegram_audio) = %q, want %q", got, want)
 	}
 }
 
-func TestStepDetailTelegramVoice(t *testing.T) {
+func TestStepSummaryTelegramVoice(t *testing.T) {
 	s := config.Step{Type: "telegram_voice", Text: "Done"}
-	got := stepDetail(s, tmpl.Vars{})
+	vars := tmpl.Vars{}
+	got := StepSummary(s, &vars)
 	want := `text="Done"`
 	if got != want {
-		t.Errorf("stepDetail(telegram_voice) = %q, want %q", got, want)
+		t.Errorf("StepSummary(telegram_voice) = %q, want %q", got, want)
 	}
 }
 
-func TestStepDetailUnknown(t *testing.T) {
+func TestStepSummaryUnknown(t *testing.T) {
 	s := config.Step{Type: "bogus"}
-	got := stepDetail(s, tmpl.Vars{})
+	vars := tmpl.Vars{}
+	got := StepSummary(s, &vars)
 	if got != "" {
-		t.Errorf("stepDetail(unknown) = %q, want empty", got)
+		t.Errorf("StepSummary(unknown) = %q, want empty", got)
+	}
+}
+
+func TestStepSummaryNilVars(t *testing.T) {
+	s := config.Step{Type: "say", Text: "{profile} ready"}
+	got := StepSummary(s, nil)
+	want := `text="{profile} ready"`
+	if got != want {
+		t.Errorf("StepSummary(nil vars) = %q, want %q", got, want)
+	}
+}
+
+func TestStepSummaryWhenAndVolume(t *testing.T) {
+	vol := 50
+	s := config.Step{Type: "sound", Sound: "blip", When: "afk", Volume: &vol}
+	got := StepSummary(s, nil)
+	want := "sound=blip  when=afk  volume=50"
+	if got != want {
+		t.Errorf("StepSummary(when+volume) = %q, want %q", got, want)
 	}
 }

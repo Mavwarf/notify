@@ -71,7 +71,7 @@ func Log(action string, steps []config.Step, afk bool, vars tmpl.Vars) {
 
 		// Detail line per step.
 		for i, s := range steps {
-			detail := stepDetail(s, vars)
+			detail := StepSummary(s, &vars)
 			fmt.Fprintf(f, "%s    step[%d] %s  %s\n", ts, i+1, s.Type, detail)
 		}
 
@@ -109,24 +109,45 @@ func LogPath() string {
 	return filepath.Join(paths.DataDir(), paths.LogFileName)
 }
 
-// stepDetail returns a human-readable description of what a step does.
-func stepDetail(s config.Step, vars tmpl.Vars) string {
+// StepSummary returns a human-readable description of what a step does.
+// When vars is non-nil, template variables are expanded (logging mode).
+// When vars is nil, raw values are shown (dry-run mode).
+// When/volume suffixes are always appended if present.
+func StepSummary(s config.Step, vars *tmpl.Vars) string {
+	// expand returns the expanded string if vars is set, otherwise the raw value.
+	expand := func(text string) string {
+		if vars != nil {
+			return tmpl.Expand(text, *vars)
+		}
+		return text
+	}
+
+	var parts []string
 	switch s.Type {
 	case "sound":
-		return fmt.Sprintf("sound=%s", s.Sound)
+		parts = append(parts, fmt.Sprintf("sound=%s", s.Sound))
 	case "say":
-		return fmt.Sprintf("text=%q", tmpl.Expand(s.Text, vars))
+		parts = append(parts, fmt.Sprintf("text=%q", expand(s.Text)))
 	case "toast":
 		title := s.Title
-		if title == "" {
+		if title == "" && vars != nil {
 			title = vars.Profile
 		}
-		return fmt.Sprintf("title=%q message=%q", tmpl.Expand(title, vars), tmpl.Expand(s.Message, vars))
+		if title != "" {
+			parts = append(parts, fmt.Sprintf("title=%q", expand(title)))
+		}
+		parts = append(parts, fmt.Sprintf("message=%q", expand(s.Message)))
 	case "discord", "discord_voice", "slack", "telegram", "telegram_audio", "telegram_voice":
-		return fmt.Sprintf("text=%q", tmpl.Expand(s.Text, vars))
+		parts = append(parts, fmt.Sprintf("text=%q", expand(s.Text)))
 	case "webhook":
-		return fmt.Sprintf("url=%s text=%q", s.URL, tmpl.Expand(s.Text, vars))
-	default:
-		return ""
+		parts = append(parts, fmt.Sprintf("url=%s", s.URL))
+		parts = append(parts, fmt.Sprintf("text=%q", expand(s.Text)))
 	}
+	if s.When != "" {
+		parts = append(parts, fmt.Sprintf("when=%s", s.When))
+	}
+	if s.Volume != nil {
+		parts = append(parts, fmt.Sprintf("volume=%d", *s.Volume))
+	}
+	return strings.Join(parts, "  ")
 }
