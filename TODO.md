@@ -73,3 +73,51 @@ Actions that trigger other actions based on step outcomes. E.g.
 `"on_failure": "escalate"` would run the `escalate` action if any
 step in the current action fails. Enables retry and escalation
 patterns without shell scripting.
+
+---
+
+## Tech Debt / Cleanup
+
+### Deduplicate `runAction` / `runWrapped` (high)
+
+Both functions in `main.go` share near-identical logic: silent check,
+`config.Resolve()`, `baseVars()`, `executeAction()`. Extract a shared
+helper to eliminate the duplication.
+
+### Split `renderSummaryTable` (high)
+
+At ~200 lines with nested closures, inline helpers, and magic column
+widths, this function is hard to test and maintain. Break into smaller
+functions (header, rows, totals) and name the magic numbers.
+
+### Reuse eventlog parsing in `historyClean` (medium)
+
+`historyClean()` manually parses timestamps from raw log blocks instead
+of reusing `eventlog.ParseEntries()`. Should share the parsing logic.
+
+### Unify `stepDetail` / `stepSummary` (medium)
+
+`stepDetail()` in `eventlog.go` and `stepSummary()` in `main.go`
+duplicate the same step-type switch/case. Merge into one function in
+the eventlog package.
+
+### Add tests for history commands (medium)
+
+No test coverage for `historySummary`, `historyClean`, `historyExport`,
+`historyWatch`, `renderSummaryTable`, or `buildBaseline`. Add table-
+driven tests, especially for the table renderer.
+
+### Consistent `os.Remove` error handling (medium)
+
+Some `os.Remove()` calls check errors, others silently ignore them.
+Either add `// best-effort` comments or check consistently.
+
+### Extract ANSI color helpers (low)
+
+`ansi()`, `bold()`, `dim()`, `cyan()`, `green()`, `yellow()` live in
+`main.go`. Move to `internal/color` if more UI features are added.
+
+### Name constants for watch/table (low)
+
+Watch refresh interval (2s), table column widths (7, 9), and separator
+base length (33) are magic numbers. Define as named constants.
