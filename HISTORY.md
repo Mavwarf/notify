@@ -2,6 +2,7 @@
 
 ## Features
 
+- Pipe / stream mode (`notify pipe`) — trigger notifications from stdin patterns *(Feb 24)*
 - Output capture (`{output}`) and pattern matching (`--match`) for `notify run` *(Feb 24)*
 - Profile auto-selection — match rules auto-select profile by working directory or env var *(Feb 24)*
 - History watch (`notify history watch`) — live-updating today's summary dashboard *(Feb 24)*
@@ -38,6 +39,20 @@
 ---
 
 ## 2026-02-24
+
+### Pipe / Stream Mode (`notify pipe`)
+New `notify pipe [profile]` subcommand reads stdin line-by-line and triggers
+notifications when patterns match. Reuses the existing `--match` infrastructure
+from output capture: `tail -f build.log | notify pipe boss --match "SUCCESS"
+done --match "FAIL" error`. Without `--match`, every line triggers the
+`"ready"` action (useful for low-volume streams like deployment events).
+First match wins when multiple patterns could match; unmatched lines are
+skipped silently. The `{output}` template variable contains the matched line.
+Steps with `"when": "direct"` fire in pipe mode; steps with `"when": "run"`
+do not — pipe is not a command wrapper. Dispatches through the same
+`dispatchActions` path as direct invocations, so cooldown, logging, echo,
+silent mode, and profile auto-selection all work. Exits 0 on EOF, exits 1
+on scanner error (broken pipe).
 
 ### Output Capture and Pattern Matching
 `notify run` can now capture command output for use in notifications and

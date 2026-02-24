@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -135,6 +136,8 @@ func main() {
 		silentCmd(filtered[1:], configPath, logFlag)
 	case "run":
 		runWrapped(filtered[1:], configPath, volume, logFlag, echoFlag, cooldownFlag, matches)
+	case "pipe":
+		runPipe(filtered[1:], configPath, volume, logFlag, echoFlag, cooldownFlag, matches)
 	default:
 		runAction(filtered, configPath, volume, logFlag, echoFlag, cooldownFlag)
 	}
@@ -274,6 +277,49 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 		})
 
 	os.Exit(exitCode)
+}
+
+func runPipe(args []string, configPath string, volume int, logFlag bool, echoFlag bool, cooldownFlag bool, matches []matchPair) {
+	// Parse optional profile from args[0], default "default".
+	profile := "default"
+	if len(args) > 0 {
+		profile = args[0]
+	}
+
+	cfg, err := loadAndValidate(configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if len(args) == 0 {
+		profile = config.MatchProfile(cfg, cwd())
+	}
+
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		var actionArg string
+		if len(matches) > 0 {
+			actionArg = resolveMatchAction(matches, line)
+			if actionArg == "" {
+				continue // no pattern matched, skip silently
+			}
+		} else {
+			actionArg = "ready"
+		}
+
+		dispatchActions(cfg, profile, actionArg, volume, logFlag, echoFlag, cooldownFlag, false,
+			func(v *tmpl.Vars) {
+				v.Output = line
+			})
+	}
+
+	if err := scanner.Err(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error reading stdin: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 // dispatchActions is the shared action loop for runAction and runWrapped.
@@ -1453,12 +1499,13 @@ Docs: https://github.com/Mavwarf/notify
 Usage:
   notify [options] [profile] <action[,action2,...]>
   notify run [options] [profile] -- <command...>
+  notify pipe [options] [profile] [--match <pattern> <action>...]
   notify send [--title <title>] <type> <message>
 
 Options:
   --volume, -v <0-100>   Override volume (default: config or 100)
   --config, -c <path>    Path to notify-config.json
-  --match, -M <pat> <action>  Select action by output pattern (repeatable, run mode only)
+  --match, -M <pat> <action>  Select action by output pattern (repeatable, run/pipe mode)
   --log, -L              Write invocation to notify.log
   --echo, -E             Print summary of steps that ran
   --cooldown, -C         Enable per-action cooldown (rate limiting)
@@ -1468,6 +1515,9 @@ Commands:
                          Supported: say, toast, discord, discord_voice, slack,
                          telegram, telegram_audio, telegram_voice
                          --title <title>  Set toast title (toast only)
+  pipe [profile]         Read stdin line-by-line, trigger action on pattern match
+                         Without --match, every line triggers "ready"
+                         {output} = the matched line
   run                    Wrap a command; map exit code or output pattern to action
   play [sound|file.wav]  Preview a built-in sound or WAV file (no args lists built-ins)
   test [profile]         Dry-run: show what would happen without sending
@@ -1495,10 +1545,11 @@ Profile auto-selection:
 
 Template variables:
   {profile}, {Profile}, {time}, {Time}, {date}, {Date}, {hostname}
-  Run mode only: {command}, {duration}, {Duration}, {output}
+  Run mode: {command}, {duration}, {Duration}, {output}
+  Pipe mode: {output} (the matched line)
 
-  {output} contains the last N lines of command output when
-  "output_lines" is set in config. Use in say/discord/slack/telegram text.
+  In run mode, {output} contains the last N lines of command output when
+  "output_lines" is set in config. In pipe mode, {output} is the matched line.
 
 Examples:
   notify ready                     Run "ready" from the default profile
@@ -1509,6 +1560,9 @@ Examples:
   notify run boss -- cargo test    Wrap with a specific profile
   notify run -M FAIL error -M passed ready -- pytest
                                    Select action by output pattern
+  tail -f build.log | notify pipe boss -M SUCCESS done -M FAIL error
+                                   Pipe mode: match patterns in stream
+  deploy-events | notify pipe ops  Every line triggers "ready"
 
 Created by Thomas Häuser
 https://mavwarf.netlify.app/

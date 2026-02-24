@@ -96,27 +96,6 @@ Config option for the threshold: `"shell_hook_threshold": 30` (seconds).
 - New users get value immediately after install without learning
   `notify run` syntax
 
-### Pipe / Stream Mode (`notify pipe`)
-
-Read lines from stdin and trigger notifications when patterns match.
-Useful for long-running processes you can't wrap with `notify run`.
-
-```bash
-tail -f build.log | notify pipe boss --match "BUILD SUCCESS" done --match "FAIL" error
-docker compose logs -f | notify pipe ops --match "panic" error
-```
-
-Without `--match`, every line triggers the default action (useful for
-low-volume streams like deployment events).
-
-**Use cases:**
-- CI/CD: pipe build output to notify without installing the binary on
-  the CI runner — `ssh ci-server 'tail -f build.log' | notify pipe boss`
-- Server monitoring: `journalctl -f -u myapp | notify pipe ops --match "ERROR" error`
-- Deployment tracking: `kubectl logs -f deploy/app | notify pipe --match "ready" done`
-- File watching: `fswatch src/ | notify pipe dev done` — notify on
-  every file change (e.g. trigger a rebuild notification)
-
 ---
 
 ## Tech Debt / Cleanup

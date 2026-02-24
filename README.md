@@ -135,6 +135,7 @@ internal/
 ```bash
 notify [options] [profile] <action[,action2,...]>
 notify run [options] [profile] -- <command...>
+notify pipe [options] [profile] [--match <pat> <action>...]  # Stream mode
 notify send [--title <title>] <type> <message>  # Send a one-off notification
 notify play [sound]                    # Preview a built-in sound (or list all)
 notify test [profile]                  # Dry-run: show what would happen
@@ -157,7 +158,7 @@ notify help                            # Show help
 |--------------------|------------------------------------------|
 | `--volume`, `-v`   | Override volume, 0-100 (default: config or 100) |
 | `--config`, `-c`   | Path to notify-config.json               |
-| `--match`, `-M`    | Select action by output pattern: `--match <pattern> <action>` (repeatable, `run` mode only) |
+| `--match`, `-M`    | Select action by output pattern: `--match <pattern> <action>` (repeatable, `run`/`pipe` mode) |
 | `--log`, `-L`      | Write invocation to notify.log         |
 | `--echo`, `-E`     | Print summary of steps that ran        |
 | `--cooldown`, `-C` | Enable per-action cooldown (rate limiting) |
@@ -274,7 +275,8 @@ notify help                            # Show help
   `{hostname}` to the machine's hostname. When using `notify run`, `{command}`,
   `{duration}` (compact: `2m15s`), `{Duration}` (spoken: `2 minutes and
   15 seconds`), and `{output}` (last N lines of command output, requires
-  `"output_lines"` in config) are also available. Use `{Duration}` in `say`
+  `"output_lines"` in config) are also available. In `notify pipe` mode,
+  `{output}` contains the matched line from stdin. Use `{Duration}` in `say`
   steps for natural speech output. This is especially useful with the default fallback —
   a single action definition can produce different messages depending on which
   profile name was passed on the CLI.
@@ -533,8 +535,8 @@ conditions distinguish `notify run` from direct calls:
 | *(omitted)*    | Always (default, backwards compatible) |
 | `"present"`    | User is **active** (idle time below threshold) |
 | `"afk"`        | User is **away** (idle time at or above threshold) |
-| `"run"`        | Invoked via `notify run` (command wrapper) |
-| `"direct"`     | Invoked directly (not via `notify run`) |
+| `"run"`        | Invoked via `notify run` (command wrapper only) |
+| `"direct"`     | Invoked directly or via `notify pipe` (not `notify run`) |
 | `"never"`      | Never runs (temporarily disable a step) |
 | `"hours:X-Y"`  | Current hour is within range (24h local time) |
 
@@ -660,6 +662,12 @@ Additional variables available in `run` mode:
 | `{Duration}` | Spoken elapsed time (for TTS)        | `2 minutes and 15 seconds`     |
 | `{output}`   | Last N lines of command output       | `3 failed, 47 passed`          |
 
+Additional variables available in `pipe` mode:
+
+| Variable     | Description                          | Example                        |
+|--------------|--------------------------------------|--------------------------------|
+| `{output}`   | The matched line from stdin          | `BUILD SUCCESS`                |
+
 Use `{Duration}` in `say` steps for natural speech, `{duration}` in
 toast/discord/slack for compact display.
 
@@ -699,7 +707,8 @@ notify run -- pytest
 # Discord message: "Done!\n3 failed, 47 passed"
 ```
 
-`{output}` is empty when not in `run` mode or when `output_lines` is 0.
+`{output}` is empty when not in `run` or `pipe` mode, or when `output_lines`
+is 0 (in `run` mode). In `pipe` mode, `{output}` is always the matched line.
 Output capture uses a tee — the command's stdout and stderr still print
 to the terminal normally.
 
@@ -719,6 +728,32 @@ Action resolution order for `notify run`:
 1. `--match` patterns (first substring hit wins)
 2. `exit_codes` config map
 3. Exit 0 → `ready`, else → `error`
+
+### Pipe / stream mode (`notify pipe`)
+
+Read lines from stdin and trigger notifications when patterns match.
+Useful for long-running processes you can't wrap with `notify run`:
+
+```bash
+tail -f build.log | notify pipe boss --match "SUCCESS" done --match "FAIL" error
+docker compose logs -f | notify pipe ops --match "panic" error
+deploy-events | notify pipe ops                    # every line triggers "ready"
+```
+
+Without `--match`, every line from stdin triggers the `"ready"` action. With
+`--match`, only lines that match a pattern trigger — unmatched lines are
+skipped silently. First match wins when multiple patterns could match.
+
+The `{output}` template variable contains the matched line (the full line
+from stdin that triggered the notification). Other base template variables
+(`{profile}`, `{time}`, `{date}`, `{hostname}`) are available as usual.
+`{command}` and `{duration}` are empty (no wrapped command).
+
+Steps with `"when": "direct"` fire in pipe mode; steps with `"when": "run"`
+do not — pipe is not a command wrapper.
+
+For high-volume streams, use `--cooldown` (or `"cooldown": true` in config)
+to prevent notification spam. Exits 0 when stdin closes (EOF).
 
 ### Direct send (`notify send`)
 
@@ -761,6 +796,9 @@ notify send toast --title Build "Done"  # Toast with custom title
 notify run -- make build          # Wrap a command, auto ready/error
 notify run boss -- cargo test     # Wrap with a specific profile
 notify run -M FAIL error -M passed ready -- pytest  # Match output patterns
+tail -f build.log | notify pipe boss -M SUCCESS done -M FAIL error
+                                  # Pipe mode: match patterns in stream
+deploy-events | notify pipe ops   # Pipe: every line triggers "ready"
 notify test                       # Dry-run default profile
 notify test boss                  # Dry-run boss profile
 notify silent 1h                  # Suppress all notifications for 1 hour
