@@ -634,6 +634,29 @@ func historySummary(args []string) {
 // renderSummaryTable writes a formatted table of notification stats.
 // When baseline is non-nil (watch mode), a "New" column shows deltas
 // per action, per profile, and in the total row.
+// ANSI color helpers. Disabled when NO_COLOR env var is set.
+var noColor = os.Getenv("NO_COLOR") != ""
+
+func ansi(code, s string) string {
+	if noColor {
+		return s
+	}
+	return code + s + "\033[0m"
+}
+
+func btoi(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+func bold(s string) string   { return ansi("\033[1m", s) }
+func dim(s string) string    { return ansi("\033[2m", s) }
+func cyan(s string) string   { return ansi("\033[36m", s) }
+func green(s string) string  { return ansi("\033[32m", s) }
+func yellow(s string) string { return ansi("\033[33m", s) }
+
 // fmtNum formats an integer with dot as thousands separator (e.g. 1234 → "1.234").
 func fmtNum(n int) string {
 	neg := ""
@@ -714,35 +737,48 @@ func renderSummaryTable(w *strings.Builder, groups []eventlog.DayGroup, baseline
 	}
 	hasNew := baseline != nil
 
+	// padLeft pads s to width with spaces on the left (ignoring ANSI codes).
+	padL := func(s string, width int) string {
+		pad := width - len(s)
+		if pad <= 0 {
+			return s
+		}
+		return strings.Repeat(" ", pad) + s
+	}
+	// padRight pads s to width with spaces on the right.
+	padR := func(s string, width int) string {
+		pad := width - len(s)
+		if pad <= 0 {
+			return s
+		}
+		return s + strings.Repeat(" ", pad)
+	}
+	// colorNum applies color after padding.
+	colorSkip := func(s string, n int) string { return padL(yellow(s), n+(len(yellow(s))-len(s))) }
+	colorNew := func(s string, n int) string { return padL(green(s), n+(len(green(s))-len(s))) }
+
+	sep := dim("  " + strings.Repeat("─", 33+9*btoi(hasSkipped)+9*btoi(hasNew)))
+
 	// Date header.
 	if len(groups) == 1 {
 		dg := groups[0]
-		fmt.Fprintf(w, "%s  (%s)\n", dg.Date.Format("2006-01-02"), dg.Date.Format("Monday"))
+		fmt.Fprintf(w, "%s\n", dim(fmt.Sprintf("%s  (%s)", dg.Date.Format("2006-01-02"), dg.Date.Format("Monday"))))
 	} else {
-		fmt.Fprintf(w, "%s — %s\n",
+		fmt.Fprintf(w, "%s\n", dim(fmt.Sprintf("%s — %s",
 			groups[0].Date.Format("2006-01-02"),
-			groups[len(groups)-1].Date.Format("2006-01-02"))
+			groups[len(groups)-1].Date.Format("2006-01-02"))))
 	}
 
 	// Column header.
-	fmt.Fprintf(w, "  %-24s %7s", "", "Total")
+	hdr := fmt.Sprintf("  %-24s %7s", "", "Total")
 	if hasSkipped {
-		fmt.Fprintf(w, "  %7s", "Skipped")
+		hdr += fmt.Sprintf("  %7s", "Skipped")
 	}
 	if hasNew {
-		fmt.Fprintf(w, "  %7s", "New")
+		hdr += fmt.Sprintf("  %7s", "New")
 	}
-	w.WriteString("\n")
-
-	// Separator.
-	sepLen := 33
-	if hasSkipped {
-		sepLen += 9
-	}
-	if hasNew {
-		sepLen += 9
-	}
-	fmt.Fprintf(w, "  %s\n", strings.Repeat("─", sepLen))
+	w.WriteString(bold(hdr) + "\n")
+	w.WriteString(sep + "\n")
 
 	totalNew := 0
 
@@ -755,12 +791,13 @@ func renderSummaryTable(w *strings.Builder, groups []eventlog.DayGroup, baseline
 		pTotal := pc.exec + pc.skip
 
 		// Profile subtotal row.
-		fmt.Fprintf(w, "  %-24s %7s", profile, fmtNum(pTotal))
+		w.WriteString("  " + padR(cyan(profile), 24+(len(cyan(profile))-len(profile))))
+		w.WriteString(" " + padL(fmtNum(pTotal), 7))
 		if hasSkipped {
 			if pc.skip > 0 {
-				fmt.Fprintf(w, "  %7s", fmtNum(pc.skip))
+				w.WriteString("  " + colorSkip(fmtNum(pc.skip), 7))
 			} else {
-				fmt.Fprintf(w, "  %7s", "")
+				w.WriteString(fmt.Sprintf("  %7s", ""))
 			}
 		}
 		if hasNew {
@@ -771,9 +808,9 @@ func renderSummaryTable(w *strings.Builder, groups []eventlog.DayGroup, baseline
 				pNew += (c.exec + c.skip) - baseline[key]
 			}
 			if pNew > 0 {
-				fmt.Fprintf(w, "  %7s", "+"+fmtNum(pNew))
+				w.WriteString("  " + colorNew("+"+fmtNum(pNew), 7))
 			} else {
-				fmt.Fprintf(w, "  %7s", "")
+				w.WriteString(fmt.Sprintf("  %7s", ""))
 			}
 			totalNew += pNew
 		}
@@ -786,18 +823,18 @@ func renderSummaryTable(w *strings.Builder, groups []eventlog.DayGroup, baseline
 			fmt.Fprintf(w, "    %-22s %7s", ak.action, fmtNum(aTotal))
 			if hasSkipped {
 				if c.skip > 0 {
-					fmt.Fprintf(w, "  %7s", fmtNum(c.skip))
+					w.WriteString("  " + colorSkip(fmtNum(c.skip), 7))
 				} else {
-					fmt.Fprintf(w, "  %7s", "")
+					w.WriteString(fmt.Sprintf("  %7s", ""))
 				}
 			}
 			if hasNew {
 				key := ak.profile + "/" + ak.action
 				aN := aTotal - baseline[key]
 				if aN > 0 {
-					fmt.Fprintf(w, "  %7s", "+"+fmtNum(aN))
+					w.WriteString("  " + colorNew("+"+fmtNum(aN), 7))
 				} else {
-					fmt.Fprintf(w, "  %7s", "")
+					w.WriteString(fmt.Sprintf("  %7s", ""))
 				}
 			}
 			w.WriteString("\n")
@@ -805,7 +842,7 @@ func renderSummaryTable(w *strings.Builder, groups []eventlog.DayGroup, baseline
 	}
 
 	// Separator + total.
-	fmt.Fprintf(w, "  %s\n", strings.Repeat("─", sepLen))
+	w.WriteString(sep + "\n")
 	grandExec := 0
 	grandSkip := 0
 	for _, pc := range perProfile {
@@ -813,19 +850,31 @@ func renderSummaryTable(w *strings.Builder, groups []eventlog.DayGroup, baseline
 		grandSkip += pc.skip
 	}
 	grandTotal := grandExec + grandSkip
-	fmt.Fprintf(w, "  %-24s %7s", "Total", fmtNum(grandTotal))
+	totalLine := fmt.Sprintf("  %-24s %7s", "Total", fmtNum(grandTotal))
 	if hasSkipped {
 		if grandSkip > 0 {
-			fmt.Fprintf(w, "  %7s", fmtNum(grandSkip))
+			// Bold total first, then append colored skip.
+			w.WriteString(bold(totalLine))
+			w.WriteString("  " + colorSkip(fmtNum(grandSkip), 7))
+			totalLine = "" // already written
 		} else {
-			fmt.Fprintf(w, "  %7s", "")
+			totalLine += fmt.Sprintf("  %7s", "")
 		}
 	}
-	if hasNew {
+	if hasNew && totalLine != "" {
+		w.WriteString(bold(totalLine))
 		if totalNew > 0 {
-			fmt.Fprintf(w, "  %7s", "+"+fmtNum(totalNew))
+			w.WriteString("  " + colorNew("+"+fmtNum(totalNew), 7))
 		} else {
-			fmt.Fprintf(w, "  %7s", "")
+			w.WriteString(fmt.Sprintf("  %7s", ""))
+		}
+	} else if totalLine != "" {
+		w.WriteString(bold(totalLine))
+	} else if hasNew {
+		if totalNew > 0 {
+			w.WriteString("  " + colorNew("+"+fmtNum(totalNew), 7))
+		} else {
+			w.WriteString(fmt.Sprintf("  %7s", ""))
 		}
 	}
 	w.WriteString("\n")
@@ -951,10 +1000,13 @@ func historyWatch() {
 	}()
 
 	var baseline map[string]int
+	started := time.Now()
 	for {
+		elapsed := time.Since(started).Truncate(time.Second)
 		var out strings.Builder
 		out.WriteString("\033[2J\033[H")
-		out.WriteString("notify history watch  —  refreshing every 2s, press x to exit\n\n")
+		fmt.Fprintf(&out, "notify history watch  —  started %s (%s)  —  press x to exit\n\n",
+			started.Format("15:04:05"), dim(elapsed.String()))
 
 		path := eventlog.LogPath()
 		data, err := os.ReadFile(path)
