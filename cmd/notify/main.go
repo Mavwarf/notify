@@ -634,6 +634,31 @@ func historySummary(args []string) {
 // renderSummaryTable writes a formatted table of notification stats.
 // When baseline is non-nil (watch mode), a "New" column shows deltas
 // per action, per profile, and in the total row.
+// fmtNum formats an integer with dot as thousands separator (e.g. 1234 → "1.234").
+func fmtNum(n int) string {
+	neg := ""
+	if n < 0 {
+		neg = "-"
+		n = -n
+	}
+	s := strconv.Itoa(n)
+	if len(s) <= 3 {
+		return neg + s
+	}
+	var buf strings.Builder
+	r := len(s) % 3
+	if r > 0 {
+		buf.WriteString(s[:r])
+	}
+	for i := r; i < len(s); i += 3 {
+		if buf.Len() > 0 {
+			buf.WriteByte('.')
+		}
+		buf.WriteString(s[i : i+3])
+	}
+	return neg + buf.String()
+}
+
 func renderSummaryTable(w *strings.Builder, groups []eventlog.DayGroup, baseline map[string]int) {
 	// Aggregate across all day groups.
 	type actionKey struct{ profile, action string }
@@ -700,37 +725,40 @@ func renderSummaryTable(w *strings.Builder, groups []eventlog.DayGroup, baseline
 	}
 
 	// Column header.
-	fmt.Fprintf(w, "  %-24s %5s", "", "Total")
+	fmt.Fprintf(w, "  %-24s %7s", "", "Total")
 	if hasSkipped {
 		fmt.Fprintf(w, "  %7s", "Skipped")
 	}
 	if hasNew {
-		fmt.Fprintf(w, "  %5s", "New")
+		fmt.Fprintf(w, "  %7s", "New")
 	}
 	w.WriteString("\n")
 
 	// Separator.
-	sepLen := 31
+	sepLen := 33
 	if hasSkipped {
 		sepLen += 9
 	}
 	if hasNew {
-		sepLen += 7
+		sepLen += 9
 	}
 	fmt.Fprintf(w, "  %s\n", strings.Repeat("─", sepLen))
 
 	totalNew := 0
 
-	for _, profile := range profileOrder {
+	for pi, profile := range profileOrder {
+		if pi > 0 {
+			w.WriteString("\n")
+		}
 		aks := actionsByProfile[profile]
 		pc := perProfile[profile]
 		pTotal := pc.exec + pc.skip
 
 		// Profile subtotal row.
-		fmt.Fprintf(w, "  %-24s %5d", profile, pTotal)
+		fmt.Fprintf(w, "  %-24s %7s", profile, fmtNum(pTotal))
 		if hasSkipped {
 			if pc.skip > 0 {
-				fmt.Fprintf(w, "  %7d", pc.skip)
+				fmt.Fprintf(w, "  %7s", fmtNum(pc.skip))
 			} else {
 				fmt.Fprintf(w, "  %7s", "")
 			}
@@ -743,9 +771,9 @@ func renderSummaryTable(w *strings.Builder, groups []eventlog.DayGroup, baseline
 				pNew += (c.exec + c.skip) - baseline[key]
 			}
 			if pNew > 0 {
-				fmt.Fprintf(w, "  %+5d", pNew)
+				fmt.Fprintf(w, "  %7s", "+"+fmtNum(pNew))
 			} else {
-				fmt.Fprintf(w, "  %5s", "")
+				fmt.Fprintf(w, "  %7s", "")
 			}
 			totalNew += pNew
 		}
@@ -755,10 +783,10 @@ func renderSummaryTable(w *strings.Builder, groups []eventlog.DayGroup, baseline
 		for _, ak := range aks {
 			c := perAction[ak]
 			aTotal := c.exec + c.skip
-			fmt.Fprintf(w, "    %-22s %5d", ak.action, aTotal)
+			fmt.Fprintf(w, "    %-22s %7s", ak.action, fmtNum(aTotal))
 			if hasSkipped {
 				if c.skip > 0 {
-					fmt.Fprintf(w, "  %7d", c.skip)
+					fmt.Fprintf(w, "  %7s", fmtNum(c.skip))
 				} else {
 					fmt.Fprintf(w, "  %7s", "")
 				}
@@ -767,9 +795,9 @@ func renderSummaryTable(w *strings.Builder, groups []eventlog.DayGroup, baseline
 				key := ak.profile + "/" + ak.action
 				aN := aTotal - baseline[key]
 				if aN > 0 {
-					fmt.Fprintf(w, "  %+5d", aN)
+					fmt.Fprintf(w, "  %7s", "+"+fmtNum(aN))
 				} else {
-					fmt.Fprintf(w, "  %5s", "")
+					fmt.Fprintf(w, "  %7s", "")
 				}
 			}
 			w.WriteString("\n")
@@ -785,19 +813,19 @@ func renderSummaryTable(w *strings.Builder, groups []eventlog.DayGroup, baseline
 		grandSkip += pc.skip
 	}
 	grandTotal := grandExec + grandSkip
-	fmt.Fprintf(w, "  %-24s %5d", "Total", grandTotal)
+	fmt.Fprintf(w, "  %-24s %7s", "Total", fmtNum(grandTotal))
 	if hasSkipped {
 		if grandSkip > 0 {
-			fmt.Fprintf(w, "  %7d", grandSkip)
+			fmt.Fprintf(w, "  %7s", fmtNum(grandSkip))
 		} else {
 			fmt.Fprintf(w, "  %7s", "")
 		}
 	}
 	if hasNew {
 		if totalNew > 0 {
-			fmt.Fprintf(w, "  %+5d", totalNew)
+			fmt.Fprintf(w, "  %7s", "+"+fmtNum(totalNew))
 		} else {
-			fmt.Fprintf(w, "  %5s", "")
+			fmt.Fprintf(w, "  %7s", "")
 		}
 	}
 	w.WriteString("\n")

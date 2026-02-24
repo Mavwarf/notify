@@ -45,10 +45,12 @@ tracks per-action and per-profile deltas since watch started.
 
 ### Summary Table Format
 `notify history summary` now renders a structured table with profile
-subtotal rows, indented per-action rows, and a grand total. Columns
-(Total, Skipped, New) appear dynamically when relevant. Both `summary`
-and `watch` share the same renderer. `notify history summary all` shows
-all-time stats instead of the default 7-day window.
+subtotal rows, indented per-action rows, and a grand total. Profiles
+are separated by blank lines for readability. Large numbers use dot
+thousands separators (e.g. 1.234). Columns (Total, Skipped, New) appear
+dynamically when relevant. Both `summary` and `watch` share the same
+renderer. `notify history summary all` shows all-time stats instead of
+the default 7-day window.
 
 ### History Clean (`notify history clean`)
 New `notify history clean [days]` subcommand prunes old log entries by age.
