@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/term"
+
 	"github.com/Mavwarf/notify/internal/audio"
 	"github.com/Mavwarf/notify/internal/config"
 	"github.com/Mavwarf/notify/internal/cooldown"
@@ -540,6 +542,9 @@ func historyCmd(args []string) {
 		case "export":
 			historyExport(args[1:])
 			return
+		case "watch":
+			historyWatch()
+			return
 		}
 	}
 
@@ -621,61 +626,192 @@ func historySummary(args []string) {
 		return
 	}
 
-	totalExec := 0
-	totalSkip := 0
-	type profileCounts struct{ exec, skip int }
-	perProfile := map[string]*profileCounts{}
-	for i, dg := range groups {
-		if i > 0 {
-			fmt.Println()
-		}
-		fmt.Printf("%s  (%s)\n", dg.Date.Format("2006-01-02"), dg.Date.Format("Monday"))
+	var out strings.Builder
+	renderSummaryTable(&out, groups, nil)
+	fmt.Print(out.String())
+}
+
+// renderSummaryTable writes a formatted table of notification stats.
+// When baseline is non-nil (watch mode), a "New" column shows deltas
+// per action, per profile, and in the total row.
+func renderSummaryTable(w *strings.Builder, groups []eventlog.DayGroup, baseline map[string]int) {
+	// Aggregate across all day groups.
+	type actionKey struct{ profile, action string }
+	type counts struct{ exec, skip int }
+	perAction := map[actionKey]*counts{}
+	perProfile := map[string]*counts{}
+	var profileOrder []string
+	profileSeen := map[string]bool{}
+
+	for _, dg := range groups {
 		for _, s := range dg.Summaries {
-			label := s.Profile + "/" + s.Action
-			if s.Skipped > 0 {
-				fmt.Printf("  %-24s %d   (%d skipped)\n", label, s.Executions, s.Skipped)
-			} else {
-				fmt.Printf("  %-24s %d\n", label, s.Executions)
+			ak := actionKey{s.Profile, s.Action}
+			ac, ok := perAction[ak]
+			if !ok {
+				ac = &counts{}
+				perAction[ak] = ac
 			}
-			totalExec += s.Executions
-			totalSkip += s.Skipped
+			ac.exec += s.Executions
+			ac.skip += s.Skipped
+
 			pc, ok := perProfile[s.Profile]
 			if !ok {
-				pc = &profileCounts{}
+				pc = &counts{}
 				perProfile[s.Profile] = pc
 			}
 			pc.exec += s.Executions
 			pc.skip += s.Skipped
-		}
-	}
 
-	if len(perProfile) > 1 {
-		total := totalExec + totalSkip
-		profileNames := make([]string, 0, len(perProfile))
-		for name := range perProfile {
-			profileNames = append(profileNames, name)
-		}
-		sort.Strings(profileNames)
-		fmt.Printf("\nPer profile:\n")
-		for _, name := range profileNames {
-			pc := perProfile[name]
-			n := pc.exec + pc.skip
-			pct := float64(n) / float64(total) * 100
-			if pc.skip > 0 {
-				fmt.Printf("  %-24s %d  %5.1f%%   (%d skipped)\n", name, n, pct, pc.skip)
-			} else {
-				fmt.Printf("  %-24s %d  %5.1f%%\n", name, n, pct)
+			if !profileSeen[s.Profile] {
+				profileSeen[s.Profile] = true
+				profileOrder = append(profileOrder, s.Profile)
 			}
 		}
 	}
+	sort.Strings(profileOrder)
 
-	fmt.Println()
-	total := totalExec + totalSkip
-	if totalSkip > 0 {
-		fmt.Printf("Total: %d notifications (%d executions, %d skipped)\n", total, totalExec, totalSkip)
-	} else {
-		fmt.Printf("Total: %d notifications\n", total)
+	// Collect ordered action keys per profile.
+	actionsByProfile := map[string][]actionKey{}
+	for ak := range perAction {
+		actionsByProfile[ak.profile] = append(actionsByProfile[ak.profile], ak)
 	}
+	for _, aks := range actionsByProfile {
+		sort.Slice(aks, func(i, j int) bool { return aks[i].action < aks[j].action })
+	}
+
+	// Determine which columns to show.
+	hasSkipped := false
+	for _, c := range perAction {
+		if c.skip > 0 {
+			hasSkipped = true
+			break
+		}
+	}
+	hasNew := baseline != nil
+
+	// Date header.
+	if len(groups) == 1 {
+		dg := groups[0]
+		fmt.Fprintf(w, "%s  (%s)\n", dg.Date.Format("2006-01-02"), dg.Date.Format("Monday"))
+	} else {
+		fmt.Fprintf(w, "%s — %s\n",
+			groups[0].Date.Format("2006-01-02"),
+			groups[len(groups)-1].Date.Format("2006-01-02"))
+	}
+
+	// Column header.
+	fmt.Fprintf(w, "  %-24s %5s", "", "Total")
+	if hasSkipped {
+		fmt.Fprintf(w, "  %7s", "Skipped")
+	}
+	if hasNew {
+		fmt.Fprintf(w, "  %5s", "New")
+	}
+	w.WriteString("\n")
+
+	// Separator.
+	sepLen := 31
+	if hasSkipped {
+		sepLen += 9
+	}
+	if hasNew {
+		sepLen += 7
+	}
+	fmt.Fprintf(w, "  %s\n", strings.Repeat("─", sepLen))
+
+	totalNew := 0
+
+	for _, profile := range profileOrder {
+		aks := actionsByProfile[profile]
+		pc := perProfile[profile]
+		pTotal := pc.exec + pc.skip
+
+		// Profile subtotal row.
+		fmt.Fprintf(w, "  %-24s %5d", profile, pTotal)
+		if hasSkipped {
+			if pc.skip > 0 {
+				fmt.Fprintf(w, "  %7d", pc.skip)
+			} else {
+				fmt.Fprintf(w, "  %7s", "")
+			}
+		}
+		if hasNew {
+			pNew := 0
+			for _, ak := range aks {
+				key := ak.profile + "/" + ak.action
+				c := perAction[ak]
+				pNew += (c.exec + c.skip) - baseline[key]
+			}
+			if pNew > 0 {
+				fmt.Fprintf(w, "  %+5d", pNew)
+			} else {
+				fmt.Fprintf(w, "  %5s", "")
+			}
+			totalNew += pNew
+		}
+		w.WriteString("\n")
+
+		// Action rows (indented).
+		for _, ak := range aks {
+			c := perAction[ak]
+			aTotal := c.exec + c.skip
+			fmt.Fprintf(w, "    %-22s %5d", ak.action, aTotal)
+			if hasSkipped {
+				if c.skip > 0 {
+					fmt.Fprintf(w, "  %7d", c.skip)
+				} else {
+					fmt.Fprintf(w, "  %7s", "")
+				}
+			}
+			if hasNew {
+				key := ak.profile + "/" + ak.action
+				aN := aTotal - baseline[key]
+				if aN > 0 {
+					fmt.Fprintf(w, "  %+5d", aN)
+				} else {
+					fmt.Fprintf(w, "  %5s", "")
+				}
+			}
+			w.WriteString("\n")
+		}
+	}
+
+	// Separator + total.
+	fmt.Fprintf(w, "  %s\n", strings.Repeat("─", sepLen))
+	grandExec := 0
+	grandSkip := 0
+	for _, pc := range perProfile {
+		grandExec += pc.exec
+		grandSkip += pc.skip
+	}
+	grandTotal := grandExec + grandSkip
+	fmt.Fprintf(w, "  %-24s %5d", "Total", grandTotal)
+	if hasSkipped {
+		if grandSkip > 0 {
+			fmt.Fprintf(w, "  %7d", grandSkip)
+		} else {
+			fmt.Fprintf(w, "  %7s", "")
+		}
+	}
+	if hasNew {
+		if totalNew > 0 {
+			fmt.Fprintf(w, "  %+5d", totalNew)
+		} else {
+			fmt.Fprintf(w, "  %5s", "")
+		}
+	}
+	w.WriteString("\n")
+}
+
+// buildBaseline snapshots current per-action totals for watch delta tracking.
+func buildBaseline(groups []eventlog.DayGroup) map[string]int {
+	b := map[string]int{}
+	for _, dg := range groups {
+		for _, s := range dg.Summaries {
+			b[s.Profile+"/"+s.Action] += s.Executions + s.Skipped
+		}
+	}
+	return b
 }
 
 func historyClear() {
@@ -761,6 +897,73 @@ func historyClean(args []string) {
 		os.Exit(1)
 	}
 	fmt.Printf("Removed %d entries, kept %d (last %d days).\n", removed, len(kept), days)
+}
+
+func historyWatch() {
+	fd := int(os.Stdin.Fd())
+	oldState, err := term.MakeRaw(fd)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: cannot enter raw mode: %v\n", err)
+		os.Exit(1)
+	}
+	defer term.Restore(fd, oldState)
+
+	keys := make(chan byte, 1)
+	go func() {
+		buf := make([]byte, 1)
+		for {
+			n, err := os.Stdin.Read(buf)
+			if n > 0 {
+				keys <- buf[0]
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
+
+	var baseline map[string]int
+	for {
+		var out strings.Builder
+		out.WriteString("\033[2J\033[H")
+		out.WriteString("notify history watch  —  refreshing every 2s, press x to exit\n\n")
+
+		path := eventlog.LogPath()
+		data, err := os.ReadFile(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				out.WriteString("No log file found.\n")
+			} else {
+				fmt.Fprintf(&out, "Error: %v\n", err)
+			}
+		} else {
+			entries := eventlog.ParseEntries(string(data))
+			groups := eventlog.SummarizeByDay(entries, 1)
+			if len(groups) == 0 {
+				out.WriteString("No activity today.\n")
+			} else {
+				// Capture baseline on first render.
+				if baseline == nil {
+					baseline = buildBaseline(groups)
+				}
+				renderSummaryTable(&out, groups, baseline)
+			}
+		}
+
+		// In raw mode \n doesn't include \r, so convert.
+		os.Stdout.WriteString(strings.ReplaceAll(out.String(), "\n", "\r\n"))
+
+		timer := time.NewTimer(2 * time.Second)
+		select {
+		case key := <-keys:
+			timer.Stop()
+			if key == 'x' || key == 'X' || key == 3 { // x, X, or Ctrl+C
+				os.Stdout.WriteString("\033[2J\033[H")
+				return
+			}
+		case <-timer.C:
+		}
+	}
 }
 
 func configCmd(args []string, configPath string) {
@@ -1041,6 +1244,7 @@ Commands:
   config validate        Check config file for errors
   history [N]            Show last N log entries (default 10)
   history summary [days|all] Show action counts per day (default 7 days)
+  history watch          Live today's summary (refreshes every 2s, press x to exit)
   history export [days]  Export log entries as JSON (default: all)
   history clean [days]   Remove old entries, keep last N days (no arg = clear all)
   history clear          Delete the log file

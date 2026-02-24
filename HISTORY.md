@@ -2,7 +2,8 @@
 
 ## Features
 
-- History summary improvements — per-profile totals, percentages, and `all` option *(Feb 24)*
+- History watch (`notify history watch`) — live-updating today's summary dashboard *(Feb 24)*
+- Summary table format — profile grouping, dynamic columns, shared renderer *(Feb 24)*
 - History clean (`notify history clean`) — prune old log entries by age *(Feb 24)*
 - Per-profile credential overrides — different profiles can target different channels *(Feb 24)*
 - Notification groups — comma-separated actions in a single call *(Feb 23)*
@@ -36,9 +37,17 @@
 
 ## 2026-02-24
 
-### History Summary Improvements
-`notify history summary` now shows per-profile totals with percentages
-and a total notification count. `notify history summary all` shows
+### History Watch (`notify history watch`)
+Live-updating dashboard that shows today's summary as a formatted table.
+Clears the screen and refreshes every 2 seconds. Press `x` or `Ctrl+C`
+to exit. Uses terminal raw mode for instant key detection. A "New" column
+tracks per-action and per-profile deltas since watch started.
+
+### Summary Table Format
+`notify history summary` now renders a structured table with profile
+subtotal rows, indented per-action rows, and a grand total. Columns
+(Total, Skipped, New) appear dynamically when relevant. Both `summary`
+and `watch` share the same renderer. `notify history summary all` shows
 all-time stats instead of the default 7-day window.
 
 ### History Clean (`notify history clean`)
