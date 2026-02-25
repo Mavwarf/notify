@@ -112,9 +112,8 @@ significantly more. Could support both behind a provider abstraction.
   missing from the cache (would fall back to system TTS).
 - `notify voice clear` — delete all cached files (or for a specific
   profile).
-- `notify voice stats` — show voice line statistics: how many unique
-  lines exist across all profiles/actions, how many have cached AI
-  voice files vs. would fall back to system TTS, cache directory size.
+- ~~`notify voice stats`~~ — done (shows say-step text frequencies from
+  event log; dashboard Voice tab also available).
 
 **Playback integration:**
 
@@ -175,8 +174,9 @@ file exists (e.g. `[say] "Build complete" (ai: nova)` vs
 
 ### Dashboard Enhancements
 
-- **Timeline view** — visual timeline/gantt showing `run` command
-  durations (start → end), not just point events
+- ~~**Timeline view**~~ — done as activity timeline heatmap (per-profile
+  rows, hour cells with opacity intensity). True Gantt with start/end
+  would require logging command start events.
 
 ---
 
