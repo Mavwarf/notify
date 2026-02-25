@@ -520,83 +520,42 @@ func handleWatch(w http.ResponseWriter, r *http.Request) {
 	}
 	groups = filteredGroups
 
-	// Build summary (mirrors aggregateGroups from cmd/notify/history.go).
+	// Build summary using shared aggregation.
 	if len(groups) > 0 {
-		type actionKey struct{ profile, action string }
-		type counts struct{ exec, skip int }
-
-		perAction := map[actionKey]*counts{}
-		perProfile := map[string]*counts{}
-		var profileOrder []string
-		profileSeen := map[string]bool{}
-
-		for _, dg := range groups {
-			for _, s := range dg.Summaries {
-				ak := actionKey{s.Profile, s.Action}
-				ac, ok := perAction[ak]
-				if !ok {
-					ac = &counts{}
-					perAction[ak] = ac
-				}
-				ac.exec += s.Executions
-				ac.skip += s.Skipped
-
-				pc, ok := perProfile[s.Profile]
-				if !ok {
-					pc = &counts{}
-					perProfile[s.Profile] = pc
-				}
-				pc.exec += s.Executions
-				pc.skip += s.Skipped
-
-				if !profileSeen[s.Profile] {
-					profileSeen[s.Profile] = true
-					profileOrder = append(profileOrder, s.Profile)
-				}
-			}
-		}
-		sort.Strings(profileOrder)
-
-		actionsByProfile := map[string][]actionKey{}
-		for ak := range perAction {
-			actionsByProfile[ak.profile] = append(actionsByProfile[ak.profile], ak)
-		}
-		for _, aks := range actionsByProfile {
-			sort.Slice(aks, func(i, j int) bool { return aks[i].action < aks[j].action })
-		}
+		ad := eventlog.AggregateGroups(groups)
 
 		grandExec, grandSkip := 0, 0
-		for _, pc := range perProfile {
-			grandExec += pc.exec
-			grandSkip += pc.skip
+		for _, pc := range ad.PerProfile {
+			grandExec += pc.Exec
+			grandSkip += pc.Skip
 		}
 		grandTotal := grandExec + grandSkip
 
-		profiles := make([]watchProfile, 0, len(profileOrder))
-		for _, pName := range profileOrder {
-			pc := perProfile[pName]
-			pTotal := pc.exec + pc.skip
+		profiles := make([]watchProfile, 0, len(ad.ProfileOrder))
+		for _, pName := range ad.ProfileOrder {
+			pc := ad.PerProfile[pName]
+			pTotal := pc.Exec + pc.Skip
 			pct := 0
 			if grandTotal > 0 {
 				pct = pTotal * 100 / grandTotal
 			}
 
-			actions := make([]watchAction, 0, len(actionsByProfile[pName]))
-			for _, ak := range actionsByProfile[pName] {
-				ac := perAction[ak]
+			actions := make([]watchAction, 0, len(ad.ActionsByProfile[pName]))
+			for _, ak := range ad.ActionsByProfile[pName] {
+				ac := ad.PerAction[ak]
 				actions = append(actions, watchAction{
-					Name:    ak.action,
-					Total:   ac.exec + ac.skip,
-					Exec:    ac.exec,
-					Skipped: ac.skip,
+					Name:    ak.Action,
+					Total:   ac.Exec + ac.Skip,
+					Exec:    ac.Exec,
+					Skipped: ac.Skip,
 				})
 			}
 
 			profiles = append(profiles, watchProfile{
 				Name:    pName,
 				Total:   pTotal,
-				Exec:    pc.exec,
-				Skipped: pc.skip,
+				Exec:    pc.Exec,
+				Skipped: pc.Skip,
 				Pct:     pct,
 				Actions: actions,
 			})
@@ -610,60 +569,19 @@ func handleWatch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Build hourly (mirrors renderHourlyTable from cmd/notify/history.go).
-	type hp struct {
-		hour    int
-		profile string
-	}
-	perCell := map[hp]int{}
-	perHour := map[int]int{}
-	profileSet := map[string]bool{}
-	minHour, maxHour := 24, -1
-
-	for _, e := range entries {
-		local := e.Time.In(loc)
-		day := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc)
-		if !day.Equal(targetDate) || e.Kind == eventlog.KindOther {
-			continue
-		}
-		h := local.Hour()
-		perCell[hp{h, e.Profile}]++
-		perHour[h]++
-		profileSet[e.Profile] = true
-		if h < minHour {
-			minHour = h
-		}
-		if h > maxHour {
-			maxHour = h
-		}
-	}
-
-	if len(perCell) > 0 {
-		hProfiles := make([]string, 0, len(profileSet))
-		for p := range profileSet {
-			hProfiles = append(hProfiles, p)
-		}
-		sort.Strings(hProfiles)
-
-		hGrandTotal := 0
-		for _, c := range perHour {
-			hGrandTotal += c
-		}
-
-		hours := make([]watchHourRow, 0, maxHour-minHour+1)
-		profileTotals := make([]int, len(hProfiles))
-
-		for h := minHour; h <= maxHour; h++ {
-			cnts := make([]int, len(hProfiles))
-			for i, p := range hProfiles {
-				c := perCell[hp{h, p}]
-				cnts[i] = c
-				profileTotals[i] += c
+	// Build hourly using shared computation.
+	hd := eventlog.ComputeHourly(entries, targetDate, loc)
+	if len(hd.PerCell) > 0 {
+		hours := make([]watchHourRow, 0, hd.MaxHour-hd.MinHour+1)
+		for h := hd.MinHour; h <= hd.MaxHour; h++ {
+			cnts := make([]int, len(hd.Profiles))
+			for i, p := range hd.Profiles {
+				cnts[i] = hd.PerCell[eventlog.HourProfile{Hour: h, Profile: p}]
 			}
-			ht := perHour[h]
+			ht := hd.PerHour[h]
 			pct := 0
-			if hGrandTotal > 0 {
-				pct = ht * 100 / hGrandTotal
+			if hd.GrandTotal > 0 {
+				pct = ht * 100 / hd.GrandTotal
 			}
 			hours = append(hours, watchHourRow{
 				Hour:   h,
@@ -674,49 +592,21 @@ func handleWatch(w http.ResponseWriter, r *http.Request) {
 		}
 
 		resp.Hourly = watchHourly{
-			Profiles:      hProfiles,
+			Profiles:      hd.Profiles,
 			Hours:         hours,
-			ProfileTotals: profileTotals,
-			GrandTotal:    hGrandTotal,
+			ProfileTotals: hd.ProfileTotals,
+			GrandTotal:    hd.GrandTotal,
 		}
 	}
 
-	// Build approximate time spent per profile.
-	// Group entries by profile, walk consecutive pairs — if gap ≤ 5min, add to total.
-	const timeGapThreshold = 5 * time.Minute
-	profileEntries := map[string][]time.Time{}
-	for _, e := range entries {
-		local := e.Time.In(loc)
-		day := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc)
-		if !day.Equal(targetDate) || e.Kind == eventlog.KindOther {
-			continue
+	// Build approximate time spent using shared computation.
+	tsd := eventlog.ComputeTimeSpent(entries, targetDate, loc)
+	if len(tsd.Profiles) > 0 {
+		tps := make([]watchTimeProfile, len(tsd.Profiles))
+		for i, p := range tsd.Profiles {
+			tps[i] = watchTimeProfile{Name: p.Name, Seconds: p.Seconds}
 		}
-		profileEntries[e.Profile] = append(profileEntries[e.Profile], e.Time)
-	}
-
-	if len(profileEntries) > 0 {
-		tpNames := make([]string, 0, len(profileEntries))
-		for p := range profileEntries {
-			tpNames = append(tpNames, p)
-		}
-		sort.Strings(tpNames)
-
-		grandTotal := 0
-		tps := make([]watchTimeProfile, 0, len(tpNames))
-		for _, p := range tpNames {
-			times := profileEntries[p]
-			sort.Slice(times, func(i, j int) bool { return times[i].Before(times[j]) })
-			secs := 0
-			for i := 1; i < len(times); i++ {
-				gap := times[i].Sub(times[i-1])
-				if gap <= timeGapThreshold {
-					secs += int(gap.Seconds())
-				}
-			}
-			tps = append(tps, watchTimeProfile{Name: p, Seconds: secs})
-			grandTotal += secs
-		}
-		resp.TimeSpent = watchTimeSpent{Profiles: tps, Total: grandTotal}
+		resp.TimeSpent = watchTimeSpent{Profiles: tps, Total: tsd.Total}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

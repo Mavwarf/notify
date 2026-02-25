@@ -102,23 +102,6 @@ Config option for the threshold: `"shell_hook_threshold": 30` (seconds).
 
 ## Tech Debt / Cleanup
 
-### Extract shared summary/hourly logic from dashboard (high)
-
-`handleWatch()` in `dashboard.go` (289 lines) duplicates two algorithms
-from `cmd/notify/history.go`:
-- **Summary aggregation** — `perAction`/`perProfile` maps, profile ordering,
-  percentage calculation. Already extracted as `aggregateGroups()` in
-  history.go but re-implemented inline in the dashboard handler.
-- **Hourly breakdown** — `hp` struct, `perCell`/`perHour` maps, min/max
-  hour bounds. Already in `renderHourlyTable()` in history.go but
-  re-implemented in the dashboard handler.
-
-Move the shared computation logic to `internal/eventlog/` (or a new
-`internal/summary/` package) so both CLI and dashboard consume the same
-code. The dashboard handler should call shared functions and serialize
-the result; history.go should call the same functions and render ANSI
-output.
-
 ### Extract profile resolution helper (medium)
 
 Profile auto-selection logic is duplicated three times in `main.go`:

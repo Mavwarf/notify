@@ -58,7 +58,7 @@ func TestFmtPct(t *testing.T) {
 	}
 }
 
-// --- aggregateGroups ---
+// --- AggregateGroups (now in eventlog package, tested via exported API) ---
 
 func TestAggregateGroupsSingle(t *testing.T) {
 	groups := []eventlog.DayGroup{{
@@ -70,26 +70,26 @@ func TestAggregateGroupsSingle(t *testing.T) {
 		},
 	}}
 
-	td := aggregateGroups(groups)
+	ad := eventlog.AggregateGroups(groups)
 
 	// Profile order is sorted alphabetically.
-	if len(td.profileOrder) != 2 || td.profileOrder[0] != "boss" || td.profileOrder[1] != "dev" {
-		t.Errorf("profileOrder = %v, want [boss dev]", td.profileOrder)
+	if len(ad.ProfileOrder) != 2 || ad.ProfileOrder[0] != "boss" || ad.ProfileOrder[1] != "dev" {
+		t.Errorf("ProfileOrder = %v, want [boss dev]", ad.ProfileOrder)
 	}
 
 	// Per-profile totals.
-	boss := td.perProfile["boss"]
-	if boss.exec != 13 || boss.skip != 2 {
-		t.Errorf("boss = exec:%d skip:%d, want exec:13 skip:2", boss.exec, boss.skip)
+	boss := ad.PerProfile["boss"]
+	if boss.Exec != 13 || boss.Skip != 2 {
+		t.Errorf("boss = exec:%d skip:%d, want exec:13 skip:2", boss.Exec, boss.Skip)
 	}
-	dev := td.perProfile["dev"]
-	if dev.exec != 5 || dev.skip != 0 {
-		t.Errorf("dev = exec:%d skip:%d, want exec:5 skip:0", dev.exec, dev.skip)
+	dev := ad.PerProfile["dev"]
+	if dev.Exec != 5 || dev.Skip != 0 {
+		t.Errorf("dev = exec:%d skip:%d, want exec:5 skip:0", dev.Exec, dev.Skip)
 	}
 
-	// hasSkipped should be true (boss/done has skips).
-	if !td.hasSkipped {
-		t.Error("hasSkipped = false, want true")
+	// HasSkipped should be true (boss/done has skips).
+	if !ad.HasSkipped {
+		t.Error("HasSkipped = false, want true")
 	}
 }
 
@@ -109,17 +109,17 @@ func TestAggregateGroupsMultipleDays(t *testing.T) {
 		},
 	}
 
-	td := aggregateGroups(groups)
+	ad := eventlog.AggregateGroups(groups)
 
-	app := td.perProfile["app"]
-	if app.exec != 10 || app.skip != 1 {
-		t.Errorf("app = exec:%d skip:%d, want exec:10 skip:1", app.exec, app.skip)
+	app := ad.PerProfile["app"]
+	if app.Exec != 10 || app.Skip != 1 {
+		t.Errorf("app = exec:%d skip:%d, want exec:10 skip:1", app.Exec, app.Skip)
 	}
 
-	ak := actionKey{"app", "ready"}
-	ac := td.perAction[ak]
-	if ac.exec != 10 || ac.skip != 1 {
-		t.Errorf("app/ready = exec:%d skip:%d, want exec:10 skip:1", ac.exec, ac.skip)
+	ak := eventlog.ActionKey{Profile: "app", Action: "ready"}
+	ac := ad.PerAction[ak]
+	if ac.Exec != 10 || ac.Skip != 1 {
+		t.Errorf("app/ready = exec:%d skip:%d, want exec:10 skip:1", ac.Exec, ac.Skip)
 	}
 }
 
@@ -130,9 +130,9 @@ func TestAggregateGroupsNoSkips(t *testing.T) {
 			{Profile: "x", Action: "a", Executions: 1, Skipped: 0},
 		},
 	}}
-	td := aggregateGroups(groups)
-	if td.hasSkipped {
-		t.Error("hasSkipped = true, want false")
+	ad := eventlog.AggregateGroups(groups)
+	if ad.HasSkipped {
+		t.Error("HasSkipped = true, want false")
 	}
 }
 

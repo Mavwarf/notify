@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -214,74 +213,6 @@ func colorPadL(colorFn func(string) string, s string, width int) string {
 
 // --- Summary table types ---
 
-type actionKey struct{ profile, action string }
-type counts struct{ exec, skip int }
-
-type tableData struct {
-	perAction        map[actionKey]*counts
-	perProfile       map[string]*counts
-	profileOrder     []string
-	actionsByProfile map[string][]actionKey
-	hasSkipped       bool
-}
-
-// aggregateGroups collects per-action and per-profile counts from day groups.
-func aggregateGroups(groups []eventlog.DayGroup) tableData {
-	td := tableData{
-		perAction:        map[actionKey]*counts{},
-		perProfile:       map[string]*counts{},
-		actionsByProfile: map[string][]actionKey{},
-	}
-	profileSeen := map[string]bool{}
-
-	for _, dg := range groups {
-		for _, s := range dg.Summaries {
-			ak := actionKey{s.Profile, s.Action}
-			ac, ok := td.perAction[ak]
-			if !ok {
-				ac = &counts{}
-				td.perAction[ak] = ac
-			}
-			ac.exec += s.Executions
-			ac.skip += s.Skipped
-
-			pc, ok := td.perProfile[s.Profile]
-			if !ok {
-				pc = &counts{}
-				td.perProfile[s.Profile] = pc
-			}
-			pc.exec += s.Executions
-			pc.skip += s.Skipped
-
-			if !profileSeen[s.Profile] {
-				profileSeen[s.Profile] = true
-				td.profileOrder = append(td.profileOrder, s.Profile)
-			}
-		}
-	}
-	sort.Strings(td.profileOrder)
-
-	for ak := range td.perAction {
-		td.actionsByProfile[ak.profile] = append(td.actionsByProfile[ak.profile], ak)
-		if ak.profile != "" && td.perAction[ak].skip > 0 {
-			td.hasSkipped = true
-		}
-	}
-	for _, aks := range td.actionsByProfile {
-		sort.Slice(aks, func(i, j int) bool { return aks[i].action < aks[j].action })
-	}
-	if !td.hasSkipped {
-		for _, c := range td.perAction {
-			if c.skip > 0 {
-				td.hasSkipped = true
-				break
-			}
-		}
-	}
-
-	return td
-}
-
 // renderTableHeader writes the date line, column header, and separator.
 func renderTableHeader(w *strings.Builder, groups []eventlog.DayGroup, hasSkipped, hasNew bool, sep string) {
 	if len(groups) == 1 {
@@ -306,24 +237,24 @@ func renderTableHeader(w *strings.Builder, groups []eventlog.DayGroup, hasSkippe
 
 // renderTableRows writes profile subtotal and per-action rows.
 // Returns the total "new" count across all profiles.
-func renderTableRows(w *strings.Builder, td tableData, baseline map[string]int, hasNew bool, grandTotal int) int {
+func renderTableRows(w *strings.Builder, ad eventlog.AggregatedData, baseline map[string]int, hasNew bool, grandTotal int) int {
 	totalNew := 0
 
-	for pi, profile := range td.profileOrder {
+	for pi, profile := range ad.ProfileOrder {
 		if pi > 0 {
 			w.WriteString("\n")
 		}
-		aks := td.actionsByProfile[profile]
-		pc := td.perProfile[profile]
-		pTotal := pc.exec + pc.skip
+		aks := ad.ActionsByProfile[profile]
+		pc := ad.PerProfile[profile]
+		pTotal := pc.Exec + pc.Skip
 
 		// Profile subtotal row.
 		w.WriteString("  " + padR(cyan(profile), colProfile+(len(cyan(profile))-len(profile))))
 		w.WriteString(" " + padL(fmtNum(pTotal), colNumber))
 		w.WriteString("  " + padL(fmtPct(pTotal, grandTotal), colPct))
-		if td.hasSkipped {
-			if pc.skip > 0 {
-				w.WriteString("  " + colorPadL(yellow, fmtNum(pc.skip), colNumber))
+		if ad.HasSkipped {
+			if pc.Skip > 0 {
+				w.WriteString("  " + colorPadL(yellow, fmtNum(pc.Skip), colNumber))
 			} else {
 				w.WriteString(fmt.Sprintf("  %*s", colNumber, ""))
 			}
@@ -331,9 +262,9 @@ func renderTableRows(w *strings.Builder, td tableData, baseline map[string]int, 
 		if hasNew {
 			pNew := 0
 			for _, ak := range aks {
-				key := ak.profile + "/" + ak.action
-				c := td.perAction[ak]
-				pNew += (c.exec + c.skip) - baseline[key]
+				key := ak.Profile + "/" + ak.Action
+				c := ad.PerAction[ak]
+				pNew += (c.Exec + c.Skip) - baseline[key]
 			}
 			if pNew > 0 {
 				w.WriteString("  " + colorPadL(green, "+"+fmtNum(pNew), colNumber))
@@ -346,19 +277,19 @@ func renderTableRows(w *strings.Builder, td tableData, baseline map[string]int, 
 
 		// Action rows (indented).
 		for _, ak := range aks {
-			c := td.perAction[ak]
-			aTotal := c.exec + c.skip
-			fmt.Fprintf(w, "    %-*s %*s", colAction, ak.action, colNumber, fmtNum(aTotal))
+			c := ad.PerAction[ak]
+			aTotal := c.Exec + c.Skip
+			fmt.Fprintf(w, "    %-*s %*s", colAction, ak.Action, colNumber, fmtNum(aTotal))
 			w.WriteString(fmt.Sprintf("  %*s", colPct, ""))
-			if td.hasSkipped {
-				if c.skip > 0 {
-					w.WriteString("  " + colorPadL(yellow, fmtNum(c.skip), colNumber))
+			if ad.HasSkipped {
+				if c.Skip > 0 {
+					w.WriteString("  " + colorPadL(yellow, fmtNum(c.Skip), colNumber))
 				} else {
 					w.WriteString(fmt.Sprintf("  %*s", colNumber, ""))
 				}
 			}
 			if hasNew {
-				key := ak.profile + "/" + ak.action
+				key := ak.Profile + "/" + ak.Action
 				aN := aTotal - baseline[key]
 				if aN > 0 {
 					w.WriteString("  " + colorPadL(green, "+"+fmtNum(aN), colNumber))
@@ -373,19 +304,19 @@ func renderTableRows(w *strings.Builder, td tableData, baseline map[string]int, 
 }
 
 // renderTableTotal writes the separator and bold total row.
-func renderTableTotal(w *strings.Builder, td tableData, hasNew bool, totalNew int, sep string) {
+func renderTableTotal(w *strings.Builder, ad eventlog.AggregatedData, hasNew bool, totalNew int, sep string) {
 	w.WriteString(sep + "\n")
 
 	grandExec := 0
 	grandSkip := 0
-	for _, pc := range td.perProfile {
-		grandExec += pc.exec
-		grandSkip += pc.skip
+	for _, pc := range ad.PerProfile {
+		grandExec += pc.Exec
+		grandSkip += pc.Skip
 	}
 	grandTotal := grandExec + grandSkip
 	totalLine := fmt.Sprintf("  %-*s %*s  %*s", colProfile, "Total", colNumber, fmtNum(grandTotal), colPct, "")
 
-	if td.hasSkipped {
+	if ad.HasSkipped {
 		if grandSkip > 0 {
 			w.WriteString(bold(totalLine))
 			w.WriteString("  " + colorPadL(yellow, fmtNum(grandSkip), colNumber))
@@ -416,68 +347,36 @@ func renderTableTotal(w *strings.Builder, td tableData, hasNew bool, totalNew in
 // renderSummaryTable writes a formatted table of notification stats.
 // When baseline is non-nil (watch mode), a "New" column shows deltas.
 func renderSummaryTable(w *strings.Builder, groups []eventlog.DayGroup, baseline map[string]int) {
-	td := aggregateGroups(groups)
+	ad := eventlog.AggregateGroups(groups)
 	hasNew := baseline != nil
 
 	grandTotal := 0
-	for _, pc := range td.perProfile {
-		grandTotal += pc.exec + pc.skip
+	for _, pc := range ad.PerProfile {
+		grandTotal += pc.Exec + pc.Skip
 	}
 
-	sep := dim("  " + strings.Repeat("─", sepBase+sepPerCol*btoi(td.hasSkipped)+sepPerCol*btoi(hasNew)))
+	sep := dim("  " + strings.Repeat("─", sepBase+sepPerCol*btoi(ad.HasSkipped)+sepPerCol*btoi(hasNew)))
 
-	renderTableHeader(w, groups, td.hasSkipped, hasNew, sep)
-	totalNew := renderTableRows(w, td, baseline, hasNew, grandTotal)
-	renderTableTotal(w, td, hasNew, totalNew, sep)
+	renderTableHeader(w, groups, ad.HasSkipped, hasNew, sep)
+	totalNew := renderTableRows(w, ad, baseline, hasNew, grandTotal)
+	renderTableTotal(w, ad, hasNew, totalNew, sep)
 }
 
 // renderHourlyTable writes a per-hour activity breakdown.
 // Columns: one per profile + a Total column, rows: one per hour from first
-// activity to the current hour.
+// activity to the last activity hour.
 func renderHourlyTable(w *strings.Builder, entries []eventlog.Entry) {
 	now := time.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 
-	type hp struct {
-		hour    int
-		profile string
-	}
-	perCell := map[hp]int{}
-	perHour := map[int]int{}
-	profileSet := map[string]bool{}
-	minHour, maxHour := 24, -1
-
-	for _, e := range entries {
-		local := e.Time.In(now.Location())
-		day := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, now.Location())
-		if !day.Equal(today) || e.Kind == eventlog.KindOther {
-			continue
-		}
-		h := local.Hour()
-		perCell[hp{h, e.Profile}]++
-		perHour[h]++
-		profileSet[e.Profile] = true
-		if h < minHour {
-			minHour = h
-		}
-		if h > maxHour {
-			maxHour = h
-		}
-	}
-
-	if len(perCell) == 0 {
+	hd := eventlog.ComputeHourly(entries, today, now.Location())
+	if len(hd.PerCell) == 0 {
 		return
 	}
 
-	profiles := make([]string, 0, len(profileSet))
-	for p := range profileSet {
-		profiles = append(profiles, p)
-	}
-	sort.Strings(profiles)
-
 	// Column widths: at least colNumber, or the profile name length.
-	colWidths := make([]int, len(profiles))
-	for i, p := range profiles {
+	colWidths := make([]int, len(hd.Profiles))
+	for i, p := range hd.Profiles {
 		pw := len(p)
 		if pw < colNumber {
 			pw = colNumber
@@ -487,12 +386,6 @@ func renderHourlyTable(w *strings.Builder, entries []eventlog.Entry) {
 
 	const colHr = 7  // "HH:00" + padding
 	const colTot = 7 // "Total"
-
-	// Pre-compute grand total for percentage calculation.
-	grandTotal := 0
-	for _, c := range perHour {
-		grandTotal += c
-	}
 
 	// Separator width.
 	sepW := colHr
@@ -505,7 +398,7 @@ func renderHourlyTable(w *strings.Builder, entries []eventlog.Entry) {
 
 	// Header.
 	hdr := bold(fmt.Sprintf("  %-*s", colHr, "Hour"))
-	for i, p := range profiles {
+	for i, p := range hd.Profiles {
 		hdr += "  " + colorPadL(cyan, p, colWidths[i])
 	}
 	hdr += bold(fmt.Sprintf("  %*s  %*s", colTot, "Total", colPct, "%"))
@@ -515,23 +408,20 @@ func renderHourlyTable(w *strings.Builder, entries []eventlog.Entry) {
 	w.WriteString(sep + "\n")
 
 	// Data rows.
-	grandPerProfile := make([]int, len(profiles))
-
-	for h := minHour; h <= maxHour; h++ {
+	for h := hd.MinHour; h <= hd.MaxHour; h++ {
 		row := fmt.Sprintf("  %-*s", colHr, fmt.Sprintf("%02d:00", h))
-		for i, p := range profiles {
-			c := perCell[hp{h, p}]
-			grandPerProfile[i] += c
+		for i, p := range hd.Profiles {
+			c := hd.PerCell[eventlog.HourProfile{Hour: h, Profile: p}]
 			if c > 0 {
 				row += "  " + padL(fmtNum(c), colWidths[i])
 			} else {
 				row += "  " + colorPadL(dim, "-", colWidths[i])
 			}
 		}
-		ht := perHour[h]
+		ht := hd.PerHour[h]
 		if ht > 0 {
 			row += "  " + padL(fmtNum(ht), colTot)
-			row += "  " + padL(fmtPct(ht, grandTotal), colPct)
+			row += "  " + padL(fmtPct(ht, hd.GrandTotal), colPct)
 		} else {
 			row += "  " + colorPadL(dim, "-", colTot)
 			row += fmt.Sprintf("  %*s", colPct, "")
@@ -542,10 +432,10 @@ func renderHourlyTable(w *strings.Builder, entries []eventlog.Entry) {
 	// Total row.
 	w.WriteString(sep + "\n")
 	totRow := fmt.Sprintf("  %-*s", colHr, "Total")
-	for i := range profiles {
-		totRow += "  " + padL(fmtNum(grandPerProfile[i]), colWidths[i])
+	for i := range hd.Profiles {
+		totRow += "  " + padL(fmtNum(hd.ProfileTotals[i]), colWidths[i])
 	}
-	totRow += fmt.Sprintf("  %*s  %*s", colTot, fmtNum(grandTotal), colPct, "")
+	totRow += fmt.Sprintf("  %*s  %*s", colTot, fmtNum(hd.GrandTotal), colPct, "")
 	w.WriteString(bold(totRow) + "\n")
 }
 
