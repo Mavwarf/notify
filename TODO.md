@@ -86,13 +86,6 @@ Config option for the threshold: `"shell_hook_threshold": 30` (seconds).
 
 ### Dashboard Enhancements
 
-**Small effort:**
-- **Screenshot mode** — keyboard shortcut (e.g. `S` key) that replaces
-  real profile/action names with fake ones (e.g. "project-alpha",
-  "project-beta") across the entire dashboard. Allows taking screenshots
-  for blog posts or docs without exposing real project names. Toggle on/off,
-  purely client-side name mapping in JS
-
 **Medium effort:**
 - **Profile pie chart** — SVG pie/donut chart in the Watch tab, placed
   to the right of the summary table, showing percentage share per profile.

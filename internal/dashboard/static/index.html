@@ -557,6 +557,15 @@ tr:hover td { background: var(--bg3); }
 
 .theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
 
+.screenshot-badge {
+  font-size: 11px;
+  color: var(--yellow);
+  border: 1px solid var(--yellow);
+  border-radius: 4px;
+  padding: 1px 8px;
+  opacity: 0.7;
+}
+
 /* Profile detail modal */
 .modal-backdrop {
   position: fixed;
@@ -634,12 +643,13 @@ tr:hover td { background: var(--bg3); }
 <div class="container">
   <header>
     <h1>notify dashboard</h1>
+    <span id="screenshot-badge" class="screenshot-badge" style="display:none">screenshot</span>
     <button class="theme-toggle" id="theme-toggle" title="Toggle theme"></button>
     <div class="status"><span class="dot" id="sse-dot"></span><span id="sse-status">connecting...</span></div>
   </header>
   <div style="font-size:12px;color:var(--fg-dim);margin:-12px 0 16px;display:flex;justify-content:space-between">
     <span>Cross-platform notification engine for the command line. <a href="https://github.com/Mavwarf/notify" target="_blank" rel="noopener" style="color:var(--cyan)">github.com/Mavwarf/notify</a></span>
-    <span class="shortcuts-hint">Keys: 1-4 tabs, arrows nav days, t today</span>
+    <span class="shortcuts-hint">Keys: 1-4 tabs, arrows nav days, t today, s screenshot</span>
   </div>
 
   <div class="tabs">
@@ -774,6 +784,30 @@ tr:hover td { background: var(--bg3); }
     updateToggleIcon();
   });
 
+  // ---- Screenshot mode ----
+  var screenshotMode = localStorage.getItem('notify-screenshot') === 'on';
+  var screenshotMap = (function() {
+    try { return JSON.parse(localStorage.getItem('notify-screenshot-map')) || {}; }
+    catch(e) { return {}; }
+  })();
+  var profilePool = ['project-alpha','project-beta','project-gamma','project-delta','project-epsilon','project-zeta','project-eta','project-theta'];
+  var profilePoolIdx = Object.keys(screenshotMap).length;
+
+  function maskProfile(name) {
+    if (!screenshotMode) return name;
+    if (screenshotMap[name]) return screenshotMap[name];
+    var fake = profilePoolIdx < profilePool.length ? profilePool[profilePoolIdx] : 'profile-' + (profilePoolIdx + 1);
+    profilePoolIdx++;
+    screenshotMap[name] = fake;
+    localStorage.setItem('notify-screenshot-map', JSON.stringify(screenshotMap));
+    return fake;
+  }
+
+  function updateScreenshotBadge() {
+    document.getElementById('screenshot-badge').style.display = screenshotMode ? '' : 'none';
+  }
+  updateScreenshotBadge();
+
   // ---- Tab switching ----
   const tabs = document.querySelectorAll('.tab');
   const panels = document.querySelectorAll('.panel');
@@ -836,7 +870,7 @@ tr:hover td { background: var(--bg3); }
     for (const p of [...profiles].sort()) {
       const opt = document.createElement('option');
       opt.value = p;
-      opt.textContent = p;
+      opt.textContent = maskProfile(p);
       if (p === current) opt.selected = true;
       filterProfile.appendChild(opt);
     }
@@ -864,7 +898,7 @@ tr:hover td { background: var(--bg3); }
     if (isNew) tr.classList.add('new-entry');
     tr.innerHTML =
       '<td>' + formatTime(entry.time) + '</td>' +
-      '<td><span class="profile-link" onclick="window._openProfileModal(\'' + esc(entry.profile).replace(/'/g, "\\'") + '\')">' + esc(entry.profile) + '</span></td>' +
+      '<td><span class="profile-link" onclick="window._openProfileModal(\'' + esc(entry.profile).replace(/'/g, "\\'") + '\')">' + esc(maskProfile(entry.profile)) + '</span></td>' +
       '<td>' + esc(entry.action) + '</td>' +
       '<td class="' + kindClass(entry.kind) + '">' + esc(entry.kind) + '</td>';
     // Insert at top (newest first)
@@ -1139,7 +1173,7 @@ tr:hover td { background: var(--bg3); }
     const kindCls = entry.kind === 'cooldown' ? ' toast-cooldown' : entry.kind === 'silent' ? ' toast-silent' : '';
     el.className = 'toast' + kindCls;
     el.innerHTML =
-      '<span class="toast-profile">' + esc(entry.profile) + '</span> ' +
+      '<span class="toast-profile">' + esc(maskProfile(entry.profile)) + '</span> ' +
       '<span class="toast-action">' + esc(entry.action) + '</span>' +
       '<div class="toast-kind ' + kindClass(entry.kind) + '">' + esc(entry.kind) + '</div>';
     toastContainer.appendChild(el);
@@ -1189,13 +1223,27 @@ tr:hover td { background: var(--bg3); }
     try {
       const res = await fetch('/api/config');
       configData = await res.json();
-      document.getElementById('config-content').textContent = JSON.stringify(configData, null, 2);
+      renderConfigJson();
       await loadLogProfiles();
       populateTestDropdowns();
       loadCredentials();
     } catch(e) {
       document.getElementById('config-content').textContent = 'Failed to load config: ' + e;
     }
+  }
+
+  function renderConfigJson() {
+    if (!configData) return;
+    var text = JSON.stringify(configData, null, 2);
+    if (screenshotMode) {
+      if (configData.profiles) {
+        for (var p of Object.keys(configData.profiles)) maskProfile(p);
+      }
+      for (var real in screenshotMap) {
+        text = text.replaceAll(real, screenshotMap[real]);
+      }
+    }
+    document.getElementById('config-content').textContent = text;
   }
 
   // ---- Credentials ----
@@ -1270,13 +1318,13 @@ tr:hover td { background: var(--bg3); }
     for (const p of inConfig) {
       const opt = document.createElement('option');
       opt.value = p;
-      opt.textContent = p + ' (config)';
+      opt.textContent = maskProfile(p) + ' (config)';
       profileSel.appendChild(opt);
     }
     for (const p of logOnly) {
       const opt = document.createElement('option');
       opt.value = p;
-      opt.textContent = p + ' (log extracted)';
+      opt.textContent = maskProfile(p) + ' (log extracted)';
       profileSel.appendChild(opt);
     }
 
@@ -1535,7 +1583,7 @@ tr:hover td { background: var(--bg3); }
       html += '<table class="watch-table"><thead><tr>';
       html += '<th>Hour</th>';
       for (const p of data.hourly.profiles) {
-        html += '<th style="color:var(--cyan)">' + esc(p) + '</th>';
+        html += '<th style="color:var(--cyan)">' + esc(maskProfile(p)) + '</th>';
       }
       html += '<th>Total</th><th>%</th>';
       html += '</tr></thead><tbody>';
@@ -1620,7 +1668,7 @@ tr:hover td { background: var(--bg3); }
 
   // ---- Profile detail modal ----
   function profileLink(name) {
-    return '<span class="profile-link" onclick="window._openProfileModal(\'' + esc(name).replace(/'/g, "\\'") + '\')">' + esc(name) + '</span>';
+    return '<span class="profile-link" onclick="window._openProfileModal(\'' + esc(name).replace(/'/g, "\\'") + '\')">' + esc(maskProfile(name)) + '</span>';
   }
 
   const modalBackdrop = document.getElementById('modal-backdrop');
@@ -1629,7 +1677,7 @@ tr:hover td { background: var(--bg3); }
   const modalBody = document.getElementById('modal-body');
 
   function openProfileModal(profileName) {
-    modalTitle.textContent = profileName;
+    modalTitle.textContent = maskProfile(profileName);
     modalBody.innerHTML = '<div class="modal-loading">Loading...</div>';
     modalBackdrop.style.display = '';
 
@@ -1712,6 +1760,20 @@ tr:hover td { background: var(--bg3); }
     if (!watchDate) loadWatch();
   }, 2000);
 
+  // ---- Screenshot toggle ----
+  function toggleScreenshot() {
+    screenshotMode = !screenshotMode;
+    localStorage.setItem('notify-screenshot', screenshotMode ? 'on' : '');
+    localStorage.setItem('notify-screenshot-map', JSON.stringify(screenshotMap));
+    updateScreenshotBadge();
+    renderHistory(allHistoryEntries);
+    loadSummary();
+    loadWatch();
+    renderConfigJson();
+    if (cachedCredentials) renderCredentials(cachedCredentials);
+    populateTestDropdowns();
+  }
+
   // ---- Keyboard shortcuts ----
   const tabNames = ['watch', 'history', 'config', 'test'];
 
@@ -1734,6 +1796,13 @@ tr:hover td { background: var(--bg3); }
     // 1-4: switch tabs
     if (e.key >= '1' && e.key <= '4') {
       switchTab(tabNames[parseInt(e.key) - 1]);
+      e.preventDefault();
+      return;
+    }
+
+    // S: toggle screenshot mode
+    if (e.key === 's' || e.key === 'S') {
+      toggleScreenshot();
       e.preventDefault();
       return;
     }
