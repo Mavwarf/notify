@@ -4,7 +4,7 @@
 
 - Voice stats (`notify voice stats`) — say step text usage frequency from event log *(Feb 25)*
 - Tests for `renderHourlyTable` — basic, single-profile, empty, single-hour, and gap-hour scenarios *(Feb 25)*
-- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, voice stats, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, dark/light theme toggle, history export, clickable profile detail view, approximate time spent per profile, profile donut chart, log file stats, screenshot mode, and `--open` flag for chromeless browser window *(Feb 25)*
+- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, voice stats, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, dark/light theme toggle, history export, clickable profile detail view, approximate time spent per profile, profile donut charts, hourly bar chart, log file stats, screenshot mode, and `--open` flag for chromeless browser window *(Feb 25)*
 - Heartbeat for long tasks (`--heartbeat`) — periodic notifications during `notify run` *(Feb 24)*
 - Pipe / stream mode (`notify pipe`) — trigger notifications from stdin patterns *(Feb 24)*
 - Output capture (`{output}`) and pattern matching (`--match`) for `notify run` *(Feb 24)*
@@ -55,7 +55,8 @@ text. Backed by a new `ParseVoiceLines()` function in the eventlog package.
 Local web UI served on `http://127.0.0.1:8080` (configurable with `--port`).
 Five tabs: **Watch** (default) mirrors the terminal `history watch` output
 with a summary table showing per-profile/action counts, percentages, skipped
-entries, and "New" deltas since page load, plus an hourly breakdown table —
+entries, and "New" deltas since page load, plus an hourly breakdown table
+with bar chart —
 all auto-refreshing every 2 seconds. **History** shows a live-updating table
 of notification events fed by Server-Sent Events. **Config** displays a
 read-only JSON view of the loaded config with credentials redacted to `"***"`.
@@ -151,13 +152,13 @@ idle breaks and ignored. Each profile row displays the estimated time in
 hidden when there is no estimated active time (e.g. profiles with only a
 single entry per session). Computed server-side in the `/api/watch` response.
 
-### Dashboard: Profile Donut Charts
-The **Watch** tab displays two outline-style donut charts: one next to the
-summary table showing notification share per profile, and one next to the
-time-spent table showing time distribution. Hover any segment for a tooltip
-with the profile name, value, and percentage. The center of each donut shows
-the grand total. Both charts use the foreground color for segment outlines,
-adapting to dark/light theme automatically.
+### Dashboard: Profile Donut Charts & Hourly Bar Chart
+The **Watch** tab displays outline-style charts next to each data table: donut
+charts beside the summary and time-spent tables showing notification share and
+time distribution per profile, and a vertical bar chart beside the hourly
+breakdown showing activity by hour. Hover any element for a tooltip. All charts
+use the foreground color for outlines, adapting to dark/light theme
+automatically.
 
 ### Dashboard: Screenshot Mode
 Press `S` to toggle screenshot mode, which replaces real profile names with

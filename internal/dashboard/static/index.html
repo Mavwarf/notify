@@ -1625,6 +1625,8 @@ tr:hover td { background: var(--bg3); }
     // Hourly breakdown table
     if (data.hourly.hours && data.hourly.hours.length > 0) {
       html += '<div style="border-top:1px solid var(--border);margin-top:20px;padding-top:12px" class="watch-section-title">Hourly breakdown</div>';
+      html += '<div style="display:flex;gap:32px;align-items:flex-start">';
+      html += '<div style="overflow-x:auto">';
       html += '<table class="watch-table"><thead><tr>';
       html += '<th>Hour</th>';
       for (const p of data.hourly.profiles) {
@@ -1664,6 +1666,9 @@ tr:hover td { background: var(--bg3); }
       html += '</tr>';
 
       html += '</tbody></table>';
+      html += '</div>'; // end table wrapper
+      html += renderHourlyBarChart(data.hourly);
+      html += '</div>'; // end flex wrapper
     }
 
     // Approximate time spent (after hourly)
@@ -1730,6 +1735,53 @@ tr:hover td { background: var(--bg3); }
     return m + 'm';
   }
 
+  // ---- Hourly bar chart ----
+  function renderHourlyBarChart(hourly) {
+    var hours = hourly.hours;
+    if (!hours || hours.length === 0) return '';
+    var maxTotal = 0;
+    for (var i = 0; i < hours.length; i++) {
+      if (hours[i].total > maxTotal) maxTotal = hours[i].total;
+    }
+    if (maxTotal === 0) return '';
+
+    var barW = 14, gap = 2, chartH = 108, labelH = 14;
+    var totalW = hours.length * (barW + gap) - gap;
+    var svgW = totalW + 2;
+    var svgH = chartH + labelH;
+
+    var cs = getComputedStyle(document.documentElement);
+    var fg = cs.getPropertyValue('--fg').trim();
+    var fgDim = cs.getPropertyValue('--fg-dim').trim();
+
+    var svg = '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 ' + svgW + ' ' + svgH + '">';
+
+    for (var i = 0; i < hours.length; i++) {
+      var hr = hours[i];
+      var x = 1 + i * (barW + gap);
+      var barH = maxTotal > 0 ? Math.max(Math.round((hr.total / maxTotal) * (chartH - 2)), 0) : 0;
+      var y = chartH - barH;
+
+      if (barH > 0) {
+        svg += '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + barH +
+          '" fill="transparent" stroke="' + fg + '" stroke-width="1" rx="1">' +
+          '<title>' + pad2(hr.hour) + ':00 — ' + hr.total + ' (' + hr.pct + '%)</title></rect>';
+      }
+
+      // Show every 3rd hour label to keep it compact
+      if (i % 3 === 0) {
+        svg += '<text x="' + (x + barW / 2) + '" y="' + (chartH + labelH - 2) +
+          '" text-anchor="middle" font-size="7" font-family="inherit" fill="' + fgDim + '">' +
+          pad2(hr.hour) + '</text>';
+      }
+    }
+
+    svg += '</svg>';
+    return '<div style="flex-shrink:0;text-align:center;padding-top:5px">' +
+      '<div class="watch-section-title" style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)">Activity by hour</div>' +
+      '<div style="position:relative;display:inline-block">' + svg + '</div></div>';
+  }
+
   // ---- Donut chart ----
   function polarXY(cx, cy, r, deg) {
     var rad = (deg - 90) * Math.PI / 180;
@@ -1760,7 +1812,7 @@ tr:hover td { background: var(--bg3); }
       if (sweep >= 360) sweep = 359.99;
       var name = esc(maskProfile(p.name)).replace(/"/g, '&quot;');
       svg += '<path class="donut-segment" d="' + donutArc(cx, cy, oR, iR, angle, angle + sweep) +
-        '" fill="none" stroke="' + fg + '" stroke-width="1.5" data-name="' + name +
+        '" fill="transparent" stroke="' + fg + '" stroke-width="1.5" data-name="' + name +
         '" data-total="' + p.total + '" data-pct="' + p.pct +
         '" style="cursor:crosshair;transition:opacity 0.15s"/>';
       angle += sweep;
@@ -1793,7 +1845,7 @@ tr:hover td { background: var(--bg3); }
       var pct = Math.round(p.seconds * 100 / timeSpent.total);
       var name = esc(maskProfile(p.name)).replace(/"/g, '&quot;');
       svg += '<path class="donut-segment" d="' + donutArc(cx, cy, oR, iR, angle, angle + sweep) +
-        '" fill="none" stroke="' + fg + '" stroke-width="1.5" data-name="' + name +
+        '" fill="transparent" stroke="' + fg + '" stroke-width="1.5" data-name="' + name +
         '" data-total="' + fmtDuration(p.seconds) + '" data-pct="' + pct +
         '" style="cursor:crosshair;transition:opacity 0.15s"/>';
       angle += sweep;
