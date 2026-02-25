@@ -2,7 +2,7 @@
 
 ## Features
 
-- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, dark/light theme toggle, history export, clickable profile detail view, and approximate time spent per profile *(Feb 25)*
+- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, dark/light theme toggle, history export, clickable profile detail view, approximate time spent per profile, and `--open` flag for chromeless browser window *(Feb 25)*
 - Heartbeat for long tasks (`--heartbeat`) — periodic notifications during `notify run` *(Feb 24)*
 - Pipe / stream mode (`notify pipe`) — trigger notifications from stdin patterns *(Feb 24)*
 - Output capture (`{output}`) and pattern matching (`--match`) for `notify run` *(Feb 24)*
@@ -137,6 +137,14 @@ idle breaks and ignored. Each profile row displays the estimated time in
 `Xh Ym` format with a percentage column, plus a total row. The section is
 hidden when there is no estimated active time (e.g. profiles with only a
 single entry per session). Computed server-side in the `/api/watch` response.
+
+### Dashboard: Open in Browser Window (`--open`)
+`notify dashboard --open` launches the dashboard in a chromeless browser window
+(no address bar, no tabs) using Edge or Chrome's `--app` mode. The flag tries
+Edge first, then Chrome/Chromium, and falls back to the OS default browser if
+none support app mode. The browser window is a separate process — closing it
+does not stop the server, and `Ctrl+C` in the terminal still shuts down the
+server as usual.
 
 ---
 

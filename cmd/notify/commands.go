@@ -295,14 +295,14 @@ func credStatus(ok bool) string {
 	return " not configured"
 }
 
-func dashboardCmd(configPath string, port int) {
+func dashboardCmd(configPath string, port int, open bool) {
 	cfg, err := loadAndValidate(configPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 	p, _ := config.FindPath(configPath)
-	if err := dashboard.Serve(cfg, p, port); err != nil {
+	if err := dashboard.Serve(cfg, p, port, open); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}

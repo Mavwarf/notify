@@ -142,7 +142,7 @@ notify pipe [options] [profile] [--match <pat> <action>...]  # Stream mode
 notify send [--title <title>] <type> <message>  # Send a one-off notification
 notify play [sound]                    # Preview a built-in sound (or list all)
 notify test [profile]                  # Dry-run: show what would happen
-notify dashboard [--port N]            # Local web UI (default port 8080)
+notify dashboard [--port N] [--open]   # Local web UI (default port 8080)
 notify config validate                 # Check config file for errors
 notify history [N]                     # Show last N log entries (default 10)
 notify history summary [days|all]      # Show action counts per day (default 7)
@@ -168,6 +168,7 @@ notify help                            # Show help
 | `--cooldown`, `-C` | Enable per-action cooldown (rate limiting) |
 | `--heartbeat`, `-H` | Periodic notification during `run` (e.g. `5m`, `2m30s`) |
 | `--port`, `-p`     | Port for `dashboard` command (default: 8080) |
+| `--open`, `-O`     | Open dashboard in a chromeless browser window |
 
 ### Config file
 
@@ -873,6 +874,7 @@ notify history clear              # Delete the log file
 notify config validate            # Check config for errors
 notify dashboard                  # Start web dashboard on port 8080
 notify dashboard --port 9000      # Start on a different port
+notify dashboard --open           # Open in a chromeless browser window
 notify b ready                    # Use alias "b" for the boss profile
 notify play                       # List all built-in sounds
 notify play success               # Preview the success sound
@@ -954,7 +956,12 @@ preference via `localStorage`.
 ```bash
 notify dashboard              # default port 8080
 notify dashboard --port 9000  # custom port
+notify dashboard --open       # launch in a chromeless browser window
 ```
+
+Add `--open` to launch the dashboard in a chromeless browser window (no address
+bar, no tabs) using Edge or Chrome's app mode. Falls back to the default browser
+if neither is available.
 
 The dashboard binds to `127.0.0.1` only (not exposed to the network). Config
 is loaded once at startup. Press `Ctrl+C` to stop.

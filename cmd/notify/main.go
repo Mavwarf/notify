@@ -61,6 +61,7 @@ func main() {
 	cooldownFlag := false
 	heartbeatSec := 0
 	port := 8080
+	openFlag := false
 	var matches []matchPair
 
 	// Parse flags
@@ -102,6 +103,8 @@ func main() {
 			echoFlag = true
 		case "--cooldown", "-C":
 			cooldownFlag = true
+		case "--open", "-O":
+			openFlag = true
 		case "--port", "-p":
 			if i+1 < len(args) {
 				v, err := strconv.Atoi(args[i+1])
@@ -155,7 +158,7 @@ func main() {
 	case "history":
 		historyCmd(filtered[1:])
 	case "dashboard":
-		dashboardCmd(configPath, port)
+		dashboardCmd(configPath, port, openFlag)
 	case "config":
 		configCmd(filtered[1:], configPath)
 	case "send":
@@ -658,6 +661,7 @@ Options:
   --cooldown, -C         Enable per-action cooldown (rate limiting)
   --heartbeat, -H <dur>  Periodic notification during "run" (e.g. 5m, 2m30s)
   --port, -p <1-65535>   Port for "dashboard" command (default: 8080)
+  --open, -O             Open dashboard in a browser window (app mode)
 
 Commands:
   send <type> <message>  Send a one-off notification (e.g. send telegram "hello")
@@ -672,6 +676,7 @@ Commands:
   play [sound|file.wav]  Preview a built-in sound or WAV file (no args lists built-ins)
   test [profile]         Dry-run: show what would happen without sending
   dashboard [--port N]   Local web UI with watch (day nav), history, config, and test tabs
+           [--open]      Add --open to launch in a chromeless browser window
   config validate        Check config file for errors
   history [N]            Show last N log entries (default 10)
   history summary [days|all] Show action counts per day (default 7 days)

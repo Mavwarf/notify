@@ -8,7 +8,9 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
+	"runtime"
 	"sort"
 	"strconv"
 	"time"
@@ -23,8 +25,9 @@ import (
 var staticFS embed.FS
 
 // Serve starts the dashboard HTTP server on 127.0.0.1:port and blocks
-// until interrupted. The config is loaded once at startup.
-func Serve(cfg config.Config, configPath string, port int) error {
+// until interrupted. If open is true, a browser window is launched in
+// app mode (chromeless) pointing at the dashboard URL.
+func Serve(cfg config.Config, configPath string, port int, open bool) error {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/", handleIndex)
@@ -49,13 +52,54 @@ func Serve(cfg config.Config, configPath string, port int) error {
 		srv.Shutdown(shutCtx)
 	}()
 
-	fmt.Printf("Dashboard: http://%s\n", addr)
+	url := fmt.Sprintf("http://%s", addr)
+	fmt.Printf("Dashboard: %s\n", url)
 	fmt.Println("Press Ctrl+C to stop")
+
+	if open {
+		go openBrowser(url)
+	}
 
 	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 		return err
 	}
 	return nil
+}
+
+// openBrowser tries to open the URL in a chromeless browser window (app mode).
+// It tries Edge, then Chrome, then falls back to the OS default browser.
+func openBrowser(url string) {
+	// Browsers that support --app mode (chromeless window).
+	appBrowsers := [][]string{
+		{"msedge", "--app=" + url},
+		{"chrome", "--app=" + url},
+		{"google-chrome", "--app=" + url},
+		{"chromium", "--app=" + url},
+		{"chromium-browser", "--app=" + url},
+	}
+
+	for _, b := range appBrowsers {
+		if path, err := exec.LookPath(b[0]); err == nil {
+			cmd := exec.Command(path, b[1:]...)
+			cmd.Stdout = nil
+			cmd.Stderr = nil
+			if cmd.Start() == nil {
+				return
+			}
+		}
+	}
+
+	// Fallback: open in default browser (with address bar).
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	case "darwin":
+		cmd = exec.Command("open", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	cmd.Start()
 }
 
 func handleIndex(w http.ResponseWriter, r *http.Request) {
