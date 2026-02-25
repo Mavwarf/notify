@@ -24,6 +24,108 @@ import (
 //go:embed static/index.html
 var staticFS embed.FS
 
+// JSON response types used by API handlers.
+
+type jsonEntry struct {
+	Time    string `json:"time"`
+	Profile string `json:"profile"`
+	Action  string `json:"action"`
+	Kind    string `json:"kind"`
+}
+
+type jsonSummary struct {
+	Profile    string `json:"profile"`
+	Action     string `json:"action"`
+	Executions int    `json:"executions"`
+	Skipped    int    `json:"skipped"`
+}
+
+type jsonGroup struct {
+	Date      string        `json:"date"`
+	Summaries []jsonSummary `json:"summaries"`
+}
+
+type stepResult struct {
+	Index    int    `json:"index"`
+	Type     string `json:"type"`
+	Detail   string `json:"detail"`
+	WouldRun bool   `json:"would_run"`
+}
+
+type actionResult struct {
+	Action    string       `json:"action"`
+	Resolved  string       `json:"resolved,omitempty"`
+	Steps     []stepResult `json:"steps"`
+	TotalRun  int          `json:"total_run"`
+	TotalSkip int          `json:"total_skip"`
+}
+
+type watchAction struct {
+	Name    string `json:"name"`
+	Total   int    `json:"total"`
+	Exec    int    `json:"exec"`
+	Skipped int    `json:"skipped"`
+}
+
+type watchProfile struct {
+	Name    string        `json:"name"`
+	Total   int           `json:"total"`
+	Exec    int           `json:"exec"`
+	Skipped int           `json:"skipped"`
+	Pct     int           `json:"pct"`
+	Actions []watchAction `json:"actions"`
+}
+
+type watchSummary struct {
+	Profiles     []watchProfile `json:"profiles"`
+	GrandTotal   int            `json:"grand_total"`
+	GrandExec    int            `json:"grand_exec"`
+	GrandSkipped int            `json:"grand_skipped"`
+}
+
+type watchHourRow struct {
+	Hour   int   `json:"hour"`
+	Counts []int `json:"counts"`
+	Total  int   `json:"total"`
+	Pct    int   `json:"pct"`
+}
+
+type watchHourly struct {
+	Profiles      []string       `json:"profiles"`
+	Hours         []watchHourRow `json:"hours"`
+	ProfileTotals []int          `json:"profile_totals"`
+	GrandTotal    int            `json:"grand_total"`
+}
+
+type watchTimeProfile struct {
+	Name    string `json:"name"`
+	Seconds int    `json:"seconds"`
+}
+
+type watchTimeSpent struct {
+	Profiles []watchTimeProfile `json:"profiles"`
+	Total    int                `json:"total"`
+}
+
+type watchResponse struct {
+	Date      string         `json:"date"`
+	DayName   string         `json:"day_name"`
+	IsToday   bool           `json:"is_today"`
+	Summary   watchSummary   `json:"summary"`
+	Hourly    watchHourly    `json:"hourly"`
+	TimeSpent watchTimeSpent `json:"time_spent"`
+}
+
+type credStatus struct {
+	Type   string `json:"type"`
+	Status string `json:"status"`
+}
+
+type profileCreds struct {
+	Profile     string       `json:"profile"`
+	Credentials []credStatus `json:"credentials"`
+}
+
 // Serve starts the dashboard HTTP server on 127.0.0.1:port and blocks
 // until interrupted. If open is true, a browser window is launched in
 // app mode (chromeless) pointing at the dashboard URL.
@@ -142,13 +244,6 @@ func handleHistory(w http.ResponseWriter, r *http.Request) {
 		entries = loadEntries(days)
 	}
 
-	type jsonEntry struct {
-		Time    string `json:"time"`
-		Profile string `json:"profile"`
-		Action  string `json:"action"`
-		Kind    string `json:"kind"`
-	}
-
 	out := make([]jsonEntry, len(entries))
 	for i, e := range entries {
 		out[i] = jsonEntry{
@@ -185,17 +280,6 @@ func handleSummary(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	groups := eventlog.SummarizeByDay(entries, days)
-
-	type jsonSummary struct {
-		Profile    string `json:"profile"`
-		Action     string `json:"action"`
-		Executions int    `json:"executions"`
-		Skipped    int    `json:"skipped"`
-	}
-	type jsonGroup struct {
-		Date      string        `json:"date"`
-		Summaries []jsonSummary `json:"summaries"`
-	}
 
 	out := make([]jsonGroup, len(groups))
 	for i, g := range groups {
@@ -284,12 +368,6 @@ func handleEvents(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			type jsonEntry struct {
-				Time    string `json:"time"`
-				Profile string `json:"profile"`
-				Action  string `json:"action"`
-				Kind    string `json:"kind"`
-			}
 			out := make([]jsonEntry, len(entries))
 			for i, e := range entries {
 				out[i] = jsonEntry{
@@ -329,21 +407,6 @@ func handleTest(cfg config.Config) http.HandlerFunc {
 
 		if req.Profile == "" {
 			req.Profile = "default"
-		}
-
-		type stepResult struct {
-			Index    int    `json:"index"`
-			Type     string `json:"type"`
-			Detail   string `json:"detail"`
-			WouldRun bool   `json:"would_run"`
-		}
-
-		type actionResult struct {
-			Action    string       `json:"action"`
-			Resolved  string       `json:"resolved,omitempty"`
-			Steps     []stepResult `json:"steps"`
-			TotalRun  int          `json:"total_run"`
-			TotalSkip int          `json:"total_skip"`
 		}
 
 		// Collect actions to test. Use Resolve() so unknown profiles
@@ -451,55 +514,6 @@ func handleWatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	groups := eventlog.SummarizeByDay(entries, 0) // load all days, filter below
-
-	type watchAction struct {
-		Name    string `json:"name"`
-		Total   int    `json:"total"`
-		Exec    int    `json:"exec"`
-		Skipped int    `json:"skipped"`
-	}
-	type watchProfile struct {
-		Name    string        `json:"name"`
-		Total   int           `json:"total"`
-		Exec    int           `json:"exec"`
-		Skipped int           `json:"skipped"`
-		Pct     int           `json:"pct"`
-		Actions []watchAction `json:"actions"`
-	}
-	type watchSummary struct {
-		Profiles     []watchProfile `json:"profiles"`
-		GrandTotal   int            `json:"grand_total"`
-		GrandExec    int            `json:"grand_exec"`
-		GrandSkipped int            `json:"grand_skipped"`
-	}
-	type watchHourRow struct {
-		Hour   int   `json:"hour"`
-		Counts []int `json:"counts"`
-		Total  int   `json:"total"`
-		Pct    int   `json:"pct"`
-	}
-	type watchHourly struct {
-		Profiles      []string       `json:"profiles"`
-		Hours         []watchHourRow `json:"hours"`
-		ProfileTotals []int          `json:"profile_totals"`
-		GrandTotal    int            `json:"grand_total"`
-	}
-	type watchTimeProfile struct {
-		Name    string `json:"name"`
-		Seconds int    `json:"seconds"`
-	}
-	type watchTimeSpent struct {
-		Profiles []watchTimeProfile `json:"profiles"`
-		Total    int                `json:"total"`
-	}
-	type watchResponse struct {
-		Date      string         `json:"date"`
-		DayName   string         `json:"day_name"`
-		IsToday   bool           `json:"is_today"`
-		Summary   watchSummary   `json:"summary"`
-		Hourly    watchHourly    `json:"hourly"`
-		TimeSpent watchTimeSpent `json:"time_spent"`
-	}
 
 	resp := watchResponse{
 		Date:      targetDate.Format("2006-01-02"),
@@ -702,15 +716,6 @@ var credentialRequirements = map[string][]string{
 
 func handleCredentials(cfg config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		type credStatus struct {
-			Type   string `json:"type"`
-			Status string `json:"status"`
-		}
-		type profileCreds struct {
-			Profile     string       `json:"profile"`
-			Credentials []credStatus `json:"credentials"`
-		}
-
 		names := make([]string, 0, len(cfg.Profiles))
 		for name := range cfg.Profiles {
 			names = append(names, name)

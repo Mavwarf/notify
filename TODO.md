@@ -109,13 +109,6 @@ Config option for the threshold: `"shell_hook_threshold": 30` (seconds).
 
 ## Tech Debt / Cleanup
 
-### `handleWatch()` inline types (low)
-
-Eight struct types (`watchAction`, `watchProfile`, `watchSummary`, etc.)
-are defined inline inside `handleWatch()`. Move to package-level types
-for reuse, testability, and godoc. Similarly, `jsonEntry` is defined
-identically in both `handleHistory()` and `handleEvents()`.
-
 ### `silentCmd` bypasses config validation (low)
 
 `silentCmd()` in `commands.go` uses `config.Load()` directly instead of
