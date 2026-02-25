@@ -390,3 +390,99 @@ func TestStdinVarsNoMessageFields(t *testing.T) {
 		t.Errorf("ClaudeHook = %q, want \"PreToolUse\"", v.ClaudeHook)
 	}
 }
+
+// --- baseVars ---
+
+func TestBaseVarsProfile(t *testing.T) {
+	v := baseVars("boss")
+	if v.Profile != "boss" {
+		t.Errorf("Profile = %q, want \"boss\"", v.Profile)
+	}
+}
+
+func TestBaseVarsTimeFilled(t *testing.T) {
+	v := baseVars("test")
+	if v.Time == "" {
+		t.Error("Time should not be empty")
+	}
+	if v.TimeSay == "" {
+		t.Error("TimeSay should not be empty")
+	}
+	if v.Date == "" {
+		t.Error("Date should not be empty")
+	}
+	if v.DateSay == "" {
+		t.Error("DateSay should not be empty")
+	}
+	if v.Hostname == "" {
+		t.Error("Hostname should not be empty")
+	}
+}
+
+func TestBaseVarsRunFieldsEmpty(t *testing.T) {
+	v := baseVars("x")
+	if v.Command != "" {
+		t.Errorf("Command = %q, want empty", v.Command)
+	}
+	if v.Duration != "" {
+		t.Errorf("Duration = %q, want empty", v.Duration)
+	}
+	if v.Output != "" {
+		t.Errorf("Output = %q, want empty", v.Output)
+	}
+}
+
+// --- resolveProfile ---
+
+func TestResolveProfileExplicit(t *testing.T) {
+	cfg := config.Config{}
+	if got := resolveProfile(cfg, "boss", true); got != "boss" {
+		t.Errorf("resolveProfile(cfg, \"boss\", true) = %q, want \"boss\"", got)
+	}
+}
+
+func TestResolveProfileImplicitDefault(t *testing.T) {
+	// No match rules → falls back to "default".
+	cfg := config.Config{}
+	got := resolveProfile(cfg, "default", false)
+	if got != "default" {
+		t.Errorf("resolveProfile(cfg, \"default\", false) = %q, want \"default\"", got)
+	}
+}
+
+// --- resolveHeartbeat ---
+
+func TestResolveHeartbeatFlag(t *testing.T) {
+	cfg := config.Config{Options: config.Options{HeartbeatSeconds: 300}}
+	if got := resolveHeartbeat(cfg, 60); got != 60 {
+		t.Errorf("resolveHeartbeat(cfg, 60) = %d, want 60 (flag wins)", got)
+	}
+}
+
+func TestResolveHeartbeatConfig(t *testing.T) {
+	cfg := config.Config{Options: config.Options{HeartbeatSeconds: 300}}
+	if got := resolveHeartbeat(cfg, 0); got != 300 {
+		t.Errorf("resolveHeartbeat(cfg, 0) = %d, want 300 (config fallback)", got)
+	}
+}
+
+func TestResolveHeartbeatDisabled(t *testing.T) {
+	cfg := config.Config{}
+	if got := resolveHeartbeat(cfg, 0); got != 0 {
+		t.Errorf("resolveHeartbeat(cfg, 0) = %d, want 0 (disabled)", got)
+	}
+}
+
+// --- credStatus ---
+
+func TestCredStatusConfigured(t *testing.T) {
+	if got := credStatus(true); got != " configured" {
+		t.Errorf("credStatus(true) = %q, want \" configured\"", got)
+	}
+}
+
+func TestCredStatusNotConfigured(t *testing.T) {
+	if got := credStatus(false); got != " not configured" {
+		t.Errorf("credStatus(false) = %q, want \" not configured\"", got)
+	}
+}

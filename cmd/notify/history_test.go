@@ -472,3 +472,123 @@ func TestRenderSummaryTablePercentageSingleProfile(t *testing.T) {
 		t.Errorf("missing 100%% for single profile:\n%s", s)
 	}
 }
+
+// --- btoi ---
+
+func TestBtoi(t *testing.T) {
+	if got := btoi(true); got != 1 {
+		t.Errorf("btoi(true) = %d, want 1", got)
+	}
+	if got := btoi(false); got != 0 {
+		t.Errorf("btoi(false) = %d, want 0", got)
+	}
+}
+
+// --- padL / padR ---
+
+func TestPadL(t *testing.T) {
+	tests := []struct {
+		s     string
+		width int
+		want  string
+	}{
+		{"hi", 5, "   hi"},
+		{"hello", 5, "hello"},
+		{"toolong", 3, "toolong"},
+		{"", 3, "   "},
+	}
+	for _, tt := range tests {
+		if got := padL(tt.s, tt.width); got != tt.want {
+			t.Errorf("padL(%q, %d) = %q, want %q", tt.s, tt.width, got, tt.want)
+		}
+	}
+}
+
+func TestPadR(t *testing.T) {
+	tests := []struct {
+		s     string
+		width int
+		want  string
+	}{
+		{"hi", 5, "hi   "},
+		{"hello", 5, "hello"},
+		{"toolong", 3, "toolong"},
+		{"", 3, "   "},
+	}
+	for _, tt := range tests {
+		if got := padR(tt.s, tt.width); got != tt.want {
+			t.Errorf("padR(%q, %d) = %q, want %q", tt.s, tt.width, got, tt.want)
+		}
+	}
+}
+
+// --- ansi / color helpers ---
+
+func TestAnsiWithColor(t *testing.T) {
+	// Temporarily enable color for these tests.
+	orig := noColor
+	noColor = false
+	defer func() { noColor = orig }()
+
+	got := ansi("\033[1m", "test")
+	if got != "\033[1mtest\033[0m" {
+		t.Errorf("ansi with color = %q, want ANSI-wrapped", got)
+	}
+}
+
+func TestAnsiNoColor(t *testing.T) {
+	orig := noColor
+	noColor = true
+	defer func() { noColor = orig }()
+
+	if got := ansi("\033[1m", "test"); got != "test" {
+		t.Errorf("ansi with noColor = %q, want \"test\"", got)
+	}
+}
+
+func TestColorFunctions(t *testing.T) {
+	orig := noColor
+	noColor = false
+	defer func() { noColor = orig }()
+
+	tests := []struct {
+		name string
+		fn   func(string) string
+		code string
+	}{
+		{"bold", bold, "\033[1m"},
+		{"dim", dim, "\033[2m"},
+		{"cyan", cyan, "\033[36m"},
+		{"green", green, "\033[32m"},
+		{"yellow", yellow, "\033[33m"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.fn("x")
+			want := tt.code + "x" + "\033[0m"
+			if got != want {
+				t.Errorf("%s(\"x\") = %q, want %q", tt.name, got, want)
+			}
+		})
+	}
+}
+
+// --- colorPadL ---
+
+func TestColorPadL(t *testing.T) {
+	orig := noColor
+	noColor = false
+	defer func() { noColor = orig }()
+
+	// "hi" is 2 visible chars; with width=6 we want 4 spaces of padding.
+	// The ANSI codes add invisible bytes, so total string is longer than 6.
+	got := colorPadL(cyan, "hi", 6)
+	if !strings.HasSuffix(got, "hi\033[0m") {
+		t.Errorf("colorPadL should end with colored text, got %q", got)
+	}
+	// Visible content should be 4 spaces + "hi" = 6 chars.
+	plain := strings.ReplaceAll(strings.ReplaceAll(got, "\033[36m", ""), "\033[0m", "")
+	if plain != "    hi" {
+		t.Errorf("colorPadL visible content = %q, want \"    hi\"", plain)
+	}
+}
