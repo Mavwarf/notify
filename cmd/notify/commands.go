@@ -97,7 +97,7 @@ func silentCmd(args []string, configPath string, logFlag bool) {
 	if args[0] == "off" {
 		silent.Disable()
 		fmt.Println("Silent mode disabled")
-		if cfg, err := config.Load(configPath); err == nil && shouldLog(cfg, logFlag) {
+		if cfg, err := loadAndValidate(configPath); err == nil && shouldLog(cfg, logFlag) {
 			eventlog.LogSilentDisable()
 		}
 		return
@@ -115,7 +115,7 @@ func silentCmd(args []string, configPath string, logFlag bool) {
 
 	silent.Enable(d)
 	fmt.Printf("Silent until %s\n", time.Now().Add(d).Format("15:04:05"))
-	if cfg, err := config.Load(configPath); err == nil && shouldLog(cfg, logFlag) {
+	if cfg, err := loadAndValidate(configPath); err == nil && shouldLog(cfg, logFlag) {
 		eventlog.LogSilentEnable(d)
 	}
 }

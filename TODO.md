@@ -109,12 +109,6 @@ Config option for the threshold: `"shell_hook_threshold": 30` (seconds).
 
 ## Tech Debt / Cleanup
 
-### `silentCmd` bypasses config validation (low)
-
-`silentCmd()` in `commands.go` uses `config.Load()` directly instead of
-`loadAndValidate()`. Errors are silently ignored. Should match the
-pattern used by all other commands.
-
 ### Test platform-specific packages (low)
 
 `idle`, `speech`, and `toast` have no tests. All three shell out to
