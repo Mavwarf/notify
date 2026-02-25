@@ -2,6 +2,7 @@
 
 ## Features
 
+- Tests for `renderHourlyTable` — basic, single-profile, empty, single-hour, and gap-hour scenarios *(Feb 25)*
 - Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, dark/light theme toggle, history export, clickable profile detail view, approximate time spent per profile, profile donut chart, log file stats, screenshot mode, and `--open` flag for chromeless browser window *(Feb 25)*
 - Heartbeat for long tasks (`--heartbeat`) — periodic notifications during `notify run` *(Feb 24)*
 - Pipe / stream mode (`notify pipe`) — trigger notifications from stdin patterns *(Feb 24)*
@@ -158,6 +159,13 @@ maps to the same fake name across toggles and page reloads. API calls continue
 to use real names internally; only the displayed text is masked. A yellow
 "screenshot" badge appears in the header when active. Purely client-side — no
 backend changes. Keyboard hint updated to show `s` alongside existing shortcuts.
+
+### Tests for `renderHourlyTable`
+Added five test cases for the hourly breakdown table in `history_test.go`:
+basic two-profile rendering, single-profile with percentage verification,
+empty output for non-today entries, single-hour with 100%, and multi-hour
+gap filling. A shared `mkEntry` helper builds entries dated today at a
+given hour to keep tests concise.
 
 ### Dashboard: Log File Stats
 The **Watch** tab now shows a compact info line at the bottom displaying log

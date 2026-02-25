@@ -86,10 +86,8 @@ Config option for the threshold: `"shell_hook_threshold": 30` (seconds).
 
 ### Dashboard Enhancements
 
-**Larger features:**
 - **Timeline view** — visual timeline/gantt showing `run` command
   durations (start → end), not just point events
-- **Log file stats** — file size, entry count, oldest entry date
 
 ---
 
@@ -102,9 +100,7 @@ OS commands (`xprintidle`, `espeak`, `notify-send`, `say`, `osascript`,
 PowerShell). Could mock `exec.Command` to verify argument construction
 and error handling without real system calls.
 
-### Missing tests for history rendering (low)
+### Missing tests for command functions (low)
 
-`renderHourlyTable()` (113 lines), `historyClean()`, `historyExport()`,
-and most command functions in `commands.go` (`sendCmd`, `silentCmd`,
-`dryRun`) have no direct unit tests. The hourly table in particular
-has enough logic to warrant dedicated test cases.
+`historyClean()`, `historyExport()`, and most command functions in
+`commands.go` (`sendCmd`, `silentCmd`, `dryRun`) have no direct unit tests.

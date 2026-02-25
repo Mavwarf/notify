@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -284,6 +285,173 @@ func TestRenderSummaryTableMultiDay(t *testing.T) {
 	// Grand total should be 3.
 	if !strings.Contains(s, "3") {
 		t.Error("missing grand total 3")
+	}
+}
+
+// --- renderHourlyTable ---
+
+// mkEntry builds an eventlog.Entry dated today at the given hour.
+func mkEntry(profile, action string, hour int) eventlog.Entry {
+	now := time.Now()
+	return eventlog.Entry{
+		Time:    time.Date(now.Year(), now.Month(), now.Day(), hour, 0, 0, 0, now.Location()),
+		Profile: profile,
+		Action:  action,
+		Kind:    eventlog.KindExecution,
+	}
+}
+
+func TestRenderHourlyTableBasic(t *testing.T) {
+	entries := []eventlog.Entry{
+		mkEntry("boss", "done", 9),
+		mkEntry("boss", "done", 9),
+		mkEntry("dev", "ready", 11),
+		mkEntry("dev", "ready", 11),
+		mkEntry("dev", "ready", 11),
+	}
+
+	var out strings.Builder
+	renderHourlyTable(&out, entries)
+	s := out.String()
+
+	// Column headers.
+	for _, want := range []string{"Hour", "Total", "%"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("missing %q header in output:\n%s", want, s)
+		}
+	}
+	// Profile names.
+	for _, want := range []string{"boss", "dev"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("missing profile %q in output:\n%s", want, s)
+		}
+	}
+	// Hour rows.
+	if !strings.Contains(s, "09:00") {
+		t.Errorf("missing 09:00 row:\n%s", s)
+	}
+	if !strings.Contains(s, "11:00") {
+		t.Errorf("missing 11:00 row:\n%s", s)
+	}
+	// Gap hour 10:00 should appear with dashes.
+	if !strings.Contains(s, "10:00") {
+		t.Errorf("missing gap hour 10:00:\n%s", s)
+	}
+	// Total row.
+	if !strings.Contains(s, "Total") {
+		t.Errorf("missing Total row:\n%s", s)
+	}
+	// Grand total is 5.
+	if !strings.Contains(s, "5") {
+		t.Errorf("missing grand total 5:\n%s", s)
+	}
+}
+
+func TestRenderHourlyTableSingleProfile(t *testing.T) {
+	entries := []eventlog.Entry{
+		mkEntry("app", "deploy", 14),
+		mkEntry("app", "deploy", 14),
+		mkEntry("app", "deploy", 16),
+	}
+
+	var out strings.Builder
+	renderHourlyTable(&out, entries)
+	s := out.String()
+
+	if !strings.Contains(s, "app") {
+		t.Errorf("missing profile app:\n%s", s)
+	}
+	// Grand total is 3.
+	if !strings.Contains(s, "3") {
+		t.Errorf("missing grand total 3:\n%s", s)
+	}
+	// 14:00 has 2/3 = 66%.
+	if !strings.Contains(s, "66%") {
+		t.Errorf("missing 66%% for hour 14:\n%s", s)
+	}
+	// 16:00 has 1/3 = 33%.
+	if !strings.Contains(s, "33%") {
+		t.Errorf("missing 33%% for hour 16:\n%s", s)
+	}
+}
+
+func TestRenderHourlyTableEmpty(t *testing.T) {
+	// Entries from yesterday should not match today's date filter.
+	now := time.Now()
+	yesterday := now.AddDate(0, 0, -1)
+	entries := []eventlog.Entry{{
+		Time:    time.Date(yesterday.Year(), yesterday.Month(), yesterday.Day(), 10, 0, 0, 0, now.Location()),
+		Profile: "old",
+		Action:  "stale",
+		Kind:    eventlog.KindExecution,
+	}}
+
+	var out strings.Builder
+	renderHourlyTable(&out, entries)
+
+	if out.Len() != 0 {
+		t.Errorf("expected empty output for yesterday's entries, got:\n%s", out.String())
+	}
+}
+
+func TestRenderHourlyTableSingleHour(t *testing.T) {
+	entries := []eventlog.Entry{
+		mkEntry("ci", "build", 8),
+		mkEntry("ci", "build", 8),
+		mkEntry("ci", "build", 8),
+	}
+
+	var out strings.Builder
+	renderHourlyTable(&out, entries)
+	s := out.String()
+
+	// Only one hour row.
+	if !strings.Contains(s, "08:00") {
+		t.Errorf("missing 08:00 row:\n%s", s)
+	}
+	// That single hour should be 100%.
+	if !strings.Contains(s, "100%") {
+		t.Errorf("missing 100%% for single hour:\n%s", s)
+	}
+	// No other hour rows should exist (spot-check an adjacent hour).
+	if strings.Contains(s, "07:00") || strings.Contains(s, "09:00") {
+		t.Errorf("unexpected extra hour rows:\n%s", s)
+	}
+}
+
+func TestRenderHourlyTableGapHours(t *testing.T) {
+	entries := []eventlog.Entry{
+		mkEntry("web", "ping", 6),
+		mkEntry("web", "ping", 6),
+		mkEntry("web", "ping", 10),
+	}
+
+	var out strings.Builder
+	renderHourlyTable(&out, entries)
+	s := out.String()
+
+	// Rows for hours 6 through 10.
+	for h := 6; h <= 10; h++ {
+		label := fmt.Sprintf("%02d:00", h)
+		if !strings.Contains(s, label) {
+			t.Errorf("missing hour row %s:\n%s", label, s)
+		}
+	}
+	// Hours outside the range should not appear.
+	if strings.Contains(s, "05:00") || strings.Contains(s, "11:00") {
+		t.Errorf("unexpected hour rows outside 6-10 range:\n%s", s)
+	}
+	// Grand total is 3.
+	lines := strings.Split(s, "\n")
+	// Find the total row (last non-empty data line after separator).
+	var totalLine string
+	for _, l := range lines {
+		if strings.HasPrefix(strings.TrimSpace(l), "Total") {
+			totalLine = l
+		}
+	}
+	if !strings.Contains(totalLine, "3") {
+		t.Errorf("total row missing grand total 3:\n%s", totalLine)
 	}
 }
 
