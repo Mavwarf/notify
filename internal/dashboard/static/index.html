@@ -1738,6 +1738,7 @@ tr:hover td { background: var(--bg3); }
   // ---- Hourly bar chart ----
   function renderHourlyBarChart(hourly) {
     var hours = hourly.hours;
+    var profiles = hourly.profiles || [];
     if (!hours || hours.length === 0) return '';
     var maxTotal = 0;
     for (var i = 0; i < hours.length; i++) {
@@ -1763,9 +1764,18 @@ tr:hover td { background: var(--bg3); }
       var y = chartH - barH;
 
       if (barH > 0) {
-        svg += '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + barH +
-          '" fill="transparent" stroke="' + fg + '" stroke-width="1" rx="1">' +
-          '<title>' + pad2(hr.hour) + ':00 — ' + hr.total + ' (' + hr.pct + '%)</title></rect>';
+        var detail = '';
+        for (var j = 0; j < profiles.length; j++) {
+          if (hr.counts[j] > 0) {
+            detail += esc(maskProfile(profiles[j])).replace(/"/g, '&quot;') +
+              ': ' + hr.counts[j] + '&lt;br&gt;';
+          }
+        }
+        svg += '<rect class="donut-segment" x="' + x + '" y="' + y + '" width="' + barW + '" height="' + barH +
+          '" fill="transparent" stroke="' + fg + '" stroke-width="1" rx="1"' +
+          ' data-name="' + pad2(hr.hour) + ':00" data-total="' + hr.total + '" data-pct="' + hr.pct +
+          '" data-detail="' + detail + '"' +
+          ' style="cursor:crosshair;transition:opacity 0.15s"/>';
       }
 
       // Show every 3rd hour label to keep it compact
@@ -1779,7 +1789,8 @@ tr:hover td { background: var(--bg3); }
     svg += '</svg>';
     return '<div style="flex-shrink:0;text-align:center;padding-top:5px">' +
       '<div class="watch-section-title" style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)">Activity by hour</div>' +
-      '<div style="position:relative;display:inline-block">' + svg + '</div></div>';
+      '<div style="position:relative;display:inline-block">' + svg +
+      '<div class="chart-tooltip donut-tooltip"></div></div></div>';
   }
 
   // ---- Donut chart ----
@@ -1866,8 +1877,10 @@ tr:hover td { background: var(--bg3); }
       var wrap = tip.parentElement;
       wrap.querySelectorAll('.donut-segment').forEach(function(seg) {
         seg.addEventListener('mouseenter', function() {
+          var detail = seg.getAttribute('data-detail');
           tip.innerHTML = '<strong>' + seg.getAttribute('data-name') + '</strong><br>' +
-            seg.getAttribute('data-total') + ' (' + seg.getAttribute('data-pct') + '%)';
+            seg.getAttribute('data-total') + ' (' + seg.getAttribute('data-pct') + '%)' +
+            (detail ? '<br>' + detail : '');
           tip.style.display = 'block';
           seg.style.opacity = '0.8';
         });
