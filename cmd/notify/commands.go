@@ -9,6 +9,7 @@ import (
 
 	"github.com/Mavwarf/notify/internal/audio"
 	"github.com/Mavwarf/notify/internal/config"
+	"github.com/Mavwarf/notify/internal/dashboard"
 	"github.com/Mavwarf/notify/internal/eventlog"
 	"github.com/Mavwarf/notify/internal/runner"
 	"github.com/Mavwarf/notify/internal/silent"
@@ -292,4 +293,17 @@ func credStatus(ok bool) string {
 		return " configured"
 	}
 	return " not configured"
+}
+
+func dashboardCmd(configPath string, port int) {
+	cfg, err := loadAndValidate(configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	p, _ := config.FindPath(configPath)
+	if err := dashboard.Serve(cfg, p, port); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
 }

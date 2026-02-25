@@ -2,6 +2,7 @@
 
 ## Features
 
+- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, and dry-run testing *(Feb 25)*
 - Heartbeat for long tasks (`--heartbeat`) — periodic notifications during `notify run` *(Feb 24)*
 - Pipe / stream mode (`notify pipe`) — trigger notifications from stdin patterns *(Feb 24)*
 - Output capture (`{output}`) and pattern matching (`--match`) for `notify run` *(Feb 24)*
@@ -36,6 +37,28 @@
 - Template variables: `{profile}`, `{command}`, `{duration}` *(Feb 20)*
 - Opt-in event logging *(Feb 20)*
 - Multi-step notification pipelines: sound, speech, toast *(Feb 19)*
+
+---
+
+## 2026-02-25
+
+### Web Dashboard (`notify dashboard`)
+Local web UI served on `http://127.0.0.1:8080` (configurable with `--port`).
+Four tabs: **Watch** (default) mirrors the terminal `history watch` output
+with a summary table showing per-profile/action counts, percentages, skipped
+entries, and "New" deltas since page load, plus an hourly breakdown table —
+all auto-refreshing every 2 seconds. **History** shows a live-updating table
+of notification events fed by Server-Sent Events. **Config** displays a
+read-only JSON view of the loaded config with credentials redacted to `"***"`.
+**Test** provides a dry-run interface where you pick a profile and action to
+see which steps would run without actually sending anything. Tabs are
+linkable via URL hash (e.g. `/#watch`, `/#history`). The dashboard uses
+`go:embed` to bundle a single self-contained HTML file (dark theme, vanilla
+JS, no dependencies) into the binary. API endpoints: `/api/watch` (today's
+summary + hourly JSON), `/api/config`, `/api/history`, `/api/summary`,
+`/api/events` (SSE), `/api/test` (dry-run). Config is loaded once at
+startup. Binds to localhost only. Added `Profile.MarshalJSON()` to enable
+JSON serialization of profiles. Press `Ctrl+C` to stop.
 
 ---
 

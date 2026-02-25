@@ -60,6 +60,7 @@ func main() {
 	echoFlag := false
 	cooldownFlag := false
 	heartbeatSec := 0
+	port := 8080
 	var matches []matchPair
 
 	// Parse flags
@@ -101,6 +102,19 @@ func main() {
 			echoFlag = true
 		case "--cooldown", "-C":
 			cooldownFlag = true
+		case "--port", "-p":
+			if i+1 < len(args) {
+				v, err := strconv.Atoi(args[i+1])
+				if err != nil || v < 1 || v > 65535 {
+					fmt.Fprintf(os.Stderr, "Error: port must be a number between 1 and 65535\n")
+					os.Exit(1)
+				}
+				port = v
+				i++
+			} else {
+				fmt.Fprintf(os.Stderr, "Error: --port requires a value (1-65535)\n")
+				os.Exit(1)
+			}
 		case "--heartbeat", "-H":
 			if i+1 < len(args) {
 				d, err := time.ParseDuration(args[i+1])
@@ -140,6 +154,8 @@ func main() {
 		playCmd(filtered[1:], volume)
 	case "history":
 		historyCmd(filtered[1:])
+	case "dashboard":
+		dashboardCmd(configPath, port)
 	case "config":
 		configCmd(filtered[1:], configPath)
 	case "send":
@@ -641,6 +657,7 @@ Options:
   --echo, -E             Print summary of steps that ran
   --cooldown, -C         Enable per-action cooldown (rate limiting)
   --heartbeat, -H <dur>  Periodic notification during "run" (e.g. 5m, 2m30s)
+  --port, -p <1-65535>   Port for "dashboard" command (default: 8080)
 
 Commands:
   send <type> <message>  Send a one-off notification (e.g. send telegram "hello")
@@ -654,6 +671,7 @@ Commands:
                          --heartbeat/-H fires the "heartbeat" action periodically
   play [sound|file.wav]  Preview a built-in sound or WAV file (no args lists built-ins)
   test [profile]         Dry-run: show what would happen without sending
+  dashboard [--port N]   Local web UI with watch, history, config, and test tabs
   config validate        Check config file for errors
   history [N]            Show last N log entries (default 10)
   history summary [days|all] Show action counts per day (default 7 days)

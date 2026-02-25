@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>notify dashboard</title>
+<style>
+:root {
+  --bg: #1a1b26;
+  --bg2: #24283b;
+  --bg3: #292e42;
+  --fg: #c0caf5;
+  --fg-dim: #565f89;
+  --accent: #7aa2f7;
+  --green: #9ece6a;
+  --yellow: #e0af68;
+  --red: #f7768e;
+  --cyan: #7dcfff;
+  --border: #3b4261;
+  --font: "Cascadia Code", "Fira Code", "JetBrains Mono", "Consolas", monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+header h1 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+header .status {
+  font-size: 12px;
+  color: var(--fg-dim);
+}
+
+header .status .dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 0;
+}
+
+.tab {
+  padding: 8px 20px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  color: var(--fg-dim);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  transition: all 0.15s;
+}
+
+.tab:hover { color: var(--fg); background: var(--bg3); }
+.tab.active { color: var(--accent); background: var(--bg3); border-color: var(--accent); }
+
+.panel {
+  display: none;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 0 8px 8px 8px;
+  padding: 16px;
+  min-height: 400px;
+}
+
+.panel.active { display: block; }
+
+/* History table */
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--fg-dim);
+  border-bottom: 1px solid var(--border);
+}
+
+td {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--bg3);
+  font-size: 13px;
+}
+
+tr:hover td { background: var(--bg3); }
+
+.kind-execution { color: var(--green); }
+.kind-cooldown { color: var(--yellow); }
+.kind-silent { color: var(--fg-dim); }
+.kind-other { color: var(--fg-dim); }
+
+.new-entry { animation: fadeIn 0.3s ease-in; }
+
+@keyframes fadeIn {
+  from { background: rgba(122, 162, 247, 0.15); }
+  to { background: transparent; }
+}
+
+/* Config panel */
+.config-json {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px;
+  overflow-x: auto;
+  white-space: pre;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--fg);
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+/* Test panel */
+.test-form {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.test-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--fg-dim);
+}
+
+.test-form select, .test-form button {
+  padding: 8px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 13px;
+  min-width: 160px;
+}
+
+.test-form select:focus, .test-form button:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.test-form button {
+  background: var(--accent);
+  color: var(--bg);
+  font-weight: 600;
+  cursor: pointer;
+  min-width: auto;
+  padding: 8px 24px;
+  transition: opacity 0.15s;
+}
+
+.test-form button:hover { opacity: 0.85; }
+
+.test-results {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px;
+  min-height: 100px;
+}
+
+.test-results .action-name {
+  font-weight: 600;
+  color: var(--cyan);
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.test-results .step {
+  display: flex;
+  gap: 12px;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.step .marker { font-weight: 600; width: 42px; text-align: center; }
+.step .marker.run { color: var(--green); }
+.step .marker.skip { color: var(--fg-dim); }
+.step .idx { color: var(--fg-dim); width: 30px; }
+.step .type { color: var(--yellow); width: 100px; }
+.step .detail { color: var(--fg); flex: 1; }
+
+.summary-section { margin-top: 16px; }
+.summary-section h3 {
+  font-size: 13px;
+  color: var(--fg-dim);
+  margin-bottom: 8px;
+}
+
+.days-control {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--fg-dim);
+}
+
+.days-control select {
+  padding: 4px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: var(--fg-dim);
+  font-size: 14px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.badge-exec { background: rgba(158, 206, 106, 0.15); color: var(--green); }
+.badge-skip { background: rgba(224, 175, 104, 0.15); color: var(--yellow); }
+
+/* Watch panel */
+.watch-date {
+  color: var(--fg-dim);
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.watch-table {
+  width: auto;
+  min-width: 500px;
+  margin-bottom: 24px;
+}
+
+.watch-table th {
+  text-align: right;
+  padding: 6px 12px;
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.watch-table th:first-child { text-align: left; }
+
+.watch-table td {
+  text-align: right;
+  padding: 4px 12px;
+  font-size: 13px;
+}
+
+.watch-table td:first-child { text-align: left; }
+
+.watch-table .profile-row td { font-weight: 600; }
+.watch-table .profile-name { color: var(--cyan); }
+.watch-table .action-name { color: var(--fg); padding-left: 28px !important; font-weight: 400; }
+.watch-table .total-row td { font-weight: 700; border-top: 1px solid var(--border); }
+.watch-table .val-skip { color: var(--yellow); }
+.watch-table .val-new { color: var(--green); }
+.watch-table .val-zero { color: var(--fg-dim); }
+.watch-table .val-dash { color: var(--fg-dim); }
+
+.watch-section-title {
+  font-size: 12px;
+  color: var(--fg-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>notify dashboard</h1>
+    <div class="status"><span class="dot" id="sse-dot"></span><span id="sse-status">connecting...</span></div>
+  </header>
+  <div style="font-size:12px;color:var(--fg-dim);margin:-12px 0 16px">Cross-platform notification engine for the command line. <a href="https://github.com/Mavwarf/notify" target="_blank" rel="noopener" style="color:var(--cyan)">github.com/Mavwarf/notify</a></div>
+
+  <div class="tabs">
+    <button class="tab active" data-panel="watch">Watch</button>
+    <button class="tab" data-panel="history">History</button>
+    <button class="tab" data-panel="config">Config</button>
+    <button class="tab" data-panel="test">Test</button>
+  </div>
+
+  <div class="panel" id="panel-history">
+    <div class="days-control">
+      <span>Show last</span>
+      <select id="history-days">
+        <option value="1">1 day</option>
+        <option value="3">3 days</option>
+        <option value="7" selected>7 days</option>
+        <option value="14">14 days</option>
+        <option value="30">30 days</option>
+      </select>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Profile</th>
+          <th>Action</th>
+          <th>Kind</th>
+        </tr>
+      </thead>
+      <tbody id="history-body"></tbody>
+    </table>
+    <div class="empty-state" id="history-empty" style="display:none">
+      No log entries found. Enable logging with --log or "log": true in config.
+    </div>
+
+    <div class="summary-section">
+      <h3>Summary</h3>
+      <div id="summary-content"></div>
+    </div>
+  </div>
+
+  <div class="panel active" id="panel-watch">
+    <div id="watch-content">
+      <div class="empty-state">Loading watch data...</div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-config">
+    <pre class="config-json" id="config-content">Loading...</pre>
+  </div>
+
+  <div class="panel" id="panel-test">
+    <div class="test-form">
+      <label>
+        Profile
+        <select id="test-profile"></select>
+      </label>
+      <label>
+        Action
+        <select id="test-action">
+          <option value="">(all actions)</option>
+        </select>
+      </label>
+      <button id="test-btn">Dry Run</button>
+    </div>
+    <div class="test-results" id="test-results">
+      <div class="empty-state">Select a profile and click Dry Run to preview step execution.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  // ---- Tab switching ----
+  const tabs = document.querySelectorAll('.tab');
+  const panels = document.querySelectorAll('.panel');
+
+  function switchTab(name) {
+    tabs.forEach(t => t.classList.remove('active'));
+    panels.forEach(p => p.classList.remove('active'));
+    const tab = document.querySelector('.tab[data-panel="' + name + '"]');
+    if (tab) {
+      tab.classList.add('active');
+      document.getElementById('panel-' + name).classList.add('active');
+      history.replaceState(null, '', '#' + name);
+    }
+  }
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => switchTab(tab.dataset.panel));
+  });
+
+  // Open tab from URL hash (e.g. /#watch).
+  const hash = location.hash.replace('#', '');
+  if (hash && document.getElementById('panel-' + hash)) {
+    switchTab(hash);
+  }
+
+  // ---- Helper ----
+  function formatTime(iso) {
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, {
+      month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+  }
+
+  function kindClass(kind) {
+    return 'kind-' + kind;
+  }
+
+  // ---- History ----
+  const historyBody = document.getElementById('history-body');
+  const historyEmpty = document.getElementById('history-empty');
+  const historyDays = document.getElementById('history-days');
+
+  function renderHistory(entries) {
+    historyBody.innerHTML = '';
+    if (!entries || entries.length === 0) {
+      historyEmpty.style.display = '';
+      return;
+    }
+    historyEmpty.style.display = 'none';
+    // Show newest first
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const e = entries[i];
+      appendHistoryRow(e, false);
+    }
+  }
+
+  function appendHistoryRow(entry, isNew) {
+    const tr = document.createElement('tr');
+    if (isNew) tr.classList.add('new-entry');
+    tr.innerHTML =
+      '<td>' + formatTime(entry.time) + '</td>' +
+      '<td>' + esc(entry.profile) + '</td>' +
+      '<td>' + esc(entry.action) + '</td>' +
+      '<td class="' + kindClass(entry.kind) + '">' + esc(entry.kind) + '</td>';
+    // Insert at top (newest first)
+    if (historyBody.firstChild) {
+      historyBody.insertBefore(tr, historyBody.firstChild);
+    } else {
+      historyBody.appendChild(tr);
+    }
+    historyEmpty.style.display = 'none';
+  }
+
+  function esc(s) {
+    const div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  async function loadHistory() {
+    const days = historyDays.value;
+    try {
+      const res = await fetch('/api/history?days=' + days);
+      const data = await res.json();
+      renderHistory(data);
+    } catch(e) {
+      console.error('Failed to load history:', e);
+    }
+  }
+
+  historyDays.addEventListener('change', () => {
+    loadHistory();
+    loadSummary();
+  });
+
+  // ---- Summary ----
+  async function loadSummary() {
+    const days = historyDays.value;
+    try {
+      const res = await fetch('/api/summary?days=' + days);
+      const data = await res.json();
+      renderSummary(data);
+    } catch(e) {
+      console.error('Failed to load summary:', e);
+    }
+  }
+
+  function renderSummary(groups) {
+    const el = document.getElementById('summary-content');
+    if (!groups || groups.length === 0) {
+      el.innerHTML = '<div class="empty-state" style="min-height:60px">No summary data.</div>';
+      return;
+    }
+
+    let html = '<table><thead><tr><th>Date</th><th>Profile</th><th>Action</th><th>Runs</th><th>Skipped</th></tr></thead><tbody>';
+    for (const g of groups) {
+      for (const s of g.summaries) {
+        html += '<tr>' +
+          '<td>' + esc(g.date) + '</td>' +
+          '<td>' + esc(s.profile) + '</td>' +
+          '<td>' + esc(s.action) + '</td>' +
+          '<td><span class="badge badge-exec">' + s.executions + '</span></td>' +
+          '<td>' + (s.skipped > 0 ? '<span class="badge badge-skip">' + s.skipped + '</span>' : '-') + '</td>' +
+          '</tr>';
+      }
+    }
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  }
+
+  // ---- SSE ----
+  const sseDot = document.getElementById('sse-dot');
+  const sseStatus = document.getElementById('sse-status');
+
+  function connectSSE() {
+    const source = new EventSource('/api/events');
+
+    source.onopen = () => {
+      sseDot.style.background = 'var(--green)';
+      sseStatus.textContent = 'live';
+    };
+
+    source.onmessage = (event) => {
+      try {
+        const entries = JSON.parse(event.data);
+        for (const e of entries) {
+          appendHistoryRow(e, true);
+        }
+      } catch(e) {
+        console.error('SSE parse error:', e);
+      }
+    };
+
+    source.onerror = () => {
+      sseDot.style.background = 'var(--red)';
+      sseStatus.textContent = 'disconnected';
+      source.close();
+      // Reconnect after 5s
+      setTimeout(connectSSE, 5000);
+    };
+  }
+
+  // ---- Config ----
+  let configData = null;
+
+  async function loadConfig() {
+    try {
+      const res = await fetch('/api/config');
+      configData = await res.json();
+      document.getElementById('config-content').textContent = JSON.stringify(configData, null, 2);
+      populateTestDropdowns();
+    } catch(e) {
+      document.getElementById('config-content').textContent = 'Failed to load config: ' + e;
+    }
+  }
+
+  // ---- Test ----
+  function populateTestDropdowns() {
+    const profileSel = document.getElementById('test-profile');
+    const actionSel = document.getElementById('test-action');
+    profileSel.innerHTML = '';
+
+    if (!configData || !configData.profiles) return;
+
+    const profiles = Object.keys(configData.profiles).sort();
+    for (const p of profiles) {
+      const opt = document.createElement('option');
+      opt.value = p;
+      opt.textContent = p;
+      profileSel.appendChild(opt);
+    }
+
+    profileSel.addEventListener('change', () => updateActions());
+    updateActions();
+
+    function updateActions() {
+      const pName = profileSel.value;
+      actionSel.innerHTML = '<option value="">(all actions)</option>';
+      if (!pName || !configData.profiles[pName]) return;
+
+      const p = configData.profiles[pName];
+      // Actions are any key that's not extends/aliases/credentials/match
+      const reserved = new Set(['extends', 'aliases', 'credentials', 'match']);
+      const actions = Object.keys(p).filter(k => !reserved.has(k)).sort();
+      for (const a of actions) {
+        const opt = document.createElement('option');
+        opt.value = a;
+        opt.textContent = a;
+        actionSel.appendChild(opt);
+      }
+    }
+  }
+
+  document.getElementById('test-btn').addEventListener('click', async () => {
+    const profile = document.getElementById('test-profile').value;
+    const action = document.getElementById('test-action').value;
+    const resultsEl = document.getElementById('test-results');
+
+    if (!profile) {
+      resultsEl.innerHTML = '<div class="empty-state">Select a profile first.</div>';
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile, action })
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        resultsEl.innerHTML = '<div class="empty-state" style="color:var(--red)">' + esc(text) + '</div>';
+        return;
+      }
+
+      const data = await res.json();
+      if (!data || data.length === 0) {
+        resultsEl.innerHTML = '<div class="empty-state">No actions found.</div>';
+        return;
+      }
+
+      let html = '';
+      for (const ar of data) {
+        html += '<div style="margin-bottom:16px">';
+        html += '<div class="action-name">' + esc(ar.action) +
+                ' <span style="color:var(--fg-dim);font-weight:400;font-size:12px">(' +
+                ar.total_run + '/' + (ar.total_run + ar.total_skip) + ' steps would run)</span></div>';
+        for (const s of ar.steps) {
+          const mc = s.would_run ? 'run' : 'skip';
+          const ml = s.would_run ? 'RUN' : 'SKIP';
+          html += '<div class="step">' +
+            '<span class="marker ' + mc + '">' + ml + '</span>' +
+            '<span class="idx">[' + s.index + ']</span>' +
+            '<span class="type">' + esc(s.type) + '</span>' +
+            '<span class="detail">' + esc(s.detail) + '</span>' +
+            '</div>';
+        }
+        html += '</div>';
+      }
+      resultsEl.innerHTML = html;
+    } catch(e) {
+      resultsEl.innerHTML = '<div class="empty-state" style="color:var(--red)">Request failed: ' + esc(String(e)) + '</div>';
+    }
+  });
+
+  // ---- Watch tab ----
+  let watchBaseline = null;
+
+  async function loadWatch() {
+    try {
+      const res = await fetch('/api/watch');
+      const data = await res.json();
+      if (!watchBaseline) {
+        watchBaseline = buildWatchBaseline(data);
+      }
+      renderWatch(data);
+    } catch(e) {
+      console.error('Failed to load watch:', e);
+    }
+  }
+
+  function buildWatchBaseline(data) {
+    const b = {};
+    if (data.summary && data.summary.profiles) {
+      for (const p of data.summary.profiles) {
+        for (const a of p.actions) {
+          b[p.name + '/' + a.name] = a.total;
+        }
+      }
+    }
+    return b;
+  }
+
+  function renderWatch(data) {
+    const el = document.getElementById('watch-content');
+    if (!data.summary.profiles.length && !data.hourly.hours.length) {
+      el.innerHTML = '<div class="empty-state">No activity today.</div>';
+      return;
+    }
+
+    let html = '';
+
+    // Date header
+    html += '<div class="watch-date">' + esc(data.date) + '  (' + esc(data.day_name) + ')</div>';
+
+    // Summary table
+    const hasSkipped = data.summary.grand_skipped > 0;
+    const profiles = data.summary.profiles;
+    const gt = data.summary.grand_total;
+
+    html += '<table class="watch-table"><thead><tr>';
+    html += '<th style="min-width:180px"></th><th>Total</th><th>%</th>';
+    if (hasSkipped) html += '<th>Skipped</th>';
+    html += '<th>New</th>';
+    html += '</tr></thead><tbody>';
+
+    let totalNew = 0;
+    for (const p of profiles) {
+      // Profile subtotal row
+      let pNew = 0;
+      for (const a of p.actions) {
+        const key = p.name + '/' + a.name;
+        pNew += a.total - (watchBaseline[key] || 0);
+      }
+      if (pNew < 0) pNew = 0;
+      totalNew += pNew;
+
+      html += '<tr class="profile-row">';
+      html += '<td class="profile-name">' + esc(p.name) + '</td>';
+      html += '<td>' + fmtNum(p.total) + '</td>';
+      html += '<td>' + (gt > 0 ? p.pct + '%' : '') + '</td>';
+      if (hasSkipped) {
+        html += '<td class="val-skip">' + (p.skipped > 0 ? fmtNum(p.skipped) : '') + '</td>';
+      }
+      html += '<td class="val-new">' + (pNew > 0 ? '+' + fmtNum(pNew) : '') + '</td>';
+      html += '</tr>';
+
+      // Action rows (indented)
+      for (const a of p.actions) {
+        const key = p.name + '/' + a.name;
+        const aN = a.total - (watchBaseline[key] || 0);
+        html += '<tr>';
+        html += '<td class="action-name">' + esc(a.name) + '</td>';
+        html += '<td>' + fmtNum(a.total) + '</td>';
+        html += '<td></td>';
+        if (hasSkipped) {
+          html += '<td class="val-skip">' + (a.skipped > 0 ? fmtNum(a.skipped) : '') + '</td>';
+        }
+        html += '<td class="val-new">' + (aN > 0 ? '+' + fmtNum(aN) : '') + '</td>';
+        html += '</tr>';
+      }
+    }
+
+    // Total row
+    html += '<tr class="total-row">';
+    html += '<td><strong>Total</strong></td>';
+    html += '<td><strong>' + fmtNum(gt) + '</strong></td>';
+    html += '<td></td>';
+    if (hasSkipped) {
+      html += '<td class="val-skip">' + (data.summary.grand_skipped > 0 ? fmtNum(data.summary.grand_skipped) : '') + '</td>';
+    }
+    html += '<td class="val-new">' + (totalNew > 0 ? '+' + fmtNum(totalNew) : '') + '</td>';
+    html += '</tr>';
+
+    html += '</tbody></table>';
+
+    // Hourly breakdown table
+    if (data.hourly.hours && data.hourly.hours.length > 0) {
+      html += '<div class="watch-section-title">Hourly breakdown</div>';
+      html += '<table class="watch-table"><thead><tr>';
+      html += '<th>Hour</th>';
+      for (const p of data.hourly.profiles) {
+        html += '<th style="color:var(--cyan)">' + esc(p) + '</th>';
+      }
+      html += '<th>Total</th><th>%</th>';
+      html += '</tr></thead><tbody>';
+
+      for (const hr of data.hourly.hours) {
+        html += '<tr>';
+        html += '<td style="text-align:left">' + pad2(hr.hour) + ':00</td>';
+        for (const c of hr.counts) {
+          if (c > 0) {
+            html += '<td>' + fmtNum(c) + '</td>';
+          } else {
+            html += '<td class="val-dash">-</td>';
+          }
+        }
+        if (hr.total > 0) {
+          html += '<td>' + fmtNum(hr.total) + '</td>';
+          html += '<td>' + hr.pct + '%</td>';
+        } else {
+          html += '<td class="val-dash">-</td>';
+          html += '<td></td>';
+        }
+        html += '</tr>';
+      }
+
+      // Hourly total row
+      html += '<tr class="total-row">';
+      html += '<td style="text-align:left"><strong>Total</strong></td>';
+      for (const pt of data.hourly.profile_totals) {
+        html += '<td><strong>' + fmtNum(pt) + '</strong></td>';
+      }
+      html += '<td><strong>' + fmtNum(data.hourly.grand_total) + '</strong></td>';
+      html += '<td></td>';
+      html += '</tr>';
+
+      html += '</tbody></table>';
+    }
+
+    el.innerHTML = html;
+  }
+
+  function fmtNum(n) {
+    if (n < 1000) return String(n);
+    return n.toLocaleString('de-DE');
+  }
+
+  function pad2(n) {
+    return n < 10 ? '0' + n : String(n);
+  }
+
+  // ---- Polling: refresh every 2s ----
+  setInterval(() => {
+    loadHistory();
+    loadSummary();
+    loadWatch();
+  }, 2000);
+
+  // ---- Init ----
+  loadHistory();
+  loadSummary();
+  loadWatch();
+  loadConfig();
+  connectSSE();
+})();
+</script>
+</body>
+</html>

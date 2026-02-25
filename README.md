@@ -89,6 +89,9 @@ internal/
     player.go            Playback engine (generated tones)
   config/
     config.go            Config loading, validation, and profile/action resolution
+  dashboard/
+    dashboard.go         Web dashboard HTTP server, API handlers, SSE
+    static/index.html    Embedded frontend (HTML + inline CSS + JS)
   cooldown/
     cooldown.go          Per-action rate limiting with file-based state
   silent/
@@ -139,6 +142,7 @@ notify pipe [options] [profile] [--match <pat> <action>...]  # Stream mode
 notify send [--title <title>] <type> <message>  # Send a one-off notification
 notify play [sound]                    # Preview a built-in sound (or list all)
 notify test [profile]                  # Dry-run: show what would happen
+notify dashboard [--port N]            # Local web UI (default port 8080)
 notify config validate                 # Check config file for errors
 notify history [N]                     # Show last N log entries (default 10)
 notify history summary [days|all]      # Show action counts per day (default 7)
@@ -163,6 +167,7 @@ notify help                            # Show help
 | `--echo`, `-E`     | Print summary of steps that ran        |
 | `--cooldown`, `-C` | Enable per-action cooldown (rate limiting) |
 | `--heartbeat`, `-H` | Periodic notification during `run` (e.g. `5m`, `2m30s`) |
+| `--port`, `-p`     | Port for `dashboard` command (default: 8080) |
 
 ### Config file
 
@@ -866,6 +871,8 @@ notify history export 7            # Export last 7 days as JSON
 notify history clean 7            # Remove entries older than 7 days
 notify history clear              # Delete the log file
 notify config validate            # Check config for errors
+notify dashboard                  # Start web dashboard on port 8080
+notify dashboard --port 9000      # Start on a different port
 notify b ready                    # Use alias "b" for the boss profile
 notify play                       # List all built-in sounds
 notify play success               # Preview the success sound
@@ -911,6 +918,27 @@ fail the command.
 Below the summary table it includes an hourly breakdown with one column per
 profile and a `%` column showing each hour's share of the day's total — useful
 for spotting your most active working hours. Press `x` or `Esc` to exit.
+
+### Web dashboard
+
+`notify dashboard` starts a local web UI on `http://127.0.0.1:8080` with
+four tabs (linkable via URL hash, e.g. `/#watch`):
+
+- **Watch** (default) — mirrors terminal `history watch`: summary table with
+  profile/action counts, percentages, skipped, "New" deltas since page load,
+  plus hourly breakdown — auto-refreshes every 2 seconds
+- **History** — live-updating table of notification events, fed by SSE
+- **Config** — read-only JSON view of your config (credentials redacted)
+- **Test** — dry-run interface: pick a profile and action, see which steps
+  would run without actually sending anything
+
+```bash
+notify dashboard              # default port 8080
+notify dashboard --port 9000  # custom port
+```
+
+The dashboard binds to `127.0.0.1` only (not exposed to the network). Config
+is loaded once at startup. Press `Ctrl+C` to stop.
 
 ### Cooldown / rate limiting
 

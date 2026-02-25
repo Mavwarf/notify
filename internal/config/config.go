@@ -79,6 +79,29 @@ type Profile struct {
 	Actions     map[string]Action `json:"-"`
 }
 
+// MarshalJSON serializes a Profile back to the flat JSON format used by
+// UnmarshalJSON. Without this, json.Marshal produces {} because all
+// fields have json:"-" tags.
+func (p Profile) MarshalJSON() ([]byte, error) {
+	m := make(map[string]interface{}, len(p.Actions)+4)
+	if p.Extends != "" {
+		m["extends"] = p.Extends
+	}
+	if len(p.Aliases) > 0 {
+		m["aliases"] = p.Aliases
+	}
+	if p.Credentials != nil {
+		m["credentials"] = p.Credentials
+	}
+	if p.Match != nil {
+		m["match"] = p.Match
+	}
+	for k, v := range p.Actions {
+		m[k] = v
+	}
+	return json.Marshal(m)
+}
+
 // UnmarshalJSON extracts the optional "extends" key and parses all
 // remaining keys as actions. This keeps the JSON format flat:
 //

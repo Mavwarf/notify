@@ -55,12 +55,6 @@ External scripts as step types. A `"plugin"` step would run a user
 script with template variables as environment variables, enabling
 integration with any tool without adding it to the binary.
 
-### Web Dashboard (`notify dashboard`)
-
-Local web UI showing real-time notification history, config editor,
-and test buttons. Serves on localhost, reads the event log and config.
-Nice for debugging and demoing but not essential.
-
 ### Chained Actions (`on_success` / `on_failure`)
 
 Actions that trigger other actions based on step outcomes. E.g.

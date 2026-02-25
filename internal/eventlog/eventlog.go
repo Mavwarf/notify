@@ -105,7 +105,9 @@ func openLog() (*os.File, error) {
 // LogPath returns the log file location:
 //   - Windows: %APPDATA%\notify\notify.log
 //   - Unix:    ~/.config/notify/notify.log
-func LogPath() string {
+//
+// This is a variable so tests can override it.
+var LogPath = func() string {
 	return filepath.Join(paths.DataDir(), paths.LogFileName)
 }
 
