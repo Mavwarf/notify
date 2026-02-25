@@ -109,14 +109,6 @@ Config option for the threshold: `"shell_hook_threshold": 30` (seconds).
 
 ## Tech Debt / Cleanup
 
-### Centralize HTTP client with timeout (medium)
-
-Discord, Slack, Telegram, and Webhook packages each use
-`http.DefaultClient` or `http.Post()` with no timeout configured. A
-hung remote server blocks the step indefinitely. Create a shared
-`httputil.Client` with a 30-second timeout and connection pool settings,
-used by all remote step packages.
-
 ### Multipart form upload duplication (low)
 
 Discord's `SendVoice` and Telegram's `sendFile` both implement

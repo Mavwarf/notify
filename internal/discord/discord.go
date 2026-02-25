@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
-	"net/http"
 	"os"
 	"path/filepath"
 
@@ -20,7 +19,7 @@ func Send(webhookURL, message string) error {
 		return fmt.Errorf("discord: marshal: %w", err)
 	}
 
-	resp, err := http.Post(webhookURL, "application/json", bytes.NewReader(body))
+	resp, err := httputil.Post(webhookURL, "application/json", bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("discord: post: %w", err)
 	}
@@ -63,7 +62,7 @@ func SendVoice(webhookURL, wavPath, caption string) error {
 		return fmt.Errorf("discord: close multipart: %w", err)
 	}
 
-	resp, err := http.Post(webhookURL, w.FormDataContentType(), &buf)
+	resp, err := httputil.Post(webhookURL, w.FormDataContentType(), &buf)
 	if err != nil {
 		return fmt.Errorf("discord: post voice: %w", err)
 	}

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net/http"
 
 	"github.com/Mavwarf/notify/internal/httputil"
 )
@@ -16,7 +15,7 @@ func Send(webhookURL, message string) error {
 		return fmt.Errorf("slack: marshal: %w", err)
 	}
 
-	resp, err := http.Post(webhookURL, "application/json", bytes.NewReader(body))
+	resp, err := httputil.Post(webhookURL, "application/json", bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("slack: post: %w", err)
 	}

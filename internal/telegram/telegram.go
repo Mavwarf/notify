@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
-	"net/http"
 	"net/textproto"
 	"net/url"
 	"os"
@@ -22,7 +21,7 @@ func Send(token, chatID, message string) error {
 
 // sendTo posts a message to the given endpoint. Extracted for testing.
 func sendTo(endpoint, chatID, message string) error {
-	resp, err := http.PostForm(endpoint, url.Values{
+	resp, err := httputil.PostForm(endpoint, url.Values{
 		"chat_id": {chatID},
 		"text":    {message},
 	})
@@ -94,7 +93,7 @@ func sendFile(endpoint, chatID, filePath, caption, fieldName string) error {
 		return fmt.Errorf("telegram: close multipart: %w", err)
 	}
 
-	resp, err := http.Post(endpoint, w.FormDataContentType(), &buf)
+	resp, err := httputil.Post(endpoint, w.FormDataContentType(), &buf)
 	if err != nil {
 		return fmt.Errorf("telegram: post %s: %w", fieldName, err)
 	}

@@ -22,7 +22,7 @@ func Send(url, body string, headers map[string]string) error {
 		req.Header.Set(k, os.ExpandEnv(v))
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httputil.Client.Do(req)
 	if err != nil {
 		return fmt.Errorf("webhook: post: %w", err)
 	}

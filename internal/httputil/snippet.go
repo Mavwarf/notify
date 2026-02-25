@@ -4,7 +4,23 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"time"
 )
+
+// Client is a shared HTTP client with a 30-second timeout, used by all
+// remote step packages to avoid indefinite hangs on unresponsive servers.
+var Client = &http.Client{Timeout: 30 * time.Second}
+
+// Post issues a POST using the shared Client.
+func Post(url, contentType string, body io.Reader) (*http.Response, error) {
+	return Client.Post(url, contentType, body)
+}
+
+// PostForm issues a POST with form data using the shared Client.
+func PostForm(endpoint string, data url.Values) (*http.Response, error) {
+	return Client.PostForm(endpoint, data)
+}
 
 // CheckStatus returns an error if the response status code is not 2xx.
 // The prefix is included in the error message for context (e.g. "discord: webhook").
