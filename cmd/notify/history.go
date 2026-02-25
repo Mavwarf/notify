@@ -431,6 +431,129 @@ func renderSummaryTable(w *strings.Builder, groups []eventlog.DayGroup, baseline
 	renderTableTotal(w, td, hasNew, totalNew, sep)
 }
 
+// renderHourlyTable writes a per-hour activity breakdown.
+// Columns: one per profile + a Total column, rows: one per hour from first
+// activity to the current hour.
+func renderHourlyTable(w *strings.Builder, entries []eventlog.Entry) {
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	type hp struct {
+		hour    int
+		profile string
+	}
+	perCell := map[hp]int{}
+	perHour := map[int]int{}
+	profileSet := map[string]bool{}
+	minHour, maxHour := 24, -1
+
+	for _, e := range entries {
+		local := e.Time.In(now.Location())
+		day := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, now.Location())
+		if !day.Equal(today) || e.Kind == eventlog.KindOther {
+			continue
+		}
+		h := local.Hour()
+		perCell[hp{h, e.Profile}]++
+		perHour[h]++
+		profileSet[e.Profile] = true
+		if h < minHour {
+			minHour = h
+		}
+		if h > maxHour {
+			maxHour = h
+		}
+	}
+
+	if len(perCell) == 0 {
+		return
+	}
+
+	profiles := make([]string, 0, len(profileSet))
+	for p := range profileSet {
+		profiles = append(profiles, p)
+	}
+	sort.Strings(profiles)
+
+	// Extend to current hour so quiet periods are visible.
+	if curH := now.Hour(); curH > maxHour {
+		maxHour = curH
+	}
+
+	// Column widths: at least colNumber, or the profile name length.
+	colWidths := make([]int, len(profiles))
+	for i, p := range profiles {
+		pw := len(p)
+		if pw < colNumber {
+			pw = colNumber
+		}
+		colWidths[i] = pw
+	}
+
+	const colHr = 7  // "HH:00" + padding
+	const colTot = 7 // "Total"
+
+	// Pre-compute grand total for percentage calculation.
+	grandTotal := 0
+	for _, c := range perHour {
+		grandTotal += c
+	}
+
+	// Separator width.
+	sepW := colHr
+	for _, cw := range colWidths {
+		sepW += colGap + cw
+	}
+	sepW += colGap + colTot + colGap + colPct
+
+	w.WriteString("\n")
+
+	// Header.
+	hdr := fmt.Sprintf("  %-*s", colHr, "Hour")
+	for i, p := range profiles {
+		hdr += fmt.Sprintf("  %*s", colWidths[i], p)
+	}
+	hdr += fmt.Sprintf("  %*s  %*s", colTot, "Total", colPct, "%")
+	w.WriteString(bold(hdr) + "\n")
+
+	sep := dim("  " + strings.Repeat("─", sepW))
+	w.WriteString(sep + "\n")
+
+	// Data rows.
+	grandPerProfile := make([]int, len(profiles))
+
+	for h := minHour; h <= maxHour; h++ {
+		row := fmt.Sprintf("  %-*s", colHr, fmt.Sprintf("%02d:00", h))
+		for i, p := range profiles {
+			c := perCell[hp{h, p}]
+			grandPerProfile[i] += c
+			if c > 0 {
+				row += "  " + padL(fmtNum(c), colWidths[i])
+			} else {
+				row += "  " + colorPadL(dim, "-", colWidths[i])
+			}
+		}
+		ht := perHour[h]
+		if ht > 0 {
+			row += "  " + padL(fmtNum(ht), colTot)
+			row += "  " + padL(fmtPct(ht, grandTotal), colPct)
+		} else {
+			row += "  " + colorPadL(dim, "-", colTot)
+			row += fmt.Sprintf("  %*s", colPct, "")
+		}
+		w.WriteString(row + "\n")
+	}
+
+	// Total row.
+	w.WriteString(sep + "\n")
+	totRow := fmt.Sprintf("  %-*s", colHr, "Total")
+	for i := range profiles {
+		totRow += "  " + padL(fmtNum(grandPerProfile[i]), colWidths[i])
+	}
+	totRow += fmt.Sprintf("  %*s  %*s", colTot, fmtNum(grandTotal), colPct, "")
+	w.WriteString(bold(totRow) + "\n")
+}
+
 // buildBaseline snapshots current per-action totals for watch delta tracking.
 func buildBaseline(groups []eventlog.DayGroup) map[string]int {
 	b := map[string]int{}
@@ -573,6 +696,7 @@ func historyWatch() {
 					baseline = buildBaseline(groups)
 				}
 				renderSummaryTable(&out, groups, baseline)
+				renderHourlyTable(&out, entries)
 			}
 		}
 

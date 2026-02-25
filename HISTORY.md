@@ -6,7 +6,7 @@
 - Pipe / stream mode (`notify pipe`) — trigger notifications from stdin patterns *(Feb 24)*
 - Output capture (`{output}`) and pattern matching (`--match`) for `notify run` *(Feb 24)*
 - Profile auto-selection — match rules auto-select profile by working directory or env var *(Feb 24)*
-- History watch (`notify history watch`) — live-updating today's summary dashboard *(Feb 24)*
+- History watch (`notify history watch`) — live-updating today's summary dashboard with hourly breakdown *(Feb 24)*
 - Color summary table — profile grouping, percentage column, dynamic columns, ANSI colors, `NO_COLOR` support *(Feb 24)*
 - History clean (`notify history clean`) — prune old log entries by age *(Feb 24)*
 - Per-profile credential overrides — different profiles can target different channels *(Feb 24)*
@@ -100,6 +100,12 @@ Clears the screen and refreshes every 2 seconds. Press `x` or `Ctrl+C`
 to exit. Uses terminal raw mode for instant key detection. A "New" column
 tracks per-action and per-profile deltas since watch started. The header
 shows start time and elapsed duration.
+
+Below the summary table, an hourly breakdown shows activity per hour with
+one column per profile and a Total column. A `%` column shows each hour's
+share of the day's total, making it easy to spot peak working hours. Rows
+span from the first active hour to the current hour; quiet hours show dim
+dashes so gaps in activity are visible at a glance.
 
 ### Summary Table Format
 `notify history summary` and `watch` render a structured color table with

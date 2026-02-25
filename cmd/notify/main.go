@@ -657,7 +657,7 @@ Commands:
   config validate        Check config file for errors
   history [N]            Show last N log entries (default 10)
   history summary [days|all] Show action counts per day (default 7 days)
-  history watch          Live today's summary (refreshes every 2s, press x to exit)
+  history watch          Live dashboard with summary + hourly breakdown (press x to exit)
   history export [days]  Export log entries as JSON (default: all)
   history clean [days]   Remove old entries, keep last N days (no arg = clear all)
   history clear          Delete the log file

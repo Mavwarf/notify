@@ -907,6 +907,11 @@ are expanded in the log so you see the actual text that was spoken or
 displayed. Logging is best-effort — errors are printed to stderr but never
 fail the command.
 
+`notify history watch` shows a live dashboard that refreshes every 2 seconds.
+Below the summary table it includes an hourly breakdown with one column per
+profile and a `%` column showing each hour's share of the day's total — useful
+for spotting your most active working hours. Press `x` or `Ctrl+C` to exit.
+
 ### Cooldown / rate limiting
 
 Watch loops (`nodemon`, `cargo watch`, `fswatch`) can trigger dozens of
