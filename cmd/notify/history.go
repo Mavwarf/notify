@@ -509,12 +509,12 @@ func renderHourlyTable(w *strings.Builder, entries []eventlog.Entry) {
 	w.WriteString("\n")
 
 	// Header.
-	hdr := fmt.Sprintf("  %-*s", colHr, "Hour")
+	hdr := bold(fmt.Sprintf("  %-*s", colHr, "Hour"))
 	for i, p := range profiles {
-		hdr += fmt.Sprintf("  %*s", colWidths[i], p)
+		hdr += "  " + colorPadL(cyan, p, colWidths[i])
 	}
-	hdr += fmt.Sprintf("  %*s  %*s", colTot, "Total", colPct, "%")
-	w.WriteString(bold(hdr) + "\n")
+	hdr += bold(fmt.Sprintf("  %*s  %*s", colTot, "Total", colPct, "%"))
+	w.WriteString(hdr + "\n")
 
 	sep := dim("  " + strings.Repeat("─", sepW))
 	w.WriteString(sep + "\n")
