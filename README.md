@@ -943,7 +943,8 @@ four tabs (linkable via URL hash, e.g. `/#watch`):
   Template variables (`{profile}`, `{time}`, etc.) are expanded in step details
 
 Keyboard shortcuts: `1`–`4` switch tabs, left/right arrows navigate Watch days,
-`t` jumps to today.
+`t` jumps to today. A dark/light theme toggle in the header persists your
+preference via `localStorage`.
 
 ```bash
 notify dashboard              # default port 8080

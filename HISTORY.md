@@ -2,7 +2,7 @@
 
 ## Features
 
-- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, and activity chart *(Feb 25)*
+- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, and dark/light theme toggle *(Feb 25)*
 - Heartbeat for long tasks (`--heartbeat`) — periodic notifications during `notify run` *(Feb 24)*
 - Pipe / stream mode (`notify pipe`) — trigger notifications from stdin patterns *(Feb 24)*
 - Output capture (`{output}`) and pattern matching (`--match`) for `notify run` *(Feb 24)*
@@ -97,6 +97,16 @@ time range and automatically hides for hour-based ranges (1h, 4h, 12h) since
 sub-day granularity doesn't apply to a daily chart. Y-axis grid lines scale
 dynamically to the data. No extra API calls — built from the same
 `/api/summary` response used by the Summary table.
+
+### Dashboard: Dark/Light Theme Toggle
+A sun/moon toggle button in the header switches between dark (Tokyo Night) and
+light themes. All colors are driven by CSS variables — the light theme overrides
+`--bg`, `--fg`, `--accent`, and all semantic colors with higher-contrast values
+suited for white backgrounds. Badge and credential indicator backgrounds use
+adjusted rgba values for readability on light surfaces. The activity chart reads
+colors from CSS variables at render time so bars and grid lines follow the theme.
+Preference is saved to `localStorage` and restored on page load. Dark is the
+default.
 
 ---
 

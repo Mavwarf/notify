@@ -87,8 +87,6 @@ Config option for the threshold: `"shell_hook_threshold": 30` (seconds).
 ### Dashboard Enhancements
 
 **Medium effort:**
-- **Live toast on SSE events** — small popup in the corner when a new
-  notification fires while the dashboard is open
 - **Profile detail view** — click a profile name to see its full step
   pipeline, credentials status, and action list (reuses `/api/test`
   dry-run data)
@@ -98,8 +96,6 @@ Config option for the threshold: `"shell_hook_threshold": 30` (seconds).
 **Larger features:**
 - **Timeline view** — visual timeline/gantt showing `run` command
   durations (start → end), not just point events
-- **Dark/light theme toggle** — CSS variables already make this
-  straightforward
 - **Log file stats** — file size, entry count, oldest entry date
 
 ---
