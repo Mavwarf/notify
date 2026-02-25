@@ -266,6 +266,82 @@ func TestSummarizeByDay_SilentCountsAsSkipped(t *testing.T) {
 	}
 }
 
+func TestParseVoiceLines(t *testing.T) {
+	content := "2026-02-22T10:00:00+01:00  profile=default  action=ready  steps=sound,say  afk=false\n" +
+		"2026-02-22T10:00:00+01:00    step[1] sound  sound=success\n" +
+		"2026-02-22T10:00:00+01:00    step[2] say  text=\"Boss done\"\n" +
+		"\n" +
+		"2026-02-22T10:05:00+01:00  profile=default  action=ready  steps=sound,say  afk=false\n" +
+		"2026-02-22T10:05:00+01:00    step[1] sound  sound=success\n" +
+		"2026-02-22T10:05:00+01:00    step[2] say  text=\"Boss done\"\n" +
+		"\n" +
+		"2026-02-22T11:00:00+01:00  profile=boss  action=ready  steps=say  afk=false\n" +
+		"2026-02-22T11:00:00+01:00    step[1] say  text=\"Romans done\"\n" +
+		"\n" +
+		"2026-02-22T12:00:00+01:00  profile=default  action=error  steps=say  afk=false\n" +
+		"2026-02-22T12:00:00+01:00    step[1] say  text=\"Build complete\"\n"
+
+	lines := ParseVoiceLines(content)
+	if len(lines) != 3 {
+		t.Fatalf("expected 3 voice lines, got %d", len(lines))
+	}
+
+	// Sorted by count descending, then alphabetically.
+	if lines[0].Text != "Boss done" || lines[0].Count != 2 {
+		t.Errorf("lines[0] = %+v, want {Text:\"Boss done\", Count:2}", lines[0])
+	}
+	if lines[1].Text != "Build complete" || lines[1].Count != 1 {
+		t.Errorf("lines[1] = %+v, want {Text:\"Build complete\", Count:1}", lines[1])
+	}
+	if lines[2].Text != "Romans done" || lines[2].Count != 1 {
+		t.Errorf("lines[2] = %+v, want {Text:\"Romans done\", Count:1}", lines[2])
+	}
+}
+
+func TestParseVoiceLinesWithTrailingFields(t *testing.T) {
+	content := "2026-02-22T10:00:00+01:00  profile=default  action=ready  steps=say  afk=false\n" +
+		"2026-02-22T10:00:00+01:00    step[1] say  text=\"Please come back\"  when=afk\n" +
+		"\n" +
+		"2026-02-22T10:05:00+01:00  profile=default  action=ready  steps=say  afk=false\n" +
+		"2026-02-22T10:05:00+01:00    step[1] say  text=\"Ready!\"  volume=80\n"
+
+	lines := ParseVoiceLines(content)
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 voice lines, got %d", len(lines))
+	}
+
+	// Sorted alphabetically (both count=1).
+	if lines[0].Text != "Please come back" || lines[0].Count != 1 {
+		t.Errorf("lines[0] = %+v, want {Text:\"Please come back\", Count:1}", lines[0])
+	}
+	if lines[1].Text != "Ready!" || lines[1].Count != 1 {
+		t.Errorf("lines[1] = %+v, want {Text:\"Ready!\", Count:1}", lines[1])
+	}
+}
+
+func TestParseVoiceLinesNoSaySteps(t *testing.T) {
+	content := "2026-02-22T10:00:00+01:00  profile=default  action=ready  steps=sound,toast  afk=false\n" +
+		"2026-02-22T10:00:00+01:00    step[1] sound  sound=success\n" +
+		"2026-02-22T10:00:00+01:00    step[2] toast  title=\"notify\"  message=\"Ready!\"\n"
+
+	lines := ParseVoiceLines(content)
+	if lines != nil {
+		t.Fatalf("expected nil for log without say steps, got %v", lines)
+	}
+}
+
+func TestParseVoiceLinesEmpty(t *testing.T) {
+	lines := ParseVoiceLines("")
+	if lines != nil {
+		t.Fatalf("expected nil for empty input, got %v", lines)
+	}
+
+	lines = ParseVoiceLines("   \n\n  ")
+	if lines != nil {
+		t.Fatalf("expected nil for whitespace-only input, got %v", lines)
+	}
+}
+
 func TestExtractField(t *testing.T) {
 	line := "2026-02-22T10:00:00+01:00  profile=default  action=ready  steps=sound,say  afk=false"
 

@@ -2,6 +2,7 @@ package eventlog
 
 import (
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -228,4 +229,81 @@ func KindString(k EntryKind) string {
 // hasField returns true if "key=" appears in the line.
 func hasField(line, key string) bool {
 	return extractField(line, key) != ""
+}
+
+// extractQuoted extracts a Go %q-encoded string from the start of s.
+// It finds the matching closing quote (respecting backslash escapes),
+// then uses strconv.Unquote to decode the value. Returns "" on failure.
+func extractQuoted(s string) string {
+	if len(s) == 0 || s[0] != '"' {
+		return ""
+	}
+	// Find closing quote (skip escaped quotes).
+	for i := 1; i < len(s); i++ {
+		if s[i] == '\\' {
+			i++ // skip escaped character
+			continue
+		}
+		if s[i] == '"' {
+			text, err := strconv.Unquote(s[:i+1])
+			if err != nil {
+				return ""
+			}
+			return text
+		}
+	}
+	return ""
+}
+
+// VoiceLine holds a unique say-step text and its usage count.
+type VoiceLine struct {
+	Text  string
+	Count int
+}
+
+// ParseVoiceLines scans log content for say step detail lines and returns
+// unique texts sorted by frequency (descending), then alphabetically.
+func ParseVoiceLines(content string) []VoiceLine {
+	content = strings.TrimRight(content, "\n\r ")
+	if content == "" {
+		return nil
+	}
+
+	counts := map[string]int{}
+	for _, line := range strings.Split(content, "\n") {
+		// Match step detail lines for say steps: "step[N] say  text="..."
+		idx := strings.Index(line, "] say  text=")
+		if idx < 0 {
+			continue
+		}
+		if !strings.Contains(line[:idx], "step[") {
+			continue
+		}
+
+		// Extract the quoted text value. The text is %q-encoded and may be
+		// followed by additional fields (e.g. when=afk, volume=80).
+		raw := line[idx+len("] say  text="):]
+		text := extractQuoted(raw)
+		if text != "" {
+			counts[text]++
+		}
+	}
+
+	if len(counts) == 0 {
+		return nil
+	}
+
+	lines := make([]VoiceLine, 0, len(counts))
+	for text, count := range counts {
+		lines = append(lines, VoiceLine{Text: text, Count: count})
+	}
+
+	sort.Slice(lines, func(i, j int) bool {
+		if lines[i].Count != lines[j].Count {
+			return lines[i].Count > lines[j].Count
+		}
+		return lines[i].Text < lines[j].Text
+	})
+
+	return lines
 }
