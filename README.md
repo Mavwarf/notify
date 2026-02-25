@@ -926,9 +926,10 @@ four tabs (linkable via URL hash, e.g. `/#watch`):
 
 - **Watch** (default) — mirrors terminal `history watch`: summary table with
   profile/action counts, percentages, skipped, and "New" deltas since page load,
-  plus hourly breakdown — auto-refreshes every 2 seconds. Day navigation
-  buttons (`<` / `>` / Today) let you browse past days; the "New" column only
-  appears when viewing today
+  approximate time spent per profile (gap-based estimation with 5-minute
+  threshold), plus hourly breakdown — auto-refreshes every 2 seconds. Day
+  navigation buttons (`<` / `>` / Today) let you browse past days; the "New"
+  column only appears when viewing today
 - **History** — live-updating table of notification events, fed by SSE.
   An activity chart shows stacked daily bars (green = runs, yellow = skipped)
   with hover tooltips; hidden for hour-based ranges.

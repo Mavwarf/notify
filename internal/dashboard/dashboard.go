@@ -440,20 +440,30 @@ func handleWatch(w http.ResponseWriter, r *http.Request) {
 		ProfileTotals []int          `json:"profile_totals"`
 		GrandTotal    int            `json:"grand_total"`
 	}
+	type watchTimeProfile struct {
+		Name    string `json:"name"`
+		Seconds int    `json:"seconds"`
+	}
+	type watchTimeSpent struct {
+		Profiles []watchTimeProfile `json:"profiles"`
+		Total    int                `json:"total"`
+	}
 	type watchResponse struct {
-		Date    string       `json:"date"`
-		DayName string       `json:"day_name"`
-		IsToday bool         `json:"is_today"`
-		Summary watchSummary `json:"summary"`
-		Hourly  watchHourly  `json:"hourly"`
+		Date      string         `json:"date"`
+		DayName   string         `json:"day_name"`
+		IsToday   bool           `json:"is_today"`
+		Summary   watchSummary   `json:"summary"`
+		Hourly    watchHourly    `json:"hourly"`
+		TimeSpent watchTimeSpent `json:"time_spent"`
 	}
 
 	resp := watchResponse{
-		Date:    targetDate.Format("2006-01-02"),
-		DayName: targetDate.Format("Monday"),
-		IsToday: isToday,
-		Summary: watchSummary{Profiles: []watchProfile{}},
-		Hourly:  watchHourly{Profiles: []string{}, Hours: []watchHourRow{}, ProfileTotals: []int{}},
+		Date:      targetDate.Format("2006-01-02"),
+		DayName:   targetDate.Format("Monday"),
+		IsToday:   isToday,
+		Summary:   watchSummary{Profiles: []watchProfile{}},
+		Hourly:    watchHourly{Profiles: []string{}, Hours: []watchHourRow{}, ProfileTotals: []int{}},
+		TimeSpent: watchTimeSpent{Profiles: []watchTimeProfile{}},
 	}
 
 	// Filter groups to the target date only.
@@ -625,6 +635,44 @@ func handleWatch(w http.ResponseWriter, r *http.Request) {
 			ProfileTotals: profileTotals,
 			GrandTotal:    hGrandTotal,
 		}
+	}
+
+	// Build approximate time spent per profile.
+	// Group entries by profile, walk consecutive pairs — if gap ≤ 5min, add to total.
+	const timeGapThreshold = 5 * time.Minute
+	profileEntries := map[string][]time.Time{}
+	for _, e := range entries {
+		local := e.Time.In(loc)
+		day := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc)
+		if !day.Equal(targetDate) || e.Kind == eventlog.KindOther {
+			continue
+		}
+		profileEntries[e.Profile] = append(profileEntries[e.Profile], e.Time)
+	}
+
+	if len(profileEntries) > 0 {
+		tpNames := make([]string, 0, len(profileEntries))
+		for p := range profileEntries {
+			tpNames = append(tpNames, p)
+		}
+		sort.Strings(tpNames)
+
+		grandTotal := 0
+		tps := make([]watchTimeProfile, 0, len(tpNames))
+		for _, p := range tpNames {
+			times := profileEntries[p]
+			sort.Slice(times, func(i, j int) bool { return times[i].Before(times[j]) })
+			secs := 0
+			for i := 1; i < len(times); i++ {
+				gap := times[i].Sub(times[i-1])
+				if gap <= timeGapThreshold {
+					secs += int(gap.Seconds())
+				}
+			}
+			tps = append(tps, watchTimeProfile{Name: p, Seconds: secs})
+			grandTotal += secs
+		}
+		resp.TimeSpent = watchTimeSpent{Profiles: tps, Total: grandTotal}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

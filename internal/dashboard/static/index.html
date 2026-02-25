@@ -1470,6 +1470,7 @@ tr:hover td { background: var(--bg3); }
     const profiles = data.summary.profiles;
     const gt = data.summary.grand_total;
 
+    html += '<div class="watch-section-title">Summary</div>';
     html += '<table class="watch-table"><thead><tr>';
     html += '<th style="min-width:180px"></th><th>Total</th><th>%</th>';
     if (hasSkipped) html += '<th>Skipped</th>';
@@ -1572,6 +1573,32 @@ tr:hover td { background: var(--bg3); }
       html += '</tbody></table>';
     }
 
+    // Approximate time spent (after hourly)
+    if (data.time_spent && data.time_spent.total > 0) {
+      html += '<div class="watch-section-title">Approx. time spent</div>';
+      html += '<div style="font-size:11px;color:var(--fg-dim);margin-top:-4px;margin-bottom:8px">';
+      html += 'Rough estimate based on gaps between log entries (&le; 5 min counted as active).';
+      html += '</div>';
+      html += '<table class="watch-table"><thead><tr>';
+      html += '<th style="min-width:180px"></th><th>Time</th><th>%</th>';
+      html += '</tr></thead><tbody>';
+      for (const tp of data.time_spent.profiles) {
+        if (tp.seconds === 0) continue;
+        const pct = data.time_spent.total > 0 ? Math.round(tp.seconds * 100 / data.time_spent.total) : 0;
+        html += '<tr class="profile-row">';
+        html += '<td class="profile-name">' + profileLink(tp.name) + '</td>';
+        html += '<td>' + fmtDuration(tp.seconds) + '</td>';
+        html += '<td>' + pct + '%</td>';
+        html += '</tr>';
+      }
+      html += '<tr class="total-row">';
+      html += '<td><strong>Total</strong></td>';
+      html += '<td><strong>' + fmtDuration(data.time_spent.total) + '</strong></td>';
+      html += '<td></td>';
+      html += '</tr>';
+      html += '</tbody></table>';
+    }
+
     el.innerHTML = html;
   }
 
@@ -1582,6 +1609,13 @@ tr:hover td { background: var(--bg3); }
 
   function pad2(n) {
     return n < 10 ? '0' + n : String(n);
+  }
+
+  function fmtDuration(secs) {
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    if (h > 0) return h + 'h ' + m + 'm';
+    return m + 'm';
   }
 
   // ---- Profile detail modal ----

@@ -2,7 +2,7 @@
 
 ## Features
 
-- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, dark/light theme toggle, history export, and clickable profile detail view *(Feb 25)*
+- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, dark/light theme toggle, history export, clickable profile detail view, and approximate time spent per profile *(Feb 25)*
 - Heartbeat for long tasks (`--heartbeat`) — periodic notifications during `notify run` *(Feb 24)*
 - Pipe / stream mode (`notify pipe`) — trigger notifications from stdin patterns *(Feb 24)*
 - Output capture (`{output}`) and pattern matching (`--match`) for `notify run` *(Feb 24)*
@@ -127,6 +127,16 @@ details — the same rendering used by the Test tab. If the profile uses remote
 steps, credential health badges (ok/missing) appear below the actions. Credential
 data is cached from the initial page load to avoid redundant requests. Close the
 modal via the X button, clicking the backdrop, or pressing Escape.
+
+### Dashboard: Approximate Time Spent
+The **Watch** tab now shows an "Approx. time spent" section between the summary
+table and the hourly breakdown. For each profile, consecutive log entries are
+walked chronologically — if the gap between two entries is 5 minutes or less,
+that gap is counted as active time. Gaps exceeding 5 minutes are treated as
+idle breaks and ignored. Each profile row displays the estimated time in
+`Xh Ym` format with a percentage column, plus a total row. The section is
+hidden when there is no estimated active time (e.g. profiles with only a
+single entry per session). Computed server-side in the `/api/watch` response.
 
 ---
 
