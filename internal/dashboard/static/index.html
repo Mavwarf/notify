@@ -353,6 +353,81 @@ tr:hover td { background: var(--bg3); }
   border-color: var(--accent);
   font-weight: 600;
 }
+
+/* Credential health panel */
+.cred-panel {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.cred-panel h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--fg-dim);
+  margin-bottom: 8px;
+}
+
+.cred-profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.cred-profile-name {
+  color: var(--cyan);
+  font-weight: 600;
+  min-width: 120px;
+}
+
+.cred-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.cred-ok { background: rgba(158, 206, 106, 0.15); color: var(--green); }
+.cred-missing { background: rgba(247, 118, 142, 0.15); color: var(--red); }
+
+/* History filter bar */
+.filter-bar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--fg-dim);
+}
+
+.filter-bar label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filter-bar select {
+  padding: 4px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.shortcuts-hint {
+  font-size: 11px;
+  color: var(--fg-dim);
+  margin-left: auto;
+  opacity: 0.6;
+}
 </style>
 </head>
 <body>
@@ -361,7 +436,10 @@ tr:hover td { background: var(--bg3); }
     <h1>notify dashboard</h1>
     <div class="status"><span class="dot" id="sse-dot"></span><span id="sse-status">connecting...</span></div>
   </header>
-  <div style="font-size:12px;color:var(--fg-dim);margin:-12px 0 16px">Cross-platform notification engine for the command line. <a href="https://github.com/Mavwarf/notify" target="_blank" rel="noopener" style="color:var(--cyan)">github.com/Mavwarf/notify</a></div>
+  <div style="font-size:12px;color:var(--fg-dim);margin:-12px 0 16px;display:flex;justify-content:space-between">
+    <span>Cross-platform notification engine for the command line. <a href="https://github.com/Mavwarf/notify" target="_blank" rel="noopener" style="color:var(--cyan)">github.com/Mavwarf/notify</a></span>
+    <span class="shortcuts-hint">Keys: 1-4 tabs, arrows nav days, t today</span>
+  </div>
 
   <div class="tabs">
     <button class="tab active" data-panel="watch">Watch</button>
@@ -371,15 +449,29 @@ tr:hover td { background: var(--bg3); }
   </div>
 
   <div class="panel" id="panel-history">
+    <div class="filter-bar">
+      <label>Profile <select id="filter-profile"><option value="">(all)</option></select></label>
+      <label>Kind <select id="filter-kind"><option value="">(all)</option><option value="execution">execution</option><option value="cooldown">cooldown</option><option value="silent">silent</option></select></label>
+    </div>
     <div class="days-control">
       <span>Show last</span>
       <select id="history-days">
+        <option value="1h" selected>1 hour</option>
+        <option value="4h">4 hours</option>
+        <option value="12h">12 hours</option>
         <option value="1">1 day</option>
         <option value="3">3 days</option>
-        <option value="7" selected>7 days</option>
+        <option value="7">7 days</option>
         <option value="14">14 days</option>
         <option value="30">30 days</option>
       </select>
+    </div>
+    <div class="summary-section">
+      <h3>Summary</h3>
+      <div id="summary-content"></div>
+    </div>
+    <div class="summary-section">
+      <h3>Logs</h3>
     </div>
     <table>
       <thead>
@@ -394,11 +486,6 @@ tr:hover td { background: var(--bg3); }
     </table>
     <div class="empty-state" id="history-empty" style="display:none">
       No log entries found. Enable logging with --log or "log": true in config.
-    </div>
-
-    <div class="summary-section">
-      <h3>Summary</h3>
-      <div id="summary-content"></div>
     </div>
   </div>
 
@@ -415,6 +502,10 @@ tr:hover td { background: var(--bg3); }
   </div>
 
   <div class="panel" id="panel-config">
+    <div class="cred-panel" id="cred-panel" style="display:none">
+      <h3>Credential Health</h3>
+      <div id="cred-content"></div>
+    </div>
     <pre class="config-json" id="config-content">Loading...</pre>
   </div>
 
@@ -482,22 +573,50 @@ tr:hover td { background: var(--bg3); }
   const historyBody = document.getElementById('history-body');
   const historyEmpty = document.getElementById('history-empty');
   const historyDays = document.getElementById('history-days');
+  const filterProfile = document.getElementById('filter-profile');
+  const filterKind = document.getElementById('filter-kind');
+  let allHistoryEntries = [];
+
+  function matchesFilter(entry) {
+    const fp = filterProfile.value;
+    const fk = filterKind.value;
+    if (fp && entry.profile !== fp) return false;
+    if (fk && entry.kind !== fk) return false;
+    return true;
+  }
+
+  function populateFilterProfiles(entries) {
+    const profiles = new Set();
+    for (const e of entries) profiles.add(e.profile);
+    const current = filterProfile.value;
+    filterProfile.innerHTML = '<option value="">(all)</option>';
+    for (const p of [...profiles].sort()) {
+      const opt = document.createElement('option');
+      opt.value = p;
+      opt.textContent = p;
+      if (p === current) opt.selected = true;
+      filterProfile.appendChild(opt);
+    }
+  }
 
   function renderHistory(entries) {
+    allHistoryEntries = entries || [];
+    populateFilterProfiles(allHistoryEntries);
     historyBody.innerHTML = '';
-    if (!entries || entries.length === 0) {
+    const filtered = allHistoryEntries.filter(matchesFilter);
+    if (filtered.length === 0) {
       historyEmpty.style.display = '';
       return;
     }
     historyEmpty.style.display = 'none';
     // Show newest first
-    for (let i = entries.length - 1; i >= 0; i--) {
-      const e = entries[i];
-      appendHistoryRow(e, false);
+    for (let i = filtered.length - 1; i >= 0; i--) {
+      appendHistoryRow(filtered[i], false);
     }
   }
 
   function appendHistoryRow(entry, isNew) {
+    if (isNew && !matchesFilter(entry)) return;
     const tr = document.createElement('tr');
     if (isNew) tr.classList.add('new-entry');
     tr.innerHTML =
@@ -514,16 +633,24 @@ tr:hover td { background: var(--bg3); }
     historyEmpty.style.display = 'none';
   }
 
+  filterProfile.addEventListener('change', () => renderHistory(allHistoryEntries));
+  filterKind.addEventListener('change', () => renderHistory(allHistoryEntries));
+
   function esc(s) {
     const div = document.createElement('div');
     div.textContent = s;
     return div.innerHTML;
   }
 
+  function historyQueryParam() {
+    const val = historyDays.value;
+    if (val.endsWith('h')) return 'hours=' + val.slice(0, -1);
+    return 'days=' + val;
+  }
+
   async function loadHistory() {
-    const days = historyDays.value;
     try {
-      const res = await fetch('/api/history?days=' + days);
+      const res = await fetch('/api/history?' + historyQueryParam());
       const data = await res.json();
       renderHistory(data);
     } catch(e) {
@@ -538,9 +665,8 @@ tr:hover td { background: var(--bg3); }
 
   // ---- Summary ----
   async function loadSummary() {
-    const days = historyDays.value;
     try {
-      const res = await fetch('/api/summary?days=' + days);
+      const res = await fetch('/api/summary?' + historyQueryParam());
       const data = await res.json();
       renderSummary(data);
     } catch(e) {
@@ -613,9 +739,42 @@ tr:hover td { background: var(--bg3); }
       document.getElementById('config-content').textContent = JSON.stringify(configData, null, 2);
       await loadLogProfiles();
       populateTestDropdowns();
+      loadCredentials();
     } catch(e) {
       document.getElementById('config-content').textContent = 'Failed to load config: ' + e;
     }
+  }
+
+  // ---- Credentials ----
+  async function loadCredentials() {
+    try {
+      const res = await fetch('/api/credentials');
+      const data = await res.json();
+      renderCredentials(data);
+    } catch(e) {
+      console.error('Failed to load credentials:', e);
+    }
+  }
+
+  function renderCredentials(profiles) {
+    const panel = document.getElementById('cred-panel');
+    const content = document.getElementById('cred-content');
+    if (!profiles || profiles.length === 0) {
+      panel.style.display = 'none';
+      return;
+    }
+    panel.style.display = '';
+    let html = '';
+    for (const p of profiles) {
+      html += '<div class="cred-profile">';
+      html += '<span class="cred-profile-name">' + esc(p.profile) + '</span>';
+      for (const c of p.credentials) {
+        const cls = c.status === 'ok' ? 'cred-ok' : 'cred-missing';
+        html += '<span class="cred-badge ' + cls + '">' + esc(c.type) + ': ' + esc(c.status) + '</span>';
+      }
+      html += '</div>';
+    }
+    content.innerHTML = html;
   }
 
   // ---- Test ----
@@ -976,6 +1135,45 @@ tr:hover td { background: var(--bg3); }
     // Only auto-refresh watch when viewing today (live data).
     if (!watchDate) loadWatch();
   }, 2000);
+
+  // ---- Keyboard shortcuts ----
+  const tabNames = ['watch', 'history', 'config', 'test'];
+
+  function activeTab() {
+    const active = document.querySelector('.tab.active');
+    return active ? active.dataset.panel : '';
+  }
+
+  document.addEventListener('keydown', function(e) {
+    const tag = e.target.tagName.toLowerCase();
+    if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+
+    // 1-4: switch tabs
+    if (e.key >= '1' && e.key <= '4') {
+      switchTab(tabNames[parseInt(e.key) - 1]);
+      e.preventDefault();
+      return;
+    }
+
+    // Arrow keys: watch tab day navigation
+    if (activeTab() === 'watch') {
+      if (e.key === 'ArrowLeft') {
+        watchPrev.click();
+        e.preventDefault();
+        return;
+      }
+      if (e.key === 'ArrowRight' && !watchNext.disabled) {
+        watchNext.click();
+        e.preventDefault();
+        return;
+      }
+      if (e.key === 't') {
+        watchToday.click();
+        e.preventDefault();
+        return;
+      }
+    }
+  });
 
   // ---- Init ----
   loadHistory();

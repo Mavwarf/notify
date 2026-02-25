@@ -33,6 +33,7 @@ func Serve(cfg config.Config, configPath string, port int) error {
 	mux.HandleFunc("/api/summary", handleSummary)
 	mux.HandleFunc("/api/events", handleEvents)
 	mux.HandleFunc("/api/test", handleTest(cfg))
+	mux.HandleFunc("/api/credentials", handleCredentials(cfg))
 	mux.HandleFunc("/api/watch", handleWatch)
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
@@ -80,14 +81,22 @@ func handleConfig(cfg config.Config) http.HandlerFunc {
 }
 
 func handleHistory(w http.ResponseWriter, r *http.Request) {
-	days := 7
-	if d := r.URL.Query().Get("days"); d != "" {
-		if v, err := strconv.Atoi(d); err == nil && v > 0 {
-			days = v
+	var entries []eventlog.Entry
+	if h := r.URL.Query().Get("hours"); h != "" {
+		if v, err := strconv.Atoi(h); err == nil && v > 0 {
+			entries = loadEntriesByHours(v)
+		} else {
+			entries = loadEntries(7)
 		}
+	} else {
+		days := 7
+		if d := r.URL.Query().Get("days"); d != "" {
+			if v, err := strconv.Atoi(d); err == nil && v > 0 {
+				days = v
+			}
+		}
+		entries = loadEntries(days)
 	}
-
-	entries := loadEntries(days)
 
 	type jsonEntry struct {
 		Time    string `json:"time"`
@@ -111,14 +120,26 @@ func handleHistory(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleSummary(w http.ResponseWriter, r *http.Request) {
-	days := 7
-	if d := r.URL.Query().Get("days"); d != "" {
-		if v, err := strconv.Atoi(d); err == nil && v > 0 {
-			days = v
+	var entries []eventlog.Entry
+	if h := r.URL.Query().Get("hours"); h != "" {
+		if v, err := strconv.Atoi(h); err == nil && v > 0 {
+			entries = loadEntriesByHours(v)
+		} else {
+			entries = loadEntries(0)
 		}
+	} else {
+		entries = loadEntries(0)
 	}
 
-	entries := loadEntries(0) // load all, SummarizeByDay handles filtering
+	days := 0 // show all loaded entries
+	if r.URL.Query().Get("hours") == "" {
+		days = 7
+		if d := r.URL.Query().Get("days"); d != "" {
+			if v, err := strconv.Atoi(d); err == nil && v > 0 {
+				days = v
+			}
+		}
+	}
 	groups := eventlog.SummarizeByDay(entries, days)
 
 	type jsonSummary struct {
@@ -610,6 +631,24 @@ func handleWatch(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
+// loadEntriesByHours reads and parses the event log, filtering to entries
+// from the last N hours.
+func loadEntriesByHours(hours int) []eventlog.Entry {
+	data, err := os.ReadFile(eventlog.LogPath())
+	if err != nil {
+		return nil
+	}
+	entries := eventlog.ParseEntries(string(data))
+	cutoff := time.Now().Add(-time.Duration(hours) * time.Hour)
+	var filtered []eventlog.Entry
+	for _, e := range entries {
+		if !e.Time.Before(cutoff) {
+			filtered = append(filtered, e)
+		}
+	}
+	return filtered
+}
+
 // loadEntries reads and parses the event log, filtering to the last N days.
 // Pass days=0 to load all entries.
 func loadEntries(days int) []eventlog.Entry {
@@ -667,6 +706,96 @@ func redactCreds(c config.Credentials) config.Credentials {
 		c.TelegramChatID = "***"
 	}
 	return c
+}
+
+// credentialRequirements maps step types to the credential fields they need.
+var credentialRequirements = map[string][]string{
+	"discord":        {"discord_webhook"},
+	"discord_voice":  {"discord_webhook"},
+	"slack":          {"slack_webhook"},
+	"telegram":       {"telegram_token", "telegram_chat_id"},
+	"telegram_audio": {"telegram_token", "telegram_chat_id"},
+	"telegram_voice": {"telegram_token", "telegram_chat_id"},
+}
+
+func handleCredentials(cfg config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		type credStatus struct {
+			Type   string `json:"type"`
+			Status string `json:"status"`
+		}
+		type profileCreds struct {
+			Profile     string       `json:"profile"`
+			Credentials []credStatus `json:"credentials"`
+		}
+
+		names := make([]string, 0, len(cfg.Profiles))
+		for name := range cfg.Profiles {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+
+		var result []profileCreds
+		for _, name := range names {
+			p := cfg.Profiles[name]
+			merged := config.MergeCredentials(cfg.Options.Credentials, p.Credentials)
+
+			// Collect unique credential types needed by steps in this profile.
+			needed := map[string]bool{}
+			for _, action := range p.Actions {
+				for _, step := range action.Steps {
+					if reqs, ok := credentialRequirements[step.Type]; ok {
+						for _, req := range reqs {
+							needed[req] = true
+						}
+					}
+				}
+			}
+
+			if len(needed) == 0 {
+				continue
+			}
+
+			// Check each needed credential.
+			credTypes := make([]string, 0, len(needed))
+			for ct := range needed {
+				credTypes = append(credTypes, ct)
+			}
+			sort.Strings(credTypes)
+
+			var creds []credStatus
+			for _, ct := range credTypes {
+				status := "missing"
+				switch ct {
+				case "discord_webhook":
+					if merged.DiscordWebhook != "" {
+						status = "ok"
+					}
+				case "slack_webhook":
+					if merged.SlackWebhook != "" {
+						status = "ok"
+					}
+				case "telegram_token":
+					if merged.TelegramToken != "" {
+						status = "ok"
+					}
+				case "telegram_chat_id":
+					if merged.TelegramChatID != "" {
+						status = "ok"
+					}
+				}
+				creds = append(creds, credStatus{Type: ct, Status: status})
+			}
+			result = append(result, profileCreds{Profile: name, Credentials: creds})
+		}
+
+		if result == nil {
+			result = []profileCreds{}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(result)
+	}
 }
 
 

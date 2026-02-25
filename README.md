@@ -929,13 +929,19 @@ four tabs (linkable via URL hash, e.g. `/#watch`):
   plus hourly breakdown — auto-refreshes every 2 seconds. Day navigation
   buttons (`<` / `>` / Today) let you browse past days; the "New" column only
   appears when viewing today
-- **History** — live-updating table of notification events, fed by SSE
-- **Config** — read-only JSON view of your config (credentials redacted)
+- **History** — live-updating table of notification events, fed by SSE.
+  Filter dropdowns let you narrow by profile and event kind (execution,
+  cooldown, silent); filters apply to both loaded entries and new SSE events
+- **Config** — credential health panel showing ok/missing status per profile,
+  plus read-only JSON view of your config (credentials redacted)
 - **Test** — dry-run interface: pick a profile and action, see which steps
   would run without actually sending anything. The profile dropdown includes
   both config profiles and profiles extracted from the last 48h of log entries.
   Unknown profiles fall back to the `default` profile (same as the CLI).
   Template variables (`{profile}`, `{time}`, etc.) are expanded in step details
+
+Keyboard shortcuts: `1`–`4` switch tabs, left/right arrows navigate Watch days,
+`t` jumps to today.
 
 ```bash
 notify dashboard              # default port 8080

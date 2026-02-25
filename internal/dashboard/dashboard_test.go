@@ -619,6 +619,152 @@ func TestHandleWatchEmpty(t *testing.T) {
 	}
 }
 
+func TestHandleCredentials(t *testing.T) {
+	cfg := testConfig()
+	handler := handleCredentials(cfg)
+
+	req := httptest.NewRequest("GET", "/api/credentials", nil)
+	w := httptest.NewRecorder()
+	handler(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var result []struct {
+		Profile     string `json:"profile"`
+		Credentials []struct {
+			Type   string `json:"type"`
+			Status string `json:"status"`
+		} `json:"credentials"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	// testConfig profiles:
+	// - "boss" has discord steps → discord_webhook from profile creds → ok
+	// - "notify" has discord step → discord_webhook from global creds → ok
+	// - "romans" has telegram step → telegram_token + telegram_chat_id from global → ok
+	// "boss" has only sound+say steps (ready action), so discord comes from "notify"
+	// Wait — let's check: boss has sound+say only, notify has sound+say+discord, romans has sound+telegram.
+	// So: boss has no remote steps → not in result.
+	//     notify needs discord_webhook → ok (global creds).
+	//     romans needs telegram_token + telegram_chat_id → ok (global creds).
+
+	// boss profile only has sound+say steps, no remote → should NOT appear.
+	for _, pc := range result {
+		if pc.Profile == "boss" {
+			t.Fatal("boss should not appear — only has sound/say steps")
+		}
+	}
+
+	// Find notify profile.
+	var notifyResult *struct {
+		Profile     string `json:"profile"`
+		Credentials []struct {
+			Type   string `json:"type"`
+			Status string `json:"status"`
+		} `json:"credentials"`
+	}
+	for i := range result {
+		if result[i].Profile == "notify" {
+			notifyResult = &result[i]
+			break
+		}
+	}
+	if notifyResult == nil {
+		t.Fatal("expected notify profile in result")
+	}
+	if len(notifyResult.Credentials) != 1 {
+		t.Fatalf("expected 1 credential for notify, got %d", len(notifyResult.Credentials))
+	}
+	if notifyResult.Credentials[0].Type != "discord_webhook" {
+		t.Fatalf("expected discord_webhook, got %q", notifyResult.Credentials[0].Type)
+	}
+	if notifyResult.Credentials[0].Status != "ok" {
+		t.Fatalf("expected ok status for discord_webhook, got %q", notifyResult.Credentials[0].Status)
+	}
+
+	// Find romans profile (telegram).
+	var romansResult *struct {
+		Profile     string `json:"profile"`
+		Credentials []struct {
+			Type   string `json:"type"`
+			Status string `json:"status"`
+		} `json:"credentials"`
+	}
+	for i := range result {
+		if result[i].Profile == "romans" {
+			romansResult = &result[i]
+			break
+		}
+	}
+	if romansResult == nil {
+		t.Fatal("expected romans profile in result")
+	}
+	if len(romansResult.Credentials) != 2 {
+		t.Fatalf("expected 2 credentials for romans, got %d", len(romansResult.Credentials))
+	}
+	// Sorted: telegram_chat_id, telegram_token.
+	if romansResult.Credentials[0].Type != "telegram_chat_id" || romansResult.Credentials[0].Status != "ok" {
+		t.Fatalf("expected telegram_chat_id ok, got %q %q", romansResult.Credentials[0].Type, romansResult.Credentials[0].Status)
+	}
+	if romansResult.Credentials[1].Type != "telegram_token" || romansResult.Credentials[1].Status != "ok" {
+		t.Fatalf("expected telegram_token ok, got %q %q", romansResult.Credentials[1].Type, romansResult.Credentials[1].Status)
+	}
+}
+
+func TestHandleCredentialsMissing(t *testing.T) {
+	// Config with no global credentials and a profile that needs discord.
+	cfg := config.Config{
+		Profiles: map[string]config.Profile{
+			"test": {
+				Actions: map[string]config.Action{
+					"alert": {
+						Steps: []config.Step{
+							{Type: "discord", Text: "Hello"},
+							{Type: "slack", Text: "Hello"},
+						},
+					},
+				},
+			},
+		},
+	}
+	handler := handleCredentials(cfg)
+
+	req := httptest.NewRequest("GET", "/api/credentials", nil)
+	w := httptest.NewRecorder()
+	handler(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var result []struct {
+		Profile     string `json:"profile"`
+		Credentials []struct {
+			Type   string `json:"type"`
+			Status string `json:"status"`
+		} `json:"credentials"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	if len(result) != 1 {
+		t.Fatalf("expected 1 profile, got %d", len(result))
+	}
+	if len(result[0].Credentials) != 2 {
+		t.Fatalf("expected 2 credentials, got %d", len(result[0].Credentials))
+	}
+	for _, c := range result[0].Credentials {
+		if c.Status != "missing" {
+			t.Fatalf("expected missing status for %q, got %q", c.Type, c.Status)
+		}
+	}
+}
+
 func TestProfileMarshalJSON(t *testing.T) {
 	cfg := testConfig()
 	data, err := json.Marshal(cfg.Profiles["boss"])

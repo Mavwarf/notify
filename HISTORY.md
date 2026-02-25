@@ -2,7 +2,7 @@
 
 ## Features
 
-- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, day navigation, and log-extracted profiles *(Feb 25)*
+- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, day navigation, log-extracted profiles, credential health check, history filtering, and keyboard shortcuts *(Feb 25)*
 - Heartbeat for long tasks (`--heartbeat`) — periodic notifications during `notify run` *(Feb 24)*
 - Pipe / stream mode (`notify pipe`) — trigger notifications from stdin patterns *(Feb 24)*
 - Output capture (`{output}`) and pattern matching (`--match`) for `notify run` *(Feb 24)*
@@ -66,6 +66,27 @@ hourly JSON, optional `?date=`), `/api/config`, `/api/history`,
 Config is loaded once at startup. Binds to localhost only. Added
 `Profile.MarshalJSON()` to enable JSON serialization of profiles.
 Press `Ctrl+C` to stop.
+
+### Dashboard: Credential Health Check
+The **Config** tab now shows a credential health panel above the JSON viewer.
+For each profile that uses remote step types (discord, slack, telegram), the
+panel displays colored badges showing whether the required credentials are
+present ("ok" in green) or missing ("missing" in red). Credentials are merged
+using the same global + profile override logic as the CLI. Profiles that only
+use local steps (sound, say, toast) are omitted. Backed by `/api/credentials`.
+
+### Dashboard: History Filtering
+The **History** tab now has profile and kind filter dropdowns above the event
+table. Filter by any profile seen in the loaded entries, and/or by event kind
+(execution, cooldown, silent). Filters apply to both the initial load and new
+SSE entries arriving in real time. Profile options are populated dynamically
+from the loaded data.
+
+### Dashboard: Keyboard Shortcuts
+Press `1`–`4` to switch between Watch, History, Config, and Test tabs. On the
+Watch tab, use left/right arrow keys to navigate days, and `t` to jump to
+today. Shortcuts are disabled when a form input is focused. A hint line below
+the header shows the available keys.
 
 ---
 
