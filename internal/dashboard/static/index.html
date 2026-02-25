@@ -1014,6 +1014,9 @@ tr:hover td { background: var(--bg3); }
       try {
         const entries = JSON.parse(event.data);
         for (const e of entries) {
+          // Skip bookkeeping entries (e.g. cooldown=recorded) — only show
+          // execution, cooldown-skipped, and silent-skipped events.
+          if (e.kind === 'other') continue;
           appendHistoryRow(e, true);
           showToast(e);
         }
