@@ -19,6 +19,7 @@ import (
 	"github.com/Mavwarf/notify/internal/config"
 	"github.com/Mavwarf/notify/internal/eventlog"
 	"github.com/Mavwarf/notify/internal/runner"
+	"github.com/Mavwarf/notify/internal/silent"
 	"github.com/Mavwarf/notify/internal/tmpl"
 )
 
@@ -162,6 +163,7 @@ func Serve(cfg config.Config, configPath string, port int, open bool) error {
 	mux.HandleFunc("/api/watch", handleWatch)
 	mux.HandleFunc("/api/stats", handleStats)
 	mux.HandleFunc("/api/voice", handleVoice)
+	mux.HandleFunc("/api/silent", handleSilent)
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	srv := &http.Server{Addr: addr, Handler: mux}
@@ -708,6 +710,60 @@ func handleVoice(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(voiceResponse{Lines: out, Total: total})
+}
+
+type silentResponse struct {
+	Active bool    `json:"active"`
+	Until  *string `json:"until"`
+}
+
+func handleSilent(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		var resp silentResponse
+		if t, ok := silent.SilentUntil(); ok {
+			s := t.Format(time.RFC3339)
+			resp.Active = true
+			resp.Until = &s
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+
+	case http.MethodPost:
+		var req struct {
+			Minutes int  `json:"minutes"`
+			Disable bool `json:"disable"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+
+		if req.Disable {
+			silent.Disable()
+			eventlog.LogSilentDisable()
+		} else if req.Minutes > 0 {
+			d := time.Duration(req.Minutes) * time.Minute
+			silent.Enable(d)
+			eventlog.LogSilentEnable(d)
+		} else {
+			http.Error(w, "provide minutes > 0 or disable: true", http.StatusBadRequest)
+			return
+		}
+
+		// Return updated status.
+		var resp silentResponse
+		if t, ok := silent.SilentUntil(); ok {
+			s := t.Format(time.RFC3339)
+			resp.Active = true
+			resp.Until = &s
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 // filterVoiceContentByDays returns only log blocks whose timestamp falls

@@ -300,6 +300,119 @@ tr:hover td { background: var(--bg3); }
   font-size: 14px;
 }
 
+.silent-badge {
+  display: none;
+  font-size: 12px;
+  color: var(--yellow);
+  margin-left: auto;
+  margin-right: 12px;
+  white-space: nowrap;
+}
+
+.silent-badge.active { display: inline; }
+
+.silent-status {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 20px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.silent-status .status-text {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.silent-status .status-text.active { color: var(--yellow); }
+.silent-status .status-text.inactive { color: var(--green); }
+
+.silent-status .remaining {
+  font-size: 13px;
+  color: var(--fg-dim);
+  margin-bottom: 12px;
+}
+
+.silent-quick {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.silent-quick button {
+  padding: 8px 20px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.silent-quick button:hover { border-color: var(--accent); color: var(--accent); }
+
+.silent-custom {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.silent-custom input {
+  padding: 8px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 13px;
+  width: 100px;
+  text-align: center;
+}
+
+.silent-custom input:focus { outline: none; border-color: var(--accent); }
+
+.silent-custom button {
+  padding: 8px 20px;
+  background: var(--accent);
+  color: var(--bg);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.silent-custom button:hover { opacity: 0.85; }
+
+.silent-disable {
+  text-align: center;
+}
+
+.silent-disable button {
+  padding: 8px 24px;
+  background: var(--red);
+  color: #fff;
+  border: 1px solid var(--red);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.silent-disable button:hover { opacity: 0.85; }
+
 .badge {
   display: inline-block;
   padding: 1px 8px;
@@ -649,7 +762,8 @@ tr:hover td { background: var(--bg3); }
   </header>
   <div style="font-size:12px;color:var(--fg-dim);margin:-12px 0 16px;display:flex;justify-content:space-between">
     <span>Cross-platform notification engine for the command line. <a href="https://github.com/Mavwarf/notify" target="_blank" rel="noopener" style="color:var(--cyan)">github.com/Mavwarf/notify</a></span>
-    <span class="shortcuts-hint">Keys: 1-5 tabs, arrows nav days, t today, s screenshot</span>
+    <span class="silent-badge" id="silent-badge">Silent until <span id="silent-badge-time"></span></span>
+    <span class="shortcuts-hint">Keys: 1-6 tabs, arrows nav days, t today, s screenshot</span>
   </div>
 
   <div class="tabs">
@@ -658,6 +772,7 @@ tr:hover td { background: var(--bg3); }
     <button class="tab" data-panel="config">Config</button>
     <button class="tab" data-panel="test">Test</button>
     <button class="tab" data-panel="voice">Voice</button>
+    <button class="tab" data-panel="silent">Silent</button>
   </div>
 
   <div class="panel" id="panel-history">
@@ -762,6 +877,29 @@ tr:hover td { background: var(--bg3); }
     </div>
     <div id="voice-content">
       <div class="empty-state">Loading...</div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-silent">
+    <div class="silent-status" id="silent-status">
+      <div class="status-text inactive" id="silent-status-text">Notifications Active</div>
+      <div class="remaining" id="silent-remaining"></div>
+    </div>
+    <h3 style="font-size:13px;color:var(--fg-dim);margin-bottom:12px;text-align:center">Quick set</h3>
+    <div class="silent-quick" id="silent-quick">
+      <button data-minutes="15">15 min</button>
+      <button data-minutes="30">30 min</button>
+      <button data-minutes="60">1 hour</button>
+      <button data-minutes="120">2 hours</button>
+      <button data-minutes="240">4 hours</button>
+    </div>
+    <h3 style="font-size:13px;color:var(--fg-dim);margin-bottom:12px;text-align:center">Custom duration</h3>
+    <div class="silent-custom">
+      <input type="number" id="silent-minutes" min="1" max="9999" placeholder="minutes">
+      <button id="silent-enable-btn">Enable</button>
+    </div>
+    <div class="silent-disable" id="silent-disable" style="display:none">
+      <button id="silent-disable-btn">Disable Silent Mode</button>
     </div>
   </div>
 </div>
@@ -2100,6 +2238,7 @@ tr:hover td { background: var(--bg3); }
     // Only auto-refresh watch when viewing today (live data).
     if (!watchDate) loadWatch();
     loadVoice();
+    loadSilent();
   }, 2000);
 
   // ---- Screenshot toggle ----
@@ -2117,7 +2256,7 @@ tr:hover td { background: var(--bg3); }
   }
 
   // ---- Keyboard shortcuts ----
-  const tabNames = ['watch', 'history', 'config', 'test', 'voice'];
+  const tabNames = ['watch', 'history', 'config', 'test', 'voice', 'silent'];
 
   function activeTab() {
     const active = document.querySelector('.tab.active');
@@ -2135,8 +2274,8 @@ tr:hover td { background: var(--bg3); }
     const tag = e.target.tagName.toLowerCase();
     if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
 
-    // 1-5: switch tabs
-    if (e.key >= '1' && e.key <= '5') {
+    // 1-6: switch tabs
+    if (e.key >= '1' && e.key <= '6') {
       switchTab(tabNames[parseInt(e.key) - 1]);
       e.preventDefault();
       return;
@@ -2169,12 +2308,102 @@ tr:hover td { background: var(--bg3); }
     }
   });
 
+  // ---- Silent mode ----
+  const silentBadge = document.getElementById('silent-badge');
+  const silentBadgeTime = document.getElementById('silent-badge-time');
+  const silentStatusText = document.getElementById('silent-status-text');
+  const silentRemaining = document.getElementById('silent-remaining');
+  const silentDisableDiv = document.getElementById('silent-disable');
+  let silentUntil = null;
+
+  function formatCountdown(until) {
+    const ms = new Date(until) - Date.now();
+    if (ms <= 0) return null;
+    const s = Math.floor(ms / 1000);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (h > 0) return h + 'h ' + String(m).padStart(2, '0') + 'm';
+    if (m > 0) return m + 'm ' + String(sec).padStart(2, '0') + 's';
+    return sec + 's';
+  }
+
+  function updateSilentUI() {
+    if (silentUntil && new Date(silentUntil) > Date.now()) {
+      const cd = formatCountdown(silentUntil);
+      const t = new Date(silentUntil).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      silentBadge.classList.add('active');
+      silentBadgeTime.textContent = t;
+      silentStatusText.textContent = 'Silent Mode Active';
+      silentStatusText.className = 'status-text active';
+      silentRemaining.textContent = cd ? cd + ' remaining (until ' + t + ')' : '';
+      silentDisableDiv.style.display = '';
+    } else {
+      silentUntil = null;
+      silentBadge.classList.remove('active');
+      silentStatusText.textContent = 'Notifications Active';
+      silentStatusText.className = 'status-text inactive';
+      silentRemaining.textContent = '';
+      silentDisableDiv.style.display = 'none';
+    }
+  }
+
+  async function loadSilent() {
+    try {
+      const resp = await fetch('/api/silent');
+      const data = await resp.json();
+      silentUntil = data.active ? data.until : null;
+      updateSilentUI();
+    } catch(e) {}
+  }
+
+  async function setSilent(minutes) {
+    try {
+      const resp = await fetch('/api/silent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ minutes: minutes })
+      });
+      const data = await resp.json();
+      silentUntil = data.active ? data.until : null;
+      updateSilentUI();
+    } catch(e) {}
+  }
+
+  async function disableSilent() {
+    try {
+      const resp = await fetch('/api/silent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ disable: true })
+      });
+      const data = await resp.json();
+      silentUntil = data.active ? data.until : null;
+      updateSilentUI();
+    } catch(e) {}
+  }
+
+  document.querySelectorAll('.silent-quick button').forEach(function(btn) {
+    btn.addEventListener('click', function() { setSilent(parseInt(btn.dataset.minutes)); });
+  });
+
+  document.getElementById('silent-enable-btn').addEventListener('click', function() {
+    var v = parseInt(document.getElementById('silent-minutes').value);
+    if (v > 0) setSilent(v);
+  });
+
+  document.getElementById('silent-disable-btn').addEventListener('click', disableSilent);
+
+  // Update countdown every second for smooth display.
+  setInterval(updateSilentUI, 1000);
+
   // ---- Init ----
   loadHistory();
   loadSummary();
   loadStats().then(loadWatch);
   loadConfig();
   loadVoice();
+  loadSilent();
   connectSSE();
 })();
 </script>

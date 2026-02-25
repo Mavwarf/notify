@@ -885,6 +885,136 @@ func TestHandleVoiceEmpty(t *testing.T) {
 	}
 }
 
+func withTempAppdata(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	orig := os.Getenv("APPDATA")
+	os.Setenv("APPDATA", dir)
+	t.Cleanup(func() {
+		os.Setenv("APPDATA", orig)
+	})
+}
+
+func TestHandleSilentGet(t *testing.T) {
+	withTempAppdata(t)
+
+	// Initially silent mode is inactive.
+	req := httptest.NewRequest("GET", "/api/silent", nil)
+	w := httptest.NewRecorder()
+	handleSilent(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var resp struct {
+		Active bool    `json:"active"`
+		Until  *string `json:"until"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if resp.Active {
+		t.Fatal("expected active=false initially")
+	}
+	if resp.Until != nil {
+		t.Fatalf("expected until=null, got %v", *resp.Until)
+	}
+}
+
+func TestHandleSilentPost(t *testing.T) {
+	withTempAppdata(t)
+
+	// Override LogPath so eventlog writes go to temp dir.
+	origPath := eventlog.LogPath
+	eventlog.LogPath = func() string { return filepath.Join(t.TempDir(), "notify.log") }
+	defer func() { eventlog.LogPath = origPath }()
+
+	// Enable silent mode for 30 minutes.
+	body := `{"minutes":30}`
+	req := httptest.NewRequest("POST", "/api/silent", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	handleSilent(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var resp struct {
+		Active bool    `json:"active"`
+		Until  *string `json:"until"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if !resp.Active {
+		t.Fatal("expected active=true after enable")
+	}
+	if resp.Until == nil {
+		t.Fatal("expected non-null until after enable")
+	}
+
+	// Verify GET reflects the enabled state.
+	req2 := httptest.NewRequest("GET", "/api/silent", nil)
+	w2 := httptest.NewRecorder()
+	handleSilent(w2, req2)
+
+	var resp2 struct {
+		Active bool `json:"active"`
+	}
+	json.Unmarshal(w2.Body.Bytes(), &resp2)
+	if !resp2.Active {
+		t.Fatal("expected active=true on subsequent GET")
+	}
+
+	// Disable silent mode.
+	body3 := `{"disable":true}`
+	req3 := httptest.NewRequest("POST", "/api/silent", strings.NewReader(body3))
+	req3.Header.Set("Content-Type", "application/json")
+	w3 := httptest.NewRecorder()
+	handleSilent(w3, req3)
+
+	if w3.Code != 200 {
+		t.Fatalf("expected 200, got %d", w3.Code)
+	}
+
+	var resp3 struct {
+		Active bool    `json:"active"`
+		Until  *string `json:"until"`
+	}
+	json.Unmarshal(w3.Body.Bytes(), &resp3)
+	if resp3.Active {
+		t.Fatal("expected active=false after disable")
+	}
+	if resp3.Until != nil {
+		t.Fatal("expected until=null after disable")
+	}
+}
+
+func TestHandleSilentMethodNotAllowed(t *testing.T) {
+	req := httptest.NewRequest("DELETE", "/api/silent", nil)
+	w := httptest.NewRecorder()
+	handleSilent(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected 405, got %d", w.Code)
+	}
+}
+
+func TestHandleSilentPostBadRequest(t *testing.T) {
+	// minutes=0 and disable=false should be rejected.
+	body := `{"minutes":0}`
+	req := httptest.NewRequest("POST", "/api/silent", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	handleSilent(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+}
+
 func TestProfileMarshalJSON(t *testing.T) {
 	cfg := testConfig()
 	data, err := json.Marshal(cfg.Profiles["boss"])

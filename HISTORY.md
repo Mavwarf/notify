@@ -4,7 +4,7 @@
 
 - Voice stats (`notify voice stats`) — say step text usage frequency from event log *(Feb 25)*
 - Tests for `renderHourlyTable` — basic, single-profile, empty, single-hour, and gap-hour scenarios *(Feb 25)*
-- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, voice stats, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, dark/light theme toggle, history export, clickable profile detail view, approximate time spent per profile, profile donut charts, hourly bar chart, activity timeline, log file stats, screenshot mode, and `--open` flag for chromeless browser window *(Feb 25)*
+- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, voice stats, silent mode control, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, dark/light theme toggle, history export, clickable profile detail view, approximate time spent per profile, profile donut charts, hourly bar chart, activity timeline, log file stats, screenshot mode, and `--open` flag for chromeless browser window *(Feb 25)*
 - Heartbeat for long tasks (`--heartbeat`) — periodic notifications during `notify run` *(Feb 24)*
 - Pipe / stream mode (`notify pipe`) — trigger notifications from stdin patterns *(Feb 24)*
 - Output capture (`{output}`) and pattern matching (`--match`) for `notify run` *(Feb 24)*
@@ -53,7 +53,7 @@ text. Backed by a new `ParseVoiceLines()` function in the eventlog package.
 
 ### Web Dashboard (`notify dashboard`)
 Local web UI served on `http://127.0.0.1:8080` (configurable with `--port`).
-Five tabs: **Watch** (default) mirrors the terminal `history watch` output
+Six tabs: **Watch** (default) mirrors the terminal `history watch` output
 with a summary table showing per-profile/action counts, percentages, skipped
 entries, and "New" deltas since page load, plus an hourly breakdown table
 with bar chart —
@@ -76,7 +76,8 @@ linkable via URL hash (e.g. `/#watch`, `/#history`). The dashboard uses
 JS, no dependencies) into the binary. API endpoints: `/api/watch` (summary +
 hourly JSON, optional `?date=`), `/api/config`, `/api/history`,
 `/api/summary`, `/api/events` (SSE), `/api/test` (dry-run with fallback),
-`/api/stats` (log file metadata), `/api/voice` (say-step text frequencies).
+`/api/stats` (log file metadata), `/api/voice` (say-step text frequencies),
+`/api/silent` (GET status, POST enable/disable), `/api/credentials`.
 Config is loaded once at startup. Binds to localhost only. Added
 `Profile.MarshalJSON()` to enable JSON serialization of profiles.
 Press `Ctrl+C` to stop.
@@ -194,6 +195,17 @@ Edge first, then Chrome/Chromium, and falls back to the OS default browser if
 none support app mode. The browser window is a separate process — closing it
 does not stop the server, and `Ctrl+C` in the terminal still shuts down the
 server as usual.
+
+### Dashboard: Silent Mode Tab
+New **Silent** tab (6th tab, keyboard shortcut `6`) lets you view and control
+silent mode directly from the dashboard. Shows current status (active/inactive)
+with a live countdown timer, quick-set buttons for common durations (15m, 30m,
+1h, 2h, 4h), a custom duration input field, and a disable button. A status
+badge appears next to the tab bar on all tabs whenever silent mode is active,
+showing "Silent until HH:MM:SS". Backed by `/api/silent` (GET for status, POST
+to enable/disable). State changes are logged to the event log the same way the
+CLI does. The dashboard polls the endpoint every 2 seconds and updates the
+countdown display every second for smooth UI.
 
 ---
 
