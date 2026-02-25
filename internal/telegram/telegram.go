@@ -1,14 +1,8 @@
 package telegram
 
 import (
-	"bytes"
 	"fmt"
-	"io"
-	"mime/multipart"
-	"net/textproto"
 	"net/url"
-	"os"
-	"path/filepath"
 
 	"github.com/Mavwarf/notify/internal/httputil"
 )
@@ -60,40 +54,11 @@ func sendVoiceTo(endpoint, chatID, oggPath, caption string) error {
 // sendFile uploads a file to the given endpoint with the specified form field name.
 // The contentType is set on the file part (e.g. "audio/ogg" for voice bubbles).
 func sendFile(endpoint, chatID, filePath, caption, fieldName string) error {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return fmt.Errorf("telegram: open file: %w", err)
-	}
-	defer f.Close()
-
-	var buf bytes.Buffer
-	w := multipart.NewWriter(&buf)
-
-	// chat_id field.
-	if err := w.WriteField("chat_id", chatID); err != nil {
-		return fmt.Errorf("telegram: write chat_id field: %w", err)
-	}
-
-	// caption field.
-	if err := w.WriteField("caption", caption); err != nil {
-		return fmt.Errorf("telegram: write caption field: %w", err)
-	}
-
-	// Attach the file with the correct MIME type.
-	ct := mimeForField(fieldName)
-	part, err := createFormFileWithType(w, fieldName, filepath.Base(filePath), ct)
-	if err != nil {
-		return fmt.Errorf("telegram: create form file: %w", err)
-	}
-	if _, err := io.Copy(part, f); err != nil {
-		return fmt.Errorf("telegram: copy file data: %w", err)
-	}
-
-	if err := w.Close(); err != nil {
-		return fmt.Errorf("telegram: close multipart: %w", err)
-	}
-
-	resp, err := httputil.Post(endpoint, w.FormDataContentType(), &buf)
+	resp, err := httputil.PostMultipart(endpoint, httputil.FileUpload{
+		FieldName:   fieldName,
+		FilePath:    filePath,
+		ContentType: mimeForField(fieldName),
+	}, [][2]string{{"chat_id", chatID}, {"caption", caption}})
 	if err != nil {
 		return fmt.Errorf("telegram: post %s: %w", fieldName, err)
 	}
@@ -112,15 +77,5 @@ func mimeForField(fieldName string) string {
 	default:
 		return "application/octet-stream"
 	}
-}
-
-// createFormFileWithType creates a form file part with a specific Content-Type
-// instead of the default application/octet-stream.
-func createFormFileWithType(w *multipart.Writer, fieldName, fileName, contentType string) (io.Writer, error) {
-	h := make(textproto.MIMEHeader)
-	h.Set("Content-Disposition",
-		fmt.Sprintf(`form-data; name="%s"; filename="%s"`, fieldName, fileName))
-	h.Set("Content-Type", contentType)
-	return w.CreatePart(h)
 }
 

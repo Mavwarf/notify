@@ -109,13 +109,6 @@ Config option for the threshold: `"shell_hook_threshold": 30` (seconds).
 
 ## Tech Debt / Cleanup
 
-### Multipart form upload duplication (low)
-
-Discord's `SendVoice` and Telegram's `sendFile` both implement
-multipart form uploads independently (`bytes.Buffer` + `multipart.Writer`
-+ file copy). Could extract a shared helper in `httputil` for building
-multipart requests with file attachments.
-
 ### `handleWatch()` inline types (low)
 
 Eight struct types (`watchAction`, `watchProfile`, `watchSummary`, etc.)
