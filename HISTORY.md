@@ -2,7 +2,7 @@
 
 ## Features
 
-- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, dark/light theme toggle, history export, clickable profile detail view, approximate time spent per profile, profile donut chart, screenshot mode, and `--open` flag for chromeless browser window *(Feb 25)*
+- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, dark/light theme toggle, history export, clickable profile detail view, approximate time spent per profile, profile donut chart, log file stats, screenshot mode, and `--open` flag for chromeless browser window *(Feb 25)*
 - Heartbeat for long tasks (`--heartbeat`) — periodic notifications during `notify run` *(Feb 24)*
 - Pipe / stream mode (`notify pipe`) — trigger notifications from stdin patterns *(Feb 24)*
 - Output capture (`{output}`) and pattern matching (`--match`) for `notify run` *(Feb 24)*
@@ -62,7 +62,8 @@ linkable via URL hash (e.g. `/#watch`, `/#history`). The dashboard uses
 `go:embed` to bundle a single self-contained HTML file (dark theme, vanilla
 JS, no dependencies) into the binary. API endpoints: `/api/watch` (summary +
 hourly JSON, optional `?date=`), `/api/config`, `/api/history`,
-`/api/summary`, `/api/events` (SSE), `/api/test` (dry-run with fallback).
+`/api/summary`, `/api/events` (SSE), `/api/test` (dry-run with fallback),
+`/api/stats` (log file metadata).
 Config is loaded once at startup. Binds to localhost only. Added
 `Profile.MarshalJSON()` to enable JSON serialization of profiles.
 Press `Ctrl+C` to stop.
@@ -157,6 +158,14 @@ maps to the same fake name across toggles and page reloads. API calls continue
 to use real names internally; only the displayed text is masked. A yellow
 "screenshot" badge appears in the header when active. Purely client-side — no
 backend changes. Keyboard hint updated to show `s` alongside existing shortcuts.
+
+### Dashboard: Log File Stats
+The **Watch** tab now shows a compact info line at the bottom displaying log
+file metadata: total entry count, file size (in human-readable KB/MB), and
+the date range from oldest to newest entry. Example:
+`Log: 1,234 entries · 156 KB · Feb 19 – Feb 25`. Fetched once at page load
+via `/api/stats` and cached — not polled, since stats don't change fast enough
+to warrant repeated requests. The line is hidden when the log is empty.
 
 ### Dashboard: Open in Browser Window (`--open`)
 `notify dashboard --open` launches the dashboard in a chromeless browser window

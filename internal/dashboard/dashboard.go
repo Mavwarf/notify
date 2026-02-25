@@ -116,6 +116,13 @@ type watchResponse struct {
 	TimeSpent watchTimeSpent `json:"time_spent"`
 }
 
+type logStats struct {
+	FileSize    int64  `json:"file_size"`
+	Entries     int    `json:"entries"`
+	OldestEntry string `json:"oldest_entry"`
+	NewestEntry string `json:"newest_entry"`
+}
+
 type credStatus struct {
 	Type   string `json:"type"`
 	Status string `json:"status"`
@@ -140,6 +147,7 @@ func Serve(cfg config.Config, configPath string, port int, open bool) error {
 	mux.HandleFunc("/api/test", handleTest(cfg))
 	mux.HandleFunc("/api/credentials", handleCredentials(cfg))
 	mux.HandleFunc("/api/watch", handleWatch)
+	mux.HandleFunc("/api/stats", handleStats)
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	srv := &http.Server{Addr: addr, Handler: mux}
@@ -625,6 +633,25 @@ func handleWatch(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
+
+func handleStats(w http.ResponseWriter, r *http.Request) {
+	var stats logStats
+
+	logPath := eventlog.LogPath()
+	if info, err := os.Stat(logPath); err == nil {
+		stats.FileSize = info.Size()
+	}
+
+	entries := loadEntries(0)
+	stats.Entries = len(entries)
+	if len(entries) > 0 {
+		stats.OldestEntry = entries[0].Time.Format(time.RFC3339)
+		stats.NewestEntry = entries[len(entries)-1].Time.Format(time.RFC3339)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
 }
 
 // loadEntriesByHours reads and parses the event log, filtering to entries

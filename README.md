@@ -930,8 +930,9 @@ four tabs (linkable via URL hash, e.g. `/#watch`):
   profile/action counts, percentages, skipped, and "New" deltas since page load,
   a donut chart showing notification share per profile,
   approximate time spent per profile (gap-based estimation with 5-minute
-  threshold), plus hourly breakdown — auto-refreshes every 2 seconds. Day
-  navigation buttons (`<` / `>` / Today) let you browse past days; the "New"
+  threshold), plus hourly breakdown — auto-refreshes every 2 seconds. A compact
+  log stats line at the bottom shows total entries, file size, and date range.
+  Day navigation buttons (`<` / `>` / Today) let you browse past days; the "New"
   column only appears when viewing today
 - **History** — live-updating table of notification events, fed by SSE.
   An activity chart shows stacked daily bars (green = runs, yellow = skipped)
