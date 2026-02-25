@@ -102,9 +102,69 @@ Config option for the threshold: `"shell_hook_threshold": 30` (seconds).
 
 ## Tech Debt / Cleanup
 
+### Extract shared summary/hourly logic from dashboard (high)
+
+`handleWatch()` in `dashboard.go` (289 lines) duplicates two algorithms
+from `cmd/notify/history.go`:
+- **Summary aggregation** — `perAction`/`perProfile` maps, profile ordering,
+  percentage calculation. Already extracted as `aggregateGroups()` in
+  history.go but re-implemented inline in the dashboard handler.
+- **Hourly breakdown** — `hp` struct, `perCell`/`perHour` maps, min/max
+  hour bounds. Already in `renderHourlyTable()` in history.go but
+  re-implemented in the dashboard handler.
+
+Move the shared computation logic to `internal/eventlog/` (or a new
+`internal/summary/` package) so both CLI and dashboard consume the same
+code. The dashboard handler should call shared functions and serialize
+the result; history.go should call the same functions and render ANSI
+output.
+
+### Extract profile resolution helper (medium)
+
+Profile auto-selection logic is duplicated three times in `main.go`:
+`runAction` (line ~202), `runWrapped` (line ~247), and `runPipe`
+(line ~352). All follow the same pattern: default to `"default"`, check
+if user provided a profile arg, else call `config.MatchProfile()`.
+Extract to a single `resolveProfile()` helper.
+
+### Centralize HTTP client with timeout (medium)
+
+Discord, Slack, Telegram, and Webhook packages each use
+`http.DefaultClient` or `http.Post()` with no timeout configured. A
+hung remote server blocks the step indefinitely. Create a shared
+`httputil.Client` with a 30-second timeout and connection pool settings,
+used by all remote step packages.
+
+### Multipart form upload duplication (low)
+
+Discord's `SendVoice` and Telegram's `sendFile` both implement
+multipart form uploads independently (`bytes.Buffer` + `multipart.Writer`
++ file copy). Could extract a shared helper in `httputil` for building
+multipart requests with file attachments.
+
+### `handleWatch()` inline types (low)
+
+Eight struct types (`watchAction`, `watchProfile`, `watchSummary`, etc.)
+are defined inline inside `handleWatch()`. Move to package-level types
+for reuse, testability, and godoc. Similarly, `jsonEntry` is defined
+identically in both `handleHistory()` and `handleEvents()`.
+
+### `silentCmd` bypasses config validation (low)
+
+`silentCmd()` in `commands.go` uses `config.Load()` directly instead of
+`loadAndValidate()`. Errors are silently ignored. Should match the
+pattern used by all other commands.
+
 ### Test platform-specific packages (low)
 
 `idle`, `speech`, and `toast` have no tests. All three shell out to
 OS commands (`xprintidle`, `espeak`, `notify-send`, `say`, `osascript`,
 PowerShell). Could mock `exec.Command` to verify argument construction
 and error handling without real system calls.
+
+### Missing tests for history rendering (low)
+
+`renderHourlyTable()` (113 lines), `historyClean()`, `historyExport()`,
+and most command functions in `commands.go` (`sendCmd`, `silentCmd`,
+`dryRun`) have no direct unit tests. The hourly table in particular
+has enough logic to warrant dedicated test cases.
