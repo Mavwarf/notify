@@ -270,6 +270,33 @@ tr:hover td { background: var(--bg3); }
 .badge-exec { background: rgba(158, 206, 106, 0.15); color: var(--green); }
 .badge-skip { background: rgba(224, 175, 104, 0.15); color: var(--yellow); }
 
+/* Activity chart */
+.activity-chart {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px 16px 8px;
+  position: relative;
+}
+
+.activity-chart svg { display: block; }
+.chart-bar { transition: opacity 0.15s; cursor: crosshair; }
+.chart-bar:hover { opacity: 0.8; }
+
+.chart-tooltip {
+  display: none;
+  position: absolute;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--fg);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 10;
+}
+
 /* Watch panel */
 .watch-date {
   color: var(--fg-dim);
@@ -513,6 +540,12 @@ tr:hover td { background: var(--bg3); }
       <h3>Summary</h3>
       <div id="summary-content"></div>
     </div>
+    <div class="summary-section" id="chart-section" style="display:none">
+      <h3>Activity</h3>
+      <div class="activity-chart" id="chart-content">
+        <div class="chart-tooltip" id="chart-tooltip"></div>
+      </div>
+    </div>
     <div class="summary-section">
       <h3>Logs</h3>
     </div>
@@ -713,6 +746,7 @@ tr:hover td { background: var(--bg3); }
       const res = await fetch('/api/summary?' + historyQueryParam());
       const data = await res.json();
       renderSummary(data);
+      renderChart(data);
     } catch(e) {
       console.error('Failed to load summary:', e);
     }
@@ -739,6 +773,142 @@ tr:hover td { background: var(--bg3); }
     }
     html += '</tbody></table>';
     el.innerHTML = html;
+  }
+
+  // ---- Activity chart ----
+  function renderChart(groups) {
+    const section = document.getElementById('chart-section');
+    const el = document.getElementById('chart-content');
+    const tooltip = document.getElementById('chart-tooltip');
+
+    // Hide for hour-based ranges or empty data
+    const val = historyDays.value;
+    if (val.endsWith('h') || !groups || groups.length === 0) {
+      section.style.display = 'none';
+      return;
+    }
+    section.style.display = '';
+
+    // Aggregate per day: total exec and skipped
+    const days = [];
+    for (const g of groups) {
+      let exec = 0, skip = 0;
+      for (const s of g.summaries) {
+        exec += s.executions;
+        skip += s.skipped;
+      }
+      days.push({ date: g.date, exec: exec, skip: skip, total: exec + skip });
+    }
+
+    // Chart dimensions — use fixed viewBox so it renders correctly even when panel is hidden
+    const margin = { top: 8, right: 12, bottom: 32, left: 40 };
+    const fullW = 900;
+    const fullH = 160;
+    const chartW = fullW - margin.left - margin.right;
+    const chartH = fullH - margin.top - margin.bottom;
+
+    const maxTotal = Math.max(...days.map(d => d.total), 1);
+
+    // Y-axis grid lines (3-4 lines)
+    const gridLines = [];
+    const step = niceStep(maxTotal);
+    for (let v = step; v <= maxTotal; v += step) gridLines.push(v);
+    if (gridLines.length === 0) gridLines.push(maxTotal);
+    const yMax = gridLines[gridLines.length - 1] || maxTotal;
+
+    const barGap = Math.max(Math.floor(chartW / days.length * 0.15), 2);
+    const barW = Math.max(Math.floor((chartW - barGap * days.length) / days.length), 4);
+    const totalBarSpace = (barW + barGap) * days.length;
+    const offsetX = margin.left + Math.floor((chartW - totalBarSpace) / 2);
+
+    function yPos(v) { return margin.top + chartH - (v / yMax) * chartH; }
+
+    let svg = '<svg width="100%" viewBox="0 0 ' + fullW + ' ' + fullH + '" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">';
+
+    // Grid lines
+    for (const v of gridLines) {
+      const y = yPos(v);
+      svg += '<line x1="' + margin.left + '" y1="' + y + '" x2="' + (fullW - margin.right) + '" y2="' + y + '" stroke="#3b4261" stroke-dasharray="3,3"/>';
+      svg += '<text x="' + (margin.left - 6) + '" y="' + (y + 4) + '" fill="#565f89" font-size="10" text-anchor="end" font-family="inherit">' + v + '</text>';
+    }
+
+    // Baseline
+    svg += '<line x1="' + margin.left + '" y1="' + yPos(0) + '" x2="' + (fullW - margin.right) + '" y2="' + yPos(0) + '" stroke="#3b4261"/>';
+
+    // Bars
+    for (let i = 0; i < days.length; i++) {
+      const d = days[i];
+      const x = offsetX + i * (barW + barGap);
+      const execH = (d.exec / yMax) * chartH;
+      const skipH = (d.skip / yMax) * chartH;
+
+      // Exec bar (green, bottom)
+      if (d.exec > 0) {
+        svg += '<rect class="chart-bar" data-idx="' + i + '" x="' + x + '" y="' + (yPos(0) - execH) + '" width="' + barW + '" height="' + execH + '" fill="#9ece6a" rx="1"/>';
+      }
+      // Skip bar (yellow, stacked on top)
+      if (d.skip > 0) {
+        svg += '<rect class="chart-bar" data-idx="' + i + '" x="' + x + '" y="' + (yPos(0) - execH - skipH) + '" width="' + barW + '" height="' + skipH + '" fill="#e0af68" rx="1"/>';
+      }
+      // Invisible hover target for the full bar area
+      svg += '<rect class="chart-bar" data-idx="' + i + '" x="' + x + '" y="' + margin.top + '" width="' + barW + '" height="' + chartH + '" fill="transparent"/>';
+
+      // X-axis labels (show every Nth to avoid crowding)
+      var labelEvery = days.length <= 14 ? 1 : days.length <= 30 ? 2 : 3;
+      if (i % labelEvery === 0 || i === days.length - 1) {
+        var label = shortDate(d.date);
+        svg += '<text x="' + (x + barW / 2) + '" y="' + (fullH - 4) + '" fill="#565f89" font-size="9" text-anchor="middle" font-family="inherit">' + label + '</text>';
+      }
+    }
+
+    svg += '</svg>';
+
+    // Keep tooltip element, replace SVG
+    var existingSvg = el.querySelector('svg');
+    if (existingSvg) existingSvg.remove();
+    el.insertAdjacentHTML('afterbegin', svg);
+
+    // Tooltip handlers
+    el.querySelectorAll('.chart-bar').forEach(function(bar) {
+      bar.addEventListener('mouseenter', function(e) {
+        var idx = parseInt(bar.getAttribute('data-idx'));
+        var d = days[idx];
+        tooltip.innerHTML = '<strong>' + esc(d.date) + '</strong><br>' +
+          '<span style="color:var(--green)">Runs: ' + d.exec + '</span>' +
+          (d.skip > 0 ? '<br><span style="color:var(--yellow)">Skipped: ' + d.skip + '</span>' : '');
+        tooltip.style.display = 'block';
+      });
+      bar.addEventListener('mousemove', function(e) {
+        var rect = el.getBoundingClientRect();
+        var tx = e.clientX - rect.left + 12;
+        var ty = e.clientY - rect.top - 10;
+        // Keep tooltip in bounds
+        if (tx + 140 > rect.width) tx = e.clientX - rect.left - 140;
+        tooltip.style.left = tx + 'px';
+        tooltip.style.top = ty + 'px';
+      });
+      bar.addEventListener('mouseleave', function() {
+        tooltip.style.display = 'none';
+      });
+    });
+  }
+
+  function shortDate(dateStr) {
+    var parts = dateStr.split('-');
+    var d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    var days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    return days[d.getDay()] + ' ' + d.getDate();
+  }
+
+  function niceStep(max) {
+    if (max <= 5) return 1;
+    if (max <= 10) return 2;
+    if (max <= 25) return 5;
+    if (max <= 50) return 10;
+    if (max <= 100) return 20;
+    if (max <= 250) return 50;
+    if (max <= 500) return 100;
+    return Math.ceil(max / 5 / 100) * 100;
   }
 
   // ---- Toast notifications ----

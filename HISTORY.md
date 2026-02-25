@@ -2,7 +2,7 @@
 
 ## Features
 
-- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, day navigation, log-extracted profiles, credential health check, history filtering, and keyboard shortcuts *(Feb 25)*
+- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, and activity chart *(Feb 25)*
 - Heartbeat for long tasks (`--heartbeat`) — periodic notifications during `notify run` *(Feb 24)*
 - Pipe / stream mode (`notify pipe`) — trigger notifications from stdin patterns *(Feb 24)*
 - Output capture (`{output}`) and pattern matching (`--match`) for `notify run` *(Feb 24)*
@@ -87,6 +87,16 @@ Press `1`–`4` to switch between Watch, History, Config, and Test tabs. On the
 Watch tab, use left/right arrow keys to navigate days, and `t` to jump to
 today. Shortcuts are disabled when a form input is focused. A hint line below
 the header shows the available keys.
+
+### Dashboard: Activity Chart
+The **History** tab now shows an SVG bar chart between the Summary table and the
+Logs table. Each bar represents one day with stacked segments: green for
+executions, yellow for skipped. Hover any bar for a tooltip with the exact date
+and counts. The chart reuses the existing "Show last" dropdown to control its
+time range and automatically hides for hour-based ranges (1h, 4h, 12h) since
+sub-day granularity doesn't apply to a daily chart. Y-axis grid lines scale
+dynamically to the data. No extra API calls — built from the same
+`/api/summary` response used by the Summary table.
 
 ---
 

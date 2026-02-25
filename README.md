@@ -930,6 +930,8 @@ four tabs (linkable via URL hash, e.g. `/#watch`):
   buttons (`<` / `>` / Today) let you browse past days; the "New" column only
   appears when viewing today
 - **History** — live-updating table of notification events, fed by SSE.
+  An activity chart shows stacked daily bars (green = runs, yellow = skipped)
+  with hover tooltips; hidden for hour-based ranges.
   Filter dropdowns let you narrow by profile and event kind (execution,
   cooldown, silent); filters apply to both loaded entries and new SSE events
 - **Config** — credential health panel showing ok/missing status per profile,
