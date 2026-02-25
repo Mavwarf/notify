@@ -2,7 +2,7 @@
 
 ## Features
 
-- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, and dry-run testing *(Feb 25)*
+- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, day navigation, and log-extracted profiles *(Feb 25)*
 - Heartbeat for long tasks (`--heartbeat`) — periodic notifications during `notify run` *(Feb 24)*
 - Pipe / stream mode (`notify pipe`) — trigger notifications from stdin patterns *(Feb 24)*
 - Output capture (`{output}`) and pattern matching (`--match`) for `notify run` *(Feb 24)*
@@ -51,14 +51,21 @@ all auto-refreshing every 2 seconds. **History** shows a live-updating table
 of notification events fed by Server-Sent Events. **Config** displays a
 read-only JSON view of the loaded config with credentials redacted to `"***"`.
 **Test** provides a dry-run interface where you pick a profile and action to
-see which steps would run without actually sending anything. Tabs are
+see which steps would run without actually sending anything — the profile
+dropdown merges config profiles with profiles extracted from the last 48h of
+log entries, and unknown profiles fall back to the `default` profile using
+the same `Resolve()` logic as the CLI. Template variables (`{profile}`,
+`{time}`, etc.) are expanded in step details. The **Watch** tab supports day
+navigation with prev/next/today buttons and accepts a `?date=YYYY-MM-DD`
+query param; the "New" column only appears when viewing today. Tabs are
 linkable via URL hash (e.g. `/#watch`, `/#history`). The dashboard uses
 `go:embed` to bundle a single self-contained HTML file (dark theme, vanilla
-JS, no dependencies) into the binary. API endpoints: `/api/watch` (today's
-summary + hourly JSON), `/api/config`, `/api/history`, `/api/summary`,
-`/api/events` (SSE), `/api/test` (dry-run). Config is loaded once at
-startup. Binds to localhost only. Added `Profile.MarshalJSON()` to enable
-JSON serialization of profiles. Press `Ctrl+C` to stop.
+JS, no dependencies) into the binary. API endpoints: `/api/watch` (summary +
+hourly JSON, optional `?date=`), `/api/config`, `/api/history`,
+`/api/summary`, `/api/events` (SSE), `/api/test` (dry-run with fallback).
+Config is loaded once at startup. Binds to localhost only. Added
+`Profile.MarshalJSON()` to enable JSON serialization of profiles.
+Press `Ctrl+C` to stop.
 
 ---
 

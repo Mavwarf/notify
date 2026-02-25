@@ -925,12 +925,17 @@ for spotting your most active working hours. Press `x` or `Esc` to exit.
 four tabs (linkable via URL hash, e.g. `/#watch`):
 
 - **Watch** (default) — mirrors terminal `history watch`: summary table with
-  profile/action counts, percentages, skipped, "New" deltas since page load,
-  plus hourly breakdown — auto-refreshes every 2 seconds
+  profile/action counts, percentages, skipped, and "New" deltas since page load,
+  plus hourly breakdown — auto-refreshes every 2 seconds. Day navigation
+  buttons (`<` / `>` / Today) let you browse past days; the "New" column only
+  appears when viewing today
 - **History** — live-updating table of notification events, fed by SSE
 - **Config** — read-only JSON view of your config (credentials redacted)
 - **Test** — dry-run interface: pick a profile and action, see which steps
-  would run without actually sending anything
+  would run without actually sending anything. The profile dropdown includes
+  both config profiles and profiles extracted from the last 48h of log entries.
+  Unknown profiles fall back to the `default` profile (same as the CLI).
+  Template variables (`{profile}`, `{time}`, etc.) are expanded in step details
 
 ```bash
 notify dashboard              # default port 8080

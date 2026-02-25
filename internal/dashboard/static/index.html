@@ -317,6 +317,42 @@ tr:hover td { background: var(--bg3); }
   letter-spacing: 0.5px;
   margin-bottom: 8px;
 }
+
+.watch-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.watch-nav button {
+  padding: 4px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.watch-nav button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.watch-nav button:disabled { opacity: 0.3; cursor: default; }
+
+.watch-nav .watch-nav-date {
+  font-size: 14px;
+  color: var(--fg);
+  min-width: 200px;
+  text-align: center;
+}
+
+.watch-nav .watch-nav-today {
+  color: var(--accent);
+  background: transparent;
+  border-color: var(--accent);
+  font-weight: 600;
+}
 </style>
 </head>
 <body>
@@ -367,6 +403,12 @@ tr:hover td { background: var(--bg3); }
   </div>
 
   <div class="panel active" id="panel-watch">
+    <div class="watch-nav">
+      <button id="watch-prev" title="Previous day">&lt;</button>
+      <span class="watch-nav-date" id="watch-nav-date"></span>
+      <button id="watch-next" title="Next day">&gt;</button>
+      <button id="watch-today" class="watch-nav-today">Today</button>
+    </div>
     <div id="watch-content">
       <div class="empty-state">Loading watch data...</div>
     </div>
@@ -569,6 +611,7 @@ tr:hover td { background: var(--bg3); }
       const res = await fetch('/api/config');
       configData = await res.json();
       document.getElementById('config-content').textContent = JSON.stringify(configData, null, 2);
+      await loadLogProfiles();
       populateTestDropdowns();
     } catch(e) {
       document.getElementById('config-content').textContent = 'Failed to load config: ' + e;
@@ -576,18 +619,49 @@ tr:hover td { background: var(--bg3); }
   }
 
   // ---- Test ----
+  let logProfiles = {}; // profile -> Set of action names from recent log
+
+  async function loadLogProfiles() {
+    try {
+      const res = await fetch('/api/summary?days=2');
+      const data = await res.json();
+      logProfiles = {};
+      if (data) {
+        for (const g of data) {
+          for (const s of g.summaries) {
+            if (!logProfiles[s.profile]) logProfiles[s.profile] = new Set();
+            logProfiles[s.profile].add(s.action);
+          }
+        }
+      }
+    } catch(e) {
+      console.error('Failed to load log profiles:', e);
+    }
+  }
+
   function populateTestDropdowns() {
     const profileSel = document.getElementById('test-profile');
     const actionSel = document.getElementById('test-action');
     profileSel.innerHTML = '';
 
-    if (!configData || !configData.profiles) return;
+    // Merge config profiles with log profiles (last 48h).
+    const configProfiles = (configData && configData.profiles) ? Object.keys(configData.profiles) : [];
+    const allProfiles = new Set(configProfiles);
+    for (const p of Object.keys(logProfiles)) allProfiles.add(p);
 
-    const profiles = Object.keys(configData.profiles).sort();
-    for (const p of profiles) {
+    const configSet = new Set(configProfiles);
+    const inConfig = [...allProfiles].filter(p => configSet.has(p)).sort();
+    const logOnly = [...allProfiles].filter(p => !configSet.has(p)).sort();
+    for (const p of inConfig) {
       const opt = document.createElement('option');
       opt.value = p;
-      opt.textContent = p;
+      opt.textContent = p + ' (config)';
+      profileSel.appendChild(opt);
+    }
+    for (const p of logOnly) {
+      const opt = document.createElement('option');
+      opt.value = p;
+      opt.textContent = p + ' (log extracted)';
       profileSel.appendChild(opt);
     }
 
@@ -597,13 +671,24 @@ tr:hover td { background: var(--bg3); }
     function updateActions() {
       const pName = profileSel.value;
       actionSel.innerHTML = '<option value="">(all actions)</option>';
-      if (!pName || !configData.profiles[pName]) return;
 
-      const p = configData.profiles[pName];
-      // Actions are any key that's not extends/aliases/credentials/match
-      const reserved = new Set(['extends', 'aliases', 'credentials', 'match']);
-      const actions = Object.keys(p).filter(k => !reserved.has(k)).sort();
-      for (const a of actions) {
+      const actions = new Set();
+
+      // Actions from config.
+      if (configData && configData.profiles && configData.profiles[pName]) {
+        const p = configData.profiles[pName];
+        const reserved = new Set(['extends', 'aliases', 'credentials', 'match']);
+        for (const k of Object.keys(p)) {
+          if (!reserved.has(k)) actions.add(k);
+        }
+      }
+
+      // Actions from log.
+      if (logProfiles[pName]) {
+        for (const a of logProfiles[pName]) actions.add(a);
+      }
+
+      for (const a of [...actions].sort()) {
         const opt = document.createElement('option');
         opt.value = a;
         opt.textContent = a;
@@ -644,9 +729,12 @@ tr:hover td { background: var(--bg3); }
       let html = '';
       for (const ar of data) {
         html += '<div style="margin-bottom:16px">';
-        html += '<div class="action-name">' + esc(ar.action) +
+        let actionLabel = '<div class="action-name">' + esc(ar.action) +
                 ' <span style="color:var(--fg-dim);font-weight:400;font-size:12px">(' +
-                ar.total_run + '/' + (ar.total_run + ar.total_skip) + ' steps would run)</span></div>';
+                ar.total_run + '/' + (ar.total_run + ar.total_skip) + ' steps would run)';
+        if (ar.resolved) actionLabel += ' via ' + esc(ar.resolved);
+        actionLabel += '</span></div>';
+        html += actionLabel;
         for (const s of ar.steps) {
           const mc = s.would_run ? 'run' : 'skip';
           const ml = s.would_run ? 'RUN' : 'SKIP';
@@ -667,12 +755,71 @@ tr:hover td { background: var(--bg3); }
 
   // ---- Watch tab ----
   let watchBaseline = null;
+  let watchDate = null; // null = today, or "YYYY-MM-DD"
+
+  const watchNavDate = document.getElementById('watch-nav-date');
+  const watchPrev = document.getElementById('watch-prev');
+  const watchNext = document.getElementById('watch-next');
+  const watchToday = document.getElementById('watch-today');
+
+  function todayStr() {
+    const d = new Date();
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  }
+
+  function shiftDate(dateStr, delta) {
+    const d = new Date(dateStr + 'T12:00:00');
+    d.setDate(d.getDate() + delta);
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  }
+
+  function dayName(dateStr) {
+    const d = new Date(dateStr + 'T12:00:00');
+    return d.toLocaleDateString(undefined, { weekday: 'long' });
+  }
+
+  function updateWatchNav() {
+    const effective = watchDate || todayStr();
+    const isToday = effective === todayStr();
+    watchNavDate.textContent = effective + '  (' + dayName(effective) + ')';
+    watchNext.disabled = isToday;
+    watchToday.style.display = isToday ? 'none' : '';
+  }
+
+  watchPrev.addEventListener('click', () => {
+    const effective = watchDate || todayStr();
+    watchDate = shiftDate(effective, -1);
+    watchBaseline = null;
+    updateWatchNav();
+    loadWatch();
+  });
+
+  watchNext.addEventListener('click', () => {
+    if (watchDate) {
+      const next = shiftDate(watchDate, 1);
+      watchDate = next === todayStr() ? null : next;
+      watchBaseline = null;
+      updateWatchNav();
+      loadWatch();
+    }
+  });
+
+  watchToday.addEventListener('click', () => {
+    watchDate = null;
+    watchBaseline = null;
+    updateWatchNav();
+    loadWatch();
+  });
+
+  updateWatchNav();
 
   async function loadWatch() {
     try {
-      const res = await fetch('/api/watch');
+      let url = '/api/watch';
+      if (watchDate) url += '?date=' + watchDate;
+      const res = await fetch(url);
       const data = await res.json();
-      if (!watchBaseline) {
+      if (data.is_today && !watchBaseline) {
         watchBaseline = buildWatchBaseline(data);
       }
       renderWatch(data);
@@ -696,14 +843,12 @@ tr:hover td { background: var(--bg3); }
   function renderWatch(data) {
     const el = document.getElementById('watch-content');
     if (!data.summary.profiles.length && !data.hourly.hours.length) {
-      el.innerHTML = '<div class="empty-state">No activity today.</div>';
+      el.innerHTML = '<div class="empty-state">No activity for ' + esc(data.date) + '.</div>';
       return;
     }
 
+    const showNew = data.is_today;
     let html = '';
-
-    // Date header
-    html += '<div class="watch-date">' + esc(data.date) + '  (' + esc(data.day_name) + ')</div>';
 
     // Summary table
     const hasSkipped = data.summary.grand_skipped > 0;
@@ -713,19 +858,21 @@ tr:hover td { background: var(--bg3); }
     html += '<table class="watch-table"><thead><tr>';
     html += '<th style="min-width:180px"></th><th>Total</th><th>%</th>';
     if (hasSkipped) html += '<th>Skipped</th>';
-    html += '<th>New</th>';
+    if (showNew) html += '<th>New</th>';
     html += '</tr></thead><tbody>';
 
     let totalNew = 0;
     for (const p of profiles) {
       // Profile subtotal row
       let pNew = 0;
-      for (const a of p.actions) {
-        const key = p.name + '/' + a.name;
-        pNew += a.total - (watchBaseline[key] || 0);
+      if (showNew) {
+        for (const a of p.actions) {
+          const key = p.name + '/' + a.name;
+          pNew += a.total - (watchBaseline[key] || 0);
+        }
+        if (pNew < 0) pNew = 0;
+        totalNew += pNew;
       }
-      if (pNew < 0) pNew = 0;
-      totalNew += pNew;
 
       html += '<tr class="profile-row">';
       html += '<td class="profile-name">' + esc(p.name) + '</td>';
@@ -734,13 +881,13 @@ tr:hover td { background: var(--bg3); }
       if (hasSkipped) {
         html += '<td class="val-skip">' + (p.skipped > 0 ? fmtNum(p.skipped) : '') + '</td>';
       }
-      html += '<td class="val-new">' + (pNew > 0 ? '+' + fmtNum(pNew) : '') + '</td>';
+      if (showNew) html += '<td class="val-new">' + (pNew > 0 ? '+' + fmtNum(pNew) : '') + '</td>';
       html += '</tr>';
 
       // Action rows (indented)
       for (const a of p.actions) {
         const key = p.name + '/' + a.name;
-        const aN = a.total - (watchBaseline[key] || 0);
+        const aN = showNew ? a.total - (watchBaseline[key] || 0) : 0;
         html += '<tr>';
         html += '<td class="action-name">' + esc(a.name) + '</td>';
         html += '<td>' + fmtNum(a.total) + '</td>';
@@ -748,7 +895,7 @@ tr:hover td { background: var(--bg3); }
         if (hasSkipped) {
           html += '<td class="val-skip">' + (a.skipped > 0 ? fmtNum(a.skipped) : '') + '</td>';
         }
-        html += '<td class="val-new">' + (aN > 0 ? '+' + fmtNum(aN) : '') + '</td>';
+        if (showNew) html += '<td class="val-new">' + (aN > 0 ? '+' + fmtNum(aN) : '') + '</td>';
         html += '</tr>';
       }
     }
@@ -761,7 +908,7 @@ tr:hover td { background: var(--bg3); }
     if (hasSkipped) {
       html += '<td class="val-skip">' + (data.summary.grand_skipped > 0 ? fmtNum(data.summary.grand_skipped) : '') + '</td>';
     }
-    html += '<td class="val-new">' + (totalNew > 0 ? '+' + fmtNum(totalNew) : '') + '</td>';
+    if (showNew) html += '<td class="val-new">' + (totalNew > 0 ? '+' + fmtNum(totalNew) : '') + '</td>';
     html += '</tr>';
 
     html += '</tbody></table>';
@@ -826,7 +973,8 @@ tr:hover td { background: var(--bg3); }
   setInterval(() => {
     loadHistory();
     loadSummary();
-    loadWatch();
+    // Only auto-refresh watch when viewing today (live data).
+    if (!watchDate) loadWatch();
   }, 2000);
 
   // ---- Init ----

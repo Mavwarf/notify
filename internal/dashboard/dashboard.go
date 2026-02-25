@@ -16,6 +16,7 @@ import (
 	"github.com/Mavwarf/notify/internal/config"
 	"github.com/Mavwarf/notify/internal/eventlog"
 	"github.com/Mavwarf/notify/internal/runner"
+	"github.com/Mavwarf/notify/internal/tmpl"
 )
 
 //go:embed static/index.html
@@ -163,6 +164,9 @@ func handleEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Flush headers immediately so the browser fires onopen.
+	flusher.Flush()
+
 	logPath := eventlog.LogPath()
 	var offset int64
 
@@ -262,43 +266,67 @@ func handleTest(cfg config.Config) http.HandlerFunc {
 			req.Profile = "default"
 		}
 
-		p, ok := cfg.Profiles[req.Profile]
-		if !ok {
-			http.Error(w, fmt.Sprintf("profile %q not found", req.Profile), http.StatusNotFound)
-			return
-		}
-
 		type stepResult struct {
-			Index   int    `json:"index"`
-			Type    string `json:"type"`
-			Detail  string `json:"detail"`
-			WouldRun bool  `json:"would_run"`
+			Index    int    `json:"index"`
+			Type     string `json:"type"`
+			Detail   string `json:"detail"`
+			WouldRun bool   `json:"would_run"`
 		}
 
 		type actionResult struct {
 			Action    string       `json:"action"`
+			Resolved  string       `json:"resolved,omitempty"`
 			Steps     []stepResult `json:"steps"`
 			TotalRun  int          `json:"total_run"`
 			TotalSkip int          `json:"total_skip"`
 		}
 
-		// If a specific action is requested, show only that one.
-		// Otherwise show all actions in the profile.
+		// Collect actions to test. Use Resolve() so unknown profiles
+		// fall back to "default", matching real CLI behavior.
 		var actions []string
 		if req.Action != "" {
 			actions = []string{req.Action}
 		} else {
-			actions = make([]string, 0, len(p.Actions))
-			for name := range p.Actions {
-				actions = append(actions, name)
+			// Gather actions from direct profile, then fill in from default.
+			seen := map[string]bool{}
+			if p, ok := cfg.Profiles[req.Profile]; ok {
+				for name := range p.Actions {
+					actions = append(actions, name)
+					seen[name] = true
+				}
+			}
+			if req.Profile != "default" {
+				if dp, ok := cfg.Profiles["default"]; ok {
+					for name := range dp.Actions {
+						if !seen[name] {
+							actions = append(actions, name)
+						}
+					}
+				}
+			}
+			if len(actions) == 0 {
+				http.Error(w, fmt.Sprintf("no actions found for profile %q or default", req.Profile), http.StatusNotFound)
+				return
 			}
 			sort.Strings(actions)
 		}
 
+		// Build template vars so {profile}, {Profile}, etc. expand in step details.
+		host, _ := os.Hostname()
+		now := time.Now()
+		vars := tmpl.Vars{
+			Profile:  req.Profile,
+			Time:     now.Format("15:04"),
+			TimeSay:  now.Format("3:04 PM"),
+			Date:     now.Format("2006-01-02"),
+			DateSay:  now.Format("January 2, 2006"),
+			Hostname: host,
+		}
+
 		var results []actionResult
 		for _, aName := range actions {
-			act, ok := p.Actions[aName]
-			if !ok {
+			_, act, err := config.Resolve(cfg, req.Profile, aName)
+			if err != nil {
 				continue
 			}
 
@@ -306,7 +334,7 @@ func handleTest(cfg config.Config) http.HandlerFunc {
 			steps := make([]stepResult, len(act.Steps))
 			run, skip := 0, 0
 			for i, s := range act.Steps {
-				detail := eventlog.StepSummary(s, nil)
+				detail := eventlog.StepSummary(s, &vars)
 				wr := wouldRun[i]
 				steps[i] = stepResult{
 					Index:    i + 1,
@@ -320,12 +348,19 @@ func handleTest(cfg config.Config) http.HandlerFunc {
 					skip++
 				}
 			}
-			results = append(results, actionResult{
+			ar := actionResult{
 				Action:    aName,
 				Steps:     steps,
 				TotalRun:  run,
 				TotalSkip: skip,
-			})
+			}
+			// Show where the action resolved from when it's not a direct hit.
+			if p, ok := cfg.Profiles[req.Profile]; !ok || p.Actions == nil {
+				ar.Resolved = "default"
+			} else if _, ok := p.Actions[aName]; !ok {
+				ar.Resolved = "default"
+			}
+			results = append(results, ar)
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -335,10 +370,22 @@ func handleTest(cfg config.Config) http.HandlerFunc {
 
 func handleWatch(w http.ResponseWriter, r *http.Request) {
 	entries := loadEntries(0)
-	groups := eventlog.SummarizeByDay(entries, 1)
 
 	now := time.Now()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	loc := now.Location()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+
+	// Allow browsing any day via ?date=YYYY-MM-DD.
+	targetDate := today
+	isToday := true
+	if d := r.URL.Query().Get("date"); d != "" {
+		if t, err := time.ParseInLocation("2006-01-02", d, loc); err == nil {
+			targetDate = t
+			isToday = targetDate.Equal(today)
+		}
+	}
+
+	groups := eventlog.SummarizeByDay(entries, 0) // load all days, filter below
 
 	type watchAction struct {
 		Name    string `json:"name"`
@@ -375,16 +422,28 @@ func handleWatch(w http.ResponseWriter, r *http.Request) {
 	type watchResponse struct {
 		Date    string       `json:"date"`
 		DayName string       `json:"day_name"`
+		IsToday bool         `json:"is_today"`
 		Summary watchSummary `json:"summary"`
 		Hourly  watchHourly  `json:"hourly"`
 	}
 
 	resp := watchResponse{
-		Date:    today.Format("2006-01-02"),
-		DayName: today.Format("Monday"),
+		Date:    targetDate.Format("2006-01-02"),
+		DayName: targetDate.Format("Monday"),
+		IsToday: isToday,
 		Summary: watchSummary{Profiles: []watchProfile{}},
 		Hourly:  watchHourly{Profiles: []string{}, Hours: []watchHourRow{}, ProfileTotals: []int{}},
 	}
+
+	// Filter groups to the target date only.
+	var filteredGroups []eventlog.DayGroup
+	for _, g := range groups {
+		gDay := time.Date(g.Date.Year(), g.Date.Month(), g.Date.Day(), 0, 0, 0, 0, loc)
+		if gDay.Equal(targetDate) {
+			filteredGroups = append(filteredGroups, g)
+		}
+	}
+	groups = filteredGroups
 
 	// Build summary (mirrors aggregateGroups from cmd/notify/history.go).
 	if len(groups) > 0 {
@@ -487,9 +546,9 @@ func handleWatch(w http.ResponseWriter, r *http.Request) {
 	minHour, maxHour := 24, -1
 
 	for _, e := range entries {
-		local := e.Time.In(now.Location())
-		day := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, now.Location())
-		if !day.Equal(today) || e.Kind == eventlog.KindOther {
+		local := e.Time.In(loc)
+		day := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc)
+		if !day.Equal(targetDate) || e.Kind == eventlog.KindOther {
 			continue
 		}
 		h := local.Hour()

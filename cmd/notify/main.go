@@ -671,7 +671,7 @@ Commands:
                          --heartbeat/-H fires the "heartbeat" action periodically
   play [sound|file.wav]  Preview a built-in sound or WAV file (no args lists built-ins)
   test [profile]         Dry-run: show what would happen without sending
-  dashboard [--port N]   Local web UI with watch, history, config, and test tabs
+  dashboard [--port N]   Local web UI with watch (day nav), history, config, and test tabs
   config validate        Check config file for errors
   history [N]            Show last N log entries (default 10)
   history summary [days|all] Show action counts per day (default 7 days)

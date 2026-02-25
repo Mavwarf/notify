@@ -29,7 +29,7 @@ func testConfig() config.Config {
 			},
 		},
 		Profiles: map[string]config.Profile{
-			"default": {
+			"notify": {
 				Actions: map[string]config.Action{
 					"ready": {
 						Steps: []config.Step{
@@ -55,6 +55,16 @@ func testConfig() config.Config {
 						Steps: []config.Step{
 							{Type: "sound", Sound: "notification", Volume: &vol},
 							{Type: "say", Text: "Boss is ready"},
+						},
+					},
+				},
+			},
+			"romans": {
+				Actions: map[string]config.Action{
+					"ready": {
+						Steps: []config.Step{
+							{Type: "sound", Sound: "success"},
+							{Type: "telegram", Text: "Romans ready!"},
 						},
 					},
 				},
@@ -133,7 +143,7 @@ func TestHandleHistory(t *testing.T) {
 	now := time.Now()
 	ts := now.Format(time.RFC3339)
 
-	content := fmt.Sprintf(`%s  profile=default  action=ready  steps=sound,say  afk=false
+	content := fmt.Sprintf(`%s  profile=notify  action=ready  steps=sound,say  afk=false
 %s    step[1] sound  sound=success
 %s    step[2] say  text="Ready!"
 
@@ -178,7 +188,7 @@ func TestHandleTestEndpoint(t *testing.T) {
 	cfg := testConfig()
 	handler := handleTest(cfg)
 
-	body := `{"profile":"default","action":"ready"}`
+	body := `{"profile":"notify","action":"ready"}`
 	req := httptest.NewRequest("POST", "/api/test", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -220,7 +230,7 @@ func TestHandleTestAllActions(t *testing.T) {
 	handler := handleTest(cfg)
 
 	// Empty action = show all actions for profile.
-	body := `{"profile":"default","action":""}`
+	body := `{"profile":"notify","action":""}`
 	req := httptest.NewRequest("POST", "/api/test", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -242,18 +252,58 @@ func TestHandleTestAllActions(t *testing.T) {
 	}
 }
 
-func TestHandleTestNotFound(t *testing.T) {
+func TestHandleTestFallback(t *testing.T) {
 	cfg := testConfig()
 	handler := handleTest(cfg)
 
+	// "nonexistent" profile with action "ready" — should fall back to default
+	// profile. Since testConfig has no "default" profile, Resolve returns
+	// nothing and the result is an empty list.
 	body := `{"profile":"nonexistent","action":"ready"}`
 	req := httptest.NewRequest("POST", "/api/test", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	handler(w, req)
 
-	if w.Code != 404 {
-		t.Fatalf("expected 404, got %d", w.Code)
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	// Add a "default" profile and verify fallback works.
+	cfg.Profiles["default"] = config.Profile{
+		Actions: map[string]config.Action{
+			"ready": {
+				Steps: []config.Step{{Type: "sound", Sound: "default-ready"}},
+			},
+		},
+	}
+	handler2 := handleTest(cfg)
+
+	body2 := `{"profile":"unknown","action":"ready"}`
+	req2 := httptest.NewRequest("POST", "/api/test", strings.NewReader(body2))
+	req2.Header.Set("Content-Type", "application/json")
+	w2 := httptest.NewRecorder()
+	handler2(w2, req2)
+
+	if w2.Code != 200 {
+		t.Fatalf("expected 200, got %d", w2.Code)
+	}
+
+	var results []struct {
+		Action   string `json:"action"`
+		Resolved string `json:"resolved"`
+		Steps    []struct {
+			Type string `json:"type"`
+		} `json:"steps"`
+	}
+	if err := json.Unmarshal(w2.Body.Bytes(), &results); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result via fallback, got %d", len(results))
+	}
+	if results[0].Resolved != "default" {
+		t.Fatalf("expected resolved='default', got %q", results[0].Resolved)
 	}
 }
 
@@ -310,19 +360,23 @@ func TestHandleWatch(t *testing.T) {
 	now := time.Now()
 	ts := now.Format(time.RFC3339)
 
-	content := fmt.Sprintf(`%s  profile=default  action=ready  steps=sound,say  afk=false
+	content := fmt.Sprintf(`%s  profile=notify  action=ready  steps=sound,say  afk=false
 %s    step[1] sound  sound=success
 %s    step[2] say  text="Ready!"
 
-%s  profile=default  action=error  steps=sound  afk=false
+%s  profile=notify  action=error  steps=sound  afk=false
 %s    step[1] sound  sound=error
 
 %s  profile=boss  action=ready  steps=sound  afk=true
 %s    step[1] sound  sound=notification
 
-%s  profile=default  action=ready  cooldown=skipped (30s)
+%s  profile=romans  action=ready  steps=sound,telegram  afk=false
+%s    step[1] sound  sound=success
+%s    step[2] telegram  text="Romans ready!"
 
-`, ts, ts, ts, ts, ts, ts, ts, ts)
+%s  profile=notify  action=ready  cooldown=skipped (30s)
+
+`, ts, ts, ts, ts, ts, ts, ts, ts, ts, ts, ts)
 
 	if err := os.WriteFile(logFile, []byte(content), 0644); err != nil {
 		t.Fatal(err)
@@ -387,16 +441,16 @@ func TestHandleWatch(t *testing.T) {
 	}
 
 	// Verify summary profiles.
-	if len(resp.Summary.Profiles) != 2 {
-		t.Fatalf("expected 2 profiles, got %d", len(resp.Summary.Profiles))
+	if len(resp.Summary.Profiles) != 3 {
+		t.Fatalf("expected 3 profiles, got %d", len(resp.Summary.Profiles))
 	}
 
-	// Grand totals: 3 executions + 1 cooldown skip = 4.
-	if resp.Summary.GrandTotal != 4 {
-		t.Fatalf("expected grand_total 4, got %d", resp.Summary.GrandTotal)
+	// Grand totals: 4 executions + 1 cooldown skip = 5.
+	if resp.Summary.GrandTotal != 5 {
+		t.Fatalf("expected grand_total 5, got %d", resp.Summary.GrandTotal)
 	}
-	if resp.Summary.GrandExec != 3 {
-		t.Fatalf("expected grand_exec 3, got %d", resp.Summary.GrandExec)
+	if resp.Summary.GrandExec != 4 {
+		t.Fatalf("expected grand_exec 4, got %d", resp.Summary.GrandExec)
 	}
 	if resp.Summary.GrandSkipped != 1 {
 		t.Fatalf("expected grand_skipped 1, got %d", resp.Summary.GrandSkipped)
@@ -411,27 +465,116 @@ func TestHandleWatch(t *testing.T) {
 		t.Fatalf("expected boss total 1, got %d", boss.Total)
 	}
 
-	// Verify default profile.
-	def := resp.Summary.Profiles[1]
-	if def.Name != "default" {
-		t.Fatalf("expected second profile 'default', got %q", def.Name)
+	// Verify notify profile.
+	notify := resp.Summary.Profiles[1]
+	if notify.Name != "notify" {
+		t.Fatalf("expected second profile 'notify', got %q", notify.Name)
 	}
-	if def.Total != 3 {
-		t.Fatalf("expected default total 3, got %d", def.Total)
+	if notify.Total != 3 {
+		t.Fatalf("expected notify total 3, got %d", notify.Total)
 	}
-	if len(def.Actions) != 2 {
-		t.Fatalf("expected 2 actions for default, got %d", len(def.Actions))
+	if len(notify.Actions) != 2 {
+		t.Fatalf("expected 2 actions for notify, got %d", len(notify.Actions))
+	}
+
+	// Verify romans profile.
+	romans := resp.Summary.Profiles[2]
+	if romans.Name != "romans" {
+		t.Fatalf("expected third profile 'romans', got %q", romans.Name)
+	}
+	if romans.Total != 1 {
+		t.Fatalf("expected romans total 1, got %d", romans.Total)
 	}
 
 	// Verify hourly section.
-	if len(resp.Hourly.Profiles) != 2 {
-		t.Fatalf("expected 2 hourly profiles, got %d", len(resp.Hourly.Profiles))
+	if len(resp.Hourly.Profiles) != 3 {
+		t.Fatalf("expected 3 hourly profiles, got %d", len(resp.Hourly.Profiles))
 	}
 	if len(resp.Hourly.Hours) == 0 {
 		t.Fatal("expected at least 1 hourly row")
 	}
-	if resp.Hourly.GrandTotal != 4 {
-		t.Fatalf("expected hourly grand_total 4, got %d", resp.Hourly.GrandTotal)
+	if resp.Hourly.GrandTotal != 5 {
+		t.Fatalf("expected hourly grand_total 5, got %d", resp.Hourly.GrandTotal)
+	}
+}
+
+func TestHandleWatchDateParam(t *testing.T) {
+	dir := t.TempDir()
+	logFile := filepath.Join(dir, "notify.log")
+
+	now := time.Now()
+	yesterday := now.AddDate(0, 0, -1)
+	tsYesterday := yesterday.Format(time.RFC3339)
+	tsToday := now.Format(time.RFC3339)
+
+	content := fmt.Sprintf(`%s  profile=notify  action=ready  steps=sound  afk=false
+%s    step[1] sound  sound=success
+
+%s  profile=notify  action=error  steps=sound  afk=false
+%s    step[1] sound  sound=error
+
+`, tsYesterday, tsYesterday, tsToday, tsToday)
+
+	if err := os.WriteFile(logFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	origPath := eventlog.LogPath
+	eventlog.LogPath = func() string { return logFile }
+	defer func() { eventlog.LogPath = origPath }()
+
+	// Request yesterday's data.
+	dateStr := yesterday.Format("2006-01-02")
+	req := httptest.NewRequest("GET", "/api/watch?date="+dateStr, nil)
+	w := httptest.NewRecorder()
+	handleWatch(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var resp struct {
+		Date    string `json:"date"`
+		IsToday bool   `json:"is_today"`
+		Summary struct {
+			Profiles     []struct{ Name string `json:"name"` } `json:"profiles"`
+			GrandTotal   int                                    `json:"grand_total"`
+		} `json:"summary"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	if resp.Date != dateStr {
+		t.Fatalf("expected date %q, got %q", dateStr, resp.Date)
+	}
+	if resp.IsToday {
+		t.Fatal("expected is_today=false for yesterday")
+	}
+	// Only yesterday's entry should appear.
+	if resp.Summary.GrandTotal != 1 {
+		t.Fatalf("expected grand_total 1 for yesterday, got %d", resp.Summary.GrandTotal)
+	}
+
+	// Request today's data (no date param = today).
+	req2 := httptest.NewRequest("GET", "/api/watch", nil)
+	w2 := httptest.NewRecorder()
+	handleWatch(w2, req2)
+
+	var resp2 struct {
+		IsToday bool `json:"is_today"`
+		Summary struct {
+			GrandTotal int `json:"grand_total"`
+		} `json:"summary"`
+	}
+	if err := json.Unmarshal(w2.Body.Bytes(), &resp2); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if !resp2.IsToday {
+		t.Fatal("expected is_today=true for default request")
+	}
+	if resp2.Summary.GrandTotal != 1 {
+		t.Fatalf("expected grand_total 1 for today, got %d", resp2.Summary.GrandTotal)
 	}
 }
 
