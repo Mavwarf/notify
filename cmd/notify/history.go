@@ -475,11 +475,6 @@ func renderHourlyTable(w *strings.Builder, entries []eventlog.Entry) {
 	}
 	sort.Strings(profiles)
 
-	// Extend to current hour so quiet periods are visible.
-	if curH := now.Hour(); curH > maxHour {
-		maxHour = curH
-	}
-
 	// Column widths: at least colNumber, or the profile name length.
 	colWidths := make([]int, len(profiles))
 	for i, p := range profiles {
@@ -674,8 +669,9 @@ func historyWatch() {
 		elapsed := time.Since(started).Truncate(time.Second)
 		var out strings.Builder
 		out.WriteString("\033[2J\033[H")
-		fmt.Fprintf(&out, "notify history watch  —  started %s (%s)  —  press x to exit\n\n",
-			started.Format("15:04:05"), dim(elapsed.String()))
+		fmt.Fprintf(&out, "notify history watch  —  started %s (%s)\n%s\n\n",
+			started.Format("15:04:05"), dim(elapsed.String()),
+			dim("press x or Esc to exit"))
 
 		path := eventlog.LogPath()
 		data, err := os.ReadFile(path)
@@ -707,7 +703,7 @@ func historyWatch() {
 		select {
 		case key := <-keys:
 			timer.Stop()
-			if key == 'x' || key == 'X' || key == 3 { // x, X, or Ctrl+C
+			if key == 'x' || key == 'X' || key == 3 || key == 27 { // x, X, Ctrl+C, or Esc
 				os.Stdout.WriteString("\033[2J\033[H")
 				return
 			}

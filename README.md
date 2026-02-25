@@ -142,7 +142,7 @@ notify test [profile]                  # Dry-run: show what would happen
 notify config validate                 # Check config file for errors
 notify history [N]                     # Show last N log entries (default 10)
 notify history summary [days|all]      # Show action counts per day (default 7)
-notify history watch                   # Live today's summary (refreshes every 2s, press x to exit)
+notify history watch                   # Live today's summary (refreshes every 2s, x or Esc to exit)
 notify history export [days]           # Export log entries as JSON (default: all)
 notify history clean [days]             # Remove old entries, keep last N days
 notify history clear                   # Delete the log file
@@ -910,7 +910,7 @@ fail the command.
 `notify history watch` shows a live dashboard that refreshes every 2 seconds.
 Below the summary table it includes an hourly breakdown with one column per
 profile and a `%` column showing each hour's share of the day's total — useful
-for spotting your most active working hours. Press `x` or `Ctrl+C` to exit.
+for spotting your most active working hours. Press `x` or `Esc` to exit.
 
 ### Cooldown / rate limiting
 
