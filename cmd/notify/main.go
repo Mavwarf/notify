@@ -182,6 +182,7 @@ func cwd() string {
 
 func runAction(args []string, configPath string, volume int, logFlag bool, echoFlag bool, cooldownFlag bool) {
 	var profile, actionArg string
+	explicit := len(args) == 2
 	switch len(args) {
 	case 1:
 		profile, actionArg = "default", args[0]
@@ -199,9 +200,7 @@ func runAction(args []string, configPath string, volume int, logFlag bool, echoF
 		os.Exit(1)
 	}
 
-	if len(args) == 1 {
-		profile = config.MatchProfile(cfg, cwd())
-	}
+	profile = resolveProfile(cfg, profile, explicit)
 
 	if err := dispatchActions(cfg, profile, actionArg, volume, logFlag, echoFlag, cooldownFlag, false, nil); err != nil {
 		os.Exit(1)
@@ -233,7 +232,8 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 
 	// Everything before "--" is the optional profile.
 	profile := "default"
-	if sepIdx > 0 {
+	explicit := sepIdx > 0
+	if explicit {
 		profile = args[sepIdx-1]
 	}
 
@@ -244,9 +244,7 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 		os.Exit(1)
 	}
 
-	if sepIdx == 0 {
-		profile = config.MatchProfile(cfg, cwd())
-	}
+	profile = resolveProfile(cfg, profile, explicit)
 
 	// Determine whether output capture is needed.
 	captureOutput := len(matches) > 0 || cfg.Options.OutputLines > 0
@@ -339,7 +337,8 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 func runPipe(args []string, configPath string, volume int, logFlag bool, echoFlag bool, cooldownFlag bool, matches []matchPair) {
 	// Parse optional profile from args[0], default "default".
 	profile := "default"
-	if len(args) > 0 {
+	explicit := len(args) > 0
+	if explicit {
 		profile = args[0]
 	}
 
@@ -349,9 +348,7 @@ func runPipe(args []string, configPath string, volume int, logFlag bool, echoFla
 		os.Exit(1)
 	}
 
-	if len(args) == 0 {
-		profile = config.MatchProfile(cfg, cwd())
-	}
+	profile = resolveProfile(cfg, profile, explicit)
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
@@ -481,6 +478,16 @@ func baseVars(profile string) tmpl.Vars {
 		DateSay:  now.Format("January 2, 2006"),
 		Hostname: host,
 	}
+}
+
+// resolveProfile returns the profile to use. When explicit is false (no
+// profile argument given), it auto-selects via match rules or falls back
+// to "default".
+func resolveProfile(cfg config.Config, profile string, explicit bool) string {
+	if !explicit {
+		return config.MatchProfile(cfg, cwd())
+	}
+	return profile
 }
 
 // resolveVolume returns the CLI volume if set, otherwise the config default.

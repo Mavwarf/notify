@@ -102,14 +102,6 @@ Config option for the threshold: `"shell_hook_threshold": 30` (seconds).
 
 ## Tech Debt / Cleanup
 
-### Extract profile resolution helper (medium)
-
-Profile auto-selection logic is duplicated three times in `main.go`:
-`runAction` (line ~202), `runWrapped` (line ~247), and `runPipe`
-(line ~352). All follow the same pattern: default to `"default"`, check
-if user provided a profile arg, else call `config.MatchProfile()`.
-Extract to a single `resolveProfile()` helper.
-
 ### Centralize HTTP client with timeout (medium)
 
 Discord, Slack, Telegram, and Webhook packages each use
