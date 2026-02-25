@@ -931,7 +931,7 @@ five tabs (linkable via URL hash, e.g. `/#watch`):
 
 - **Watch** (default) — mirrors terminal `history watch`: summary table with
   profile/action counts, percentages, skipped, and "New" deltas since page load,
-  a donut chart showing notification share per profile,
+  donut charts showing notification share and time distribution per profile,
   approximate time spent per profile (gap-based estimation with 5-minute
   threshold), plus hourly breakdown — auto-refreshes every 2 seconds. A compact
   log stats line at the bottom shows total entries, file size, and date range.

@@ -151,14 +151,13 @@ idle breaks and ignored. Each profile row displays the estimated time in
 hidden when there is no estimated active time (e.g. profiles with only a
 single entry per session). Computed server-side in the `/api/watch` response.
 
-### Dashboard: Profile Donut Chart
-The **Watch** tab now displays an SVG donut chart to the right of the summary
-table, showing the percentage share of notifications per profile. Each profile
-gets a distinct color from a theme-aware palette. Hover any segment for a
-tooltip with the profile name, count, and percentage. The center of the donut
-displays the grand total. The chart is rendered inline with the summary table
-in a flex layout and uses the same data already available from `/api/watch` —
-no extra API calls needed.
+### Dashboard: Profile Donut Charts
+The **Watch** tab displays two outline-style donut charts: one next to the
+summary table showing notification share per profile, and one next to the
+time-spent table showing time distribution. Hover any segment for a tooltip
+with the profile name, value, and percentage. The center of each donut shows
+the grand total. Both charts use the foreground color for segment outlines,
+adapting to dark/light theme automatically.
 
 ### Dashboard: Screenshot Mode
 Press `S` to toggle screenshot mode, which replaces real profile names with

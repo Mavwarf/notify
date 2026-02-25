@@ -1672,6 +1672,8 @@ tr:hover td { background: var(--bg3); }
       html += '<div style="font-size:11px;color:var(--fg-dim);margin-top:-4px;margin-bottom:8px">';
       html += 'Rough estimate based on gaps between log entries (&le; 5 min counted as active).';
       html += '</div>';
+      html += '<div style="display:flex;gap:32px;align-items:flex-start">';
+      html += '<div style="overflow-x:auto">';
       html += '<table class="watch-table"><thead><tr>';
       html += '<th style="min-width:180px"></th><th>Time</th><th>%</th>';
       html += '</tr></thead><tbody>';
@@ -1690,6 +1692,9 @@ tr:hover td { background: var(--bg3); }
       html += '<td></td>';
       html += '</tr>';
       html += '</tbody></table>';
+      html += '</div>'; // end table wrapper
+      html += renderTimeDonutChart(data.time_spent);
+      html += '</div>'; // end flex wrapper
     }
 
     // Log file stats
@@ -1744,15 +1749,8 @@ tr:hover td { background: var(--bg3); }
   function renderDonutChart(profiles, grandTotal) {
     if (!profiles || profiles.length === 0 || grandTotal === 0) return '';
     var cs = getComputedStyle(document.documentElement);
-    var palette = [
-      cs.getPropertyValue('--cyan').trim(),
-      cs.getPropertyValue('--green').trim(),
-      cs.getPropertyValue('--yellow').trim(),
-      cs.getPropertyValue('--accent').trim(),
-      cs.getPropertyValue('--red').trim(),
-      '#bb9af7', '#ff9e64', '#73daca'
-    ];
-    var size = 180, cx = 90, cy = 90, oR = 80, iR = 50;
+    var fg = cs.getPropertyValue('--fg').trim();
+    var size = 108, cx = 54, cy = 54, oR = 48, iR = 30;
     var svg = '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">';
     var angle = 0;
     for (var i = 0; i < profiles.length; i++) {
@@ -1760,19 +1758,18 @@ tr:hover td { background: var(--bg3); }
       if (p.total === 0) continue;
       var sweep = (p.total / grandTotal) * 360;
       if (sweep >= 360) sweep = 359.99;
-      var color = palette[i % palette.length];
       var name = esc(maskProfile(p.name)).replace(/"/g, '&quot;');
       svg += '<path class="donut-segment" d="' + donutArc(cx, cy, oR, iR, angle, angle + sweep) +
-        '" fill="' + color + '" data-name="' + name +
+        '" fill="none" stroke="' + fg + '" stroke-width="1.5" data-name="' + name +
         '" data-total="' + p.total + '" data-pct="' + p.pct +
         '" style="cursor:crosshair;transition:opacity 0.15s"/>';
       angle += sweep;
     }
     // Center label
-    svg += '<text x="' + cx + '" y="' + (cy - 6) + '" text-anchor="middle" fill="' +
-      cs.getPropertyValue('--fg').trim() + '" font-size="22" font-weight="700" font-family="inherit">' + grandTotal + '</text>';
-    svg += '<text x="' + cx + '" y="' + (cy + 12) + '" text-anchor="middle" fill="' +
-      cs.getPropertyValue('--fg-dim').trim() + '" font-size="11" font-family="inherit">total</text>';
+    svg += '<text x="' + cx + '" y="' + (cy + 1) + '" text-anchor="middle" fill="' +
+      cs.getPropertyValue('--fg').trim() + '" font-size="14" font-weight="700" font-family="inherit">' + grandTotal + '</text>';
+    svg += '<text x="' + cx + '" y="' + (cy + 13) + '" text-anchor="middle" fill="' +
+      cs.getPropertyValue('--fg-dim').trim() + '" font-size="8" font-family="inherit">total</text>';
     svg += '</svg>';
     return '<div style="flex-shrink:0;text-align:center;padding-top:5px">' +
       '<div class="watch-section-title" style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)">Notifications per project</div>' +
@@ -1780,27 +1777,60 @@ tr:hover td { background: var(--bg3); }
       '<div class="chart-tooltip donut-tooltip"></div></div></div>';
   }
 
+  function renderTimeDonutChart(timeSpent) {
+    if (!timeSpent || !timeSpent.profiles || timeSpent.total === 0) return '';
+    var profs = timeSpent.profiles.filter(function(p) { return p.seconds > 0; });
+    if (profs.length === 0) return '';
+    var cs = getComputedStyle(document.documentElement);
+    var fg = cs.getPropertyValue('--fg').trim();
+    var size = 108, cx = 54, cy = 54, oR = 48, iR = 30;
+    var svg = '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">';
+    var angle = 0;
+    for (var i = 0; i < profs.length; i++) {
+      var p = profs[i];
+      var sweep = (p.seconds / timeSpent.total) * 360;
+      if (sweep >= 360) sweep = 359.99;
+      var pct = Math.round(p.seconds * 100 / timeSpent.total);
+      var name = esc(maskProfile(p.name)).replace(/"/g, '&quot;');
+      svg += '<path class="donut-segment" d="' + donutArc(cx, cy, oR, iR, angle, angle + sweep) +
+        '" fill="none" stroke="' + fg + '" stroke-width="1.5" data-name="' + name +
+        '" data-total="' + fmtDuration(p.seconds) + '" data-pct="' + pct +
+        '" style="cursor:crosshair;transition:opacity 0.15s"/>';
+      angle += sweep;
+    }
+    svg += '<text x="' + cx + '" y="' + (cy + 1) + '" text-anchor="middle" fill="' +
+      cs.getPropertyValue('--fg').trim() + '" font-size="12" font-weight="700" font-family="inherit">' + fmtDuration(timeSpent.total) + '</text>';
+    svg += '<text x="' + cx + '" y="' + (cy + 13) + '" text-anchor="middle" fill="' +
+      cs.getPropertyValue('--fg-dim').trim() + '" font-size="8" font-family="inherit">total</text>';
+    svg += '</svg>';
+    return '<div style="flex-shrink:0;text-align:center;padding-top:5px">' +
+      '<div class="watch-section-title" style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)">Time per project</div>' +
+      '<div style="position:relative;display:inline-block">' + svg +
+      '<div class="chart-tooltip donut-tooltip"></div></div></div>';
+  }
+
   function wireDonutTooltips(container) {
-    var tip = container.querySelector('.donut-tooltip');
-    if (!tip) return;
-    container.querySelectorAll('.donut-segment').forEach(function(seg) {
-      seg.addEventListener('mouseenter', function() {
-        tip.innerHTML = '<strong>' + seg.getAttribute('data-name') + '</strong><br>' +
-          seg.getAttribute('data-total') + ' (' + seg.getAttribute('data-pct') + '%)';
-        tip.style.display = 'block';
-        seg.style.opacity = '0.8';
-      });
-      seg.addEventListener('mousemove', function(e) {
-        var rect = tip.parentElement.getBoundingClientRect();
-        var tx = e.clientX - rect.left + 12;
-        var ty = e.clientY - rect.top - 10;
-        if (tx + 120 > rect.width) tx = e.clientX - rect.left - 120;
-        tip.style.left = tx + 'px';
-        tip.style.top = ty + 'px';
-      });
-      seg.addEventListener('mouseleave', function() {
-        tip.style.display = 'none';
-        seg.style.opacity = '1';
+    container.querySelectorAll('.donut-tooltip').forEach(function(tip) {
+      var wrap = tip.parentElement;
+      wrap.querySelectorAll('.donut-segment').forEach(function(seg) {
+        seg.addEventListener('mouseenter', function() {
+          tip.innerHTML = '<strong>' + seg.getAttribute('data-name') + '</strong><br>' +
+            seg.getAttribute('data-total') + ' (' + seg.getAttribute('data-pct') + '%)';
+          tip.style.display = 'block';
+          seg.style.opacity = '0.8';
+        });
+        seg.addEventListener('mousemove', function(e) {
+          var rect = wrap.getBoundingClientRect();
+          var tx = e.clientX - rect.left + 12;
+          var ty = e.clientY - rect.top - 10;
+          if (tx + 120 > rect.width) tx = e.clientX - rect.left - 120;
+          tip.style.left = tx + 'px';
+          tip.style.top = ty + 'px';
+        });
+        seg.addEventListener('mouseleave', function() {
+          tip.style.display = 'none';
+          seg.style.opacity = '1';
+        });
       });
     });
   }
