@@ -86,6 +86,22 @@ Config option for the threshold: `"shell_hook_threshold": 30` (seconds).
 
 ### Dashboard Enhancements
 
+**Medium effort:**
+- **Profile pie chart** — SVG pie/donut chart in the Watch tab, placed
+  to the right of the summary table, showing percentage share per profile.
+  Uses the same data already available in `data.summary.profiles` (name,
+  total, pct). Inline SVG with `<path>` arcs, color-coded per profile,
+  hover tooltips. No new API work needed
+- **Approximate time spent** — new "Time spent" section in the Watch tab
+  showing estimated active time per profile and total. Logic: iterate log
+  entries chronologically, if the gap between consecutive entries for the
+  same profile is below a threshold (e.g. 5 minutes), add that gap to
+  the profile's active time. Display as `Xh Ym` per profile plus a grand
+  total. Needs a new `/api/watch` response field (computed server-side
+  from raw log entries) or could be computed client-side from `/api/history`.
+  Threshold could be configurable later but start with a fixed 5-minute
+  default
+
 **Larger features:**
 - **Timeline view** — visual timeline/gantt showing `run` command
   durations (start → end), not just point events
