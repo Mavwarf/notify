@@ -84,6 +84,27 @@ Config option for the threshold: `"shell_hook_threshold": 30` (seconds).
 - New users get value immediately after install without learning
   `notify run` syntax
 
+### Dashboard Enhancements
+
+**Medium effort:**
+- **Activity chart** — simple SVG bar chart showing notifications per day
+  for the last 14–30 days. `/api/summary?days=30` data already exists,
+  just needs a visual
+- **Live toast on SSE events** — small popup in the corner when a new
+  notification fires while the dashboard is open
+- **Profile detail view** — click a profile name to see its full step
+  pipeline, credentials status, and action list (reuses `/api/test`
+  dry-run data)
+- **Export button** — download history as CSV/JSON from the History tab
+  (the `history export` CLI command already has the logic)
+
+**Larger features:**
+- **Timeline view** — visual timeline/gantt showing `run` command
+  durations (start → end), not just point events
+- **Dark/light theme toggle** — CSS variables already make this
+  straightforward
+- **Log file stats** — file size, entry count, oldest entry date
+
 ---
 
 ## Tech Debt / Cleanup
