@@ -29,10 +29,23 @@ var staticFS embed.FS
 // JSON response types used by API handlers.
 
 type jsonEntry struct {
-	Time    string `json:"time"`
-	Profile string `json:"profile"`
-	Action  string `json:"action"`
-	Kind    string `json:"kind"`
+	Time          string `json:"time"`
+	Profile       string `json:"profile"`
+	Action        string `json:"action"`
+	Kind          string `json:"kind"`
+	ClaudeHook    string `json:"claude_hook,omitempty"`
+	ClaudeMessage string `json:"claude_message,omitempty"`
+}
+
+func entryToJSON(e eventlog.Entry) jsonEntry {
+	return jsonEntry{
+		Time:          e.Time.Format(time.RFC3339),
+		Profile:       e.Profile,
+		Action:        e.Action,
+		Kind:          eventlog.KindString(e.Kind),
+		ClaudeHook:    e.ClaudeHook,
+		ClaudeMessage: e.ClaudeMessage,
+	}
 }
 
 type jsonSummary struct {
@@ -270,12 +283,7 @@ func handleHistory(w http.ResponseWriter, r *http.Request) {
 
 	out := make([]jsonEntry, len(entries))
 	for i, e := range entries {
-		out[i] = jsonEntry{
-			Time:    e.Time.Format(time.RFC3339),
-			Profile: e.Profile,
-			Action:  e.Action,
-			Kind:    eventlog.KindString(e.Kind),
-		}
+		out[i] = entryToJSON(e)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -394,12 +402,7 @@ func handleEvents(w http.ResponseWriter, r *http.Request) {
 
 			out := make([]jsonEntry, len(entries))
 			for i, e := range entries {
-				out[i] = jsonEntry{
-					Time:    e.Time.Format(time.RFC3339),
-					Profile: e.Profile,
-					Action:  e.Action,
-					Kind:    eventlog.KindString(e.Kind),
-				}
+				out[i] = entryToJSON(e)
 			}
 
 			jsonData, err := json.Marshal(out)

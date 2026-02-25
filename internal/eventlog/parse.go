@@ -19,10 +19,12 @@ const (
 
 // Entry is a single parsed log entry.
 type Entry struct {
-	Time    time.Time
-	Profile string
-	Action  string
-	Kind    EntryKind
+	Time           time.Time
+	Profile        string
+	Action         string
+	Kind           EntryKind
+	ClaudeHook     string // from claude_hook= field (optional)
+	ClaudeMessage  string // from claude_message= field (optional)
 }
 
 // DaySummary holds execution and skip counts for one profile/action pair.
@@ -88,10 +90,12 @@ func ParseEntries(content string) []Entry {
 			}
 
 			entries = append(entries, Entry{
-				Time:    ts,
-				Profile: profile,
-				Action:  action,
-				Kind:    kind,
+				Time:          ts,
+				Profile:       profile,
+				Action:        action,
+				Kind:          kind,
+				ClaudeHook:    extractField(line, "claude_hook"),
+				ClaudeMessage: extractQuotedField(line, "claude_message"),
 			})
 		}
 	}
@@ -210,6 +214,17 @@ func extractField(line, key string) string {
 		}
 	}
 	return ""
+}
+
+// extractQuotedField extracts a %q-encoded value from a "key=..." field in line.
+// Unlike extractField, this handles quoted strings that may contain spaces.
+func extractQuotedField(line, key string) string {
+	prefix := key + "="
+	idx := strings.Index(line, prefix)
+	if idx < 0 {
+		return ""
+	}
+	return extractQuoted(line[idx+len(prefix):])
 }
 
 // KindString returns a human-readable string for an EntryKind.

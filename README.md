@@ -677,6 +677,14 @@ Additional variables available in `pipe` mode:
 |--------------|--------------------------------------|--------------------------------|
 | `{output}`   | The matched line from stdin          | `BUILD SUCCESS`                |
 
+Additional variables available when stdin is piped JSON (e.g. from Claude Code hooks):
+
+| Variable           | Description                                      | Example              |
+|--------------------|--------------------------------------------------|----------------------|
+| `{claude_message}` | From `last_assistant_message` or `message` field  | `Build complete`     |
+| `{claude_hook}`    | From `hook_event_name` field                      | `Stop`               |
+| `{claude_json}`    | Full raw JSON string from stdin                   | `{"message":"..."}` |
+
 Use `{Duration}` in `say` steps for natural speech, `{duration}` in
 toast/discord/slack for compact display.
 
@@ -812,6 +820,65 @@ do not — pipe is not a command wrapper.
 
 For high-volume streams, use `--cooldown` (or `"cooldown": true` in config)
 to prevent notification spam. Exits 0 when stdin closes (EOF).
+
+### Stdin JSON injection (hook integration)
+
+When stdin is piped JSON (not a terminal), `notify` auto-detects and extracts
+fields as template variables. This enables seamless integration with tools like
+[Claude Code hooks](https://docs.anthropic.com/en/docs/claude-code/hooks) that
+pipe structured JSON to hook commands.
+
+**How it works:** Claude Code's Stop hook pipes
+`{"last_assistant_message": "...", "hook_event_name": "Stop", ...}` to stdin.
+The Notification hook pipes `{"message": "...", ...}`. No flags or config changes
+are needed — detection is fully automatic.
+
+**Available variables:**
+
+| Variable           | Source field                                 |
+|--------------------|----------------------------------------------|
+| `{claude_message}` | `last_assistant_message` or `message`        |
+| `{claude_hook}`    | `hook_event_name`                            |
+| `{claude_json}`    | Full raw JSON string                         |
+
+**Example config** — include Claude's message in notifications:
+
+```json
+{
+  "ready": {
+    "steps": [
+      { "type": "say", "text": "{Profile} is done. {claude_message}" },
+      { "type": "discord", "text": "**{Profile}** finished at {time}\n\n{claude_message}", "when": "afk" }
+    ]
+  }
+}
+```
+
+**Example Claude Code hook** (`.claude/settings.json`):
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      { "command": "notify done" }
+    ],
+    "Notification": [
+      { "command": "notify attention" }
+    ]
+  }
+}
+```
+
+When stdin is a terminal (interactive use), or when stdin is not valid JSON,
+the `{claude_*}` variables expand to empty strings — existing behavior is
+unchanged.
+
+**Logging:** When `--log` is enabled, the event log summary line includes
+`claude_hook=` and `claude_message=` fields so you can see which hook
+triggered each notification and what message was passed.
+
+**Dashboard:** The web dashboard's live toast popups show the hook source
+(e.g. "via Stop") and the claude message text when present.
 
 ### Direct send (`notify send`)
 

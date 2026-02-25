@@ -43,6 +43,18 @@ voice message to Telegram/Discord.
 - Concatenate PCM/WAV segments — normalize sample rate/format first
 - Bigger lift than most features; may benefit from an audio utility package
 
+### Modern Toast Notifications (Windows)
+
+Upgrade from `NotifyIcon.BalloonTip` to the Windows 10+ `ToastNotificationManager`
+XML API. This enables rich text formatting via `hint-style` on `<text>` elements
+inside `<group><subgroup>` blocks — including bold (`base`), subtitle, title,
+header sizes, and subtle (60% opacity) variants. Could also support hero images,
+attribution text, action buttons, and progress bars.
+
+Would require rewriting `internal/toast/toast_windows.go` to build XML templates
+and use `Windows.UI.Notifications.ToastNotificationManager` via PowerShell.
+Linux and macOS toast implementations would remain unchanged.
+
 ### `notify watch` (PID or File)
 
 Watch a running process or file for changes: `notify watch --pid 1234`

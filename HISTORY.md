@@ -2,6 +2,7 @@
 
 ## Features
 
+- Stdin JSON injection — auto-detect piped JSON on stdin for hook integration (`{claude_message}`, `{claude_hook}`, `{claude_json}`) *(Feb 25)*
 - Voice stats (`notify voice stats`) — say step text usage frequency from event log *(Feb 25)*
 - Tests for `renderHourlyTable` — basic, single-profile, empty, single-hour, and gap-hour scenarios *(Feb 25)*
 - Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, voice stats, silent mode control, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, dark/light theme toggle, history export, clickable profile detail view, approximate time spent per profile, profile donut charts, hourly bar chart, activity timeline, log file stats, screenshot mode, and `--open` flag for chromeless browser window *(Feb 25)*
@@ -43,6 +44,22 @@
 ---
 
 ## 2026-02-25
+
+### Stdin JSON injection for hook integration
+When stdin is piped (not a terminal), `notify` auto-detects JSON input and
+extracts fields as template variables: `{claude_message}` from
+`last_assistant_message` or `message`, `{claude_hook}` from `hook_event_name`,
+and `{claude_json}` for the full raw JSON. Designed for seamless integration
+with Claude Code hooks — the hook command stays unchanged, and notification
+steps can reference the AI's message via `{claude_message}`. When stdin is a
+terminal or not valid JSON, the variables expand to empty strings.
+
+Event log summary lines now include `claude_hook=` and `claude_message=`
+fields when present, so you can see which hook triggered each notification
+and what message was passed. The web dashboard picks these up too — live
+toast popups show the hook source (e.g. "via Stop") and the claude message
+text when available. Toasts with messages stay visible for 6 seconds instead
+of the default 4.
 
 ### Voice Stats (`notify voice stats`)
 New subcommand that scans the event log for `say` step texts and shows usage

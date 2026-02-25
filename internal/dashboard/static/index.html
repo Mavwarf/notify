@@ -642,6 +642,7 @@ tr:hover td { background: var(--bg3); }
 .toast-profile { color: var(--cyan); font-weight: 600; }
 .toast-action { color: var(--fg); }
 .toast-kind { font-size: 11px; margin-top: 2px; }
+.toast-message { font-size: 12px; margin-top: 4px; color: var(--fg-dim); white-space: pre-wrap; max-height: 60px; overflow: hidden; text-overflow: ellipsis; }
 
 @keyframes toastIn {
   from { opacity: 0; transform: translateX(40px); }
@@ -1326,12 +1327,19 @@ tr:hover td { background: var(--bg3); }
     const el = document.createElement('div');
     const kindCls = entry.kind === 'cooldown' ? ' toast-cooldown' : entry.kind === 'silent' ? ' toast-silent' : '';
     el.className = 'toast' + kindCls;
-    el.innerHTML =
+    let html =
       '<span class="toast-profile">' + esc(maskProfile(entry.profile)) + '</span> ' +
       '<span class="toast-action">' + esc(entry.action) + '</span>' +
-      '<div class="toast-kind ' + kindClass(entry.kind) + '">' + esc(entry.kind) + '</div>';
+      '<div class="toast-kind ' + kindClass(entry.kind) + '">' + esc(entry.kind) +
+      (entry.claude_hook ? ' via ' + esc(entry.claude_hook) : '') + '</div>';
+    if (entry.claude_message) {
+      html += '<div class="toast-message">' + esc(entry.claude_message) + '</div>';
+    }
+    el.innerHTML = html;
+    const dur = entry.claude_message ? 6 : 4;
+    el.style.animationDelay = '0s, ' + dur + 's';
     toastContainer.appendChild(el);
-    setTimeout(() => el.remove(), 4300);
+    setTimeout(() => el.remove(), (dur + 0.3) * 1000);
   }
 
   // ---- SSE ----

@@ -66,8 +66,15 @@ func Log(action string, steps []config.Step, afk bool, vars tmpl.Vars) {
 		}
 
 		// Summary line.
-		fmt.Fprintf(f, "%s  profile=%s  action=%s  steps=%s  afk=%t\n",
+		summary := fmt.Sprintf("%s  profile=%s  action=%s  steps=%s  afk=%t",
 			ts, vars.Profile, action, strings.Join(types, ","), afk)
+		if vars.ClaudeHook != "" {
+			summary += fmt.Sprintf("  claude_hook=%s", vars.ClaudeHook)
+		}
+		if vars.ClaudeMessage != "" {
+			summary += fmt.Sprintf("  claude_message=%q", vars.ClaudeMessage)
+		}
+		fmt.Fprintln(f, summary)
 
 		// Detail line per step.
 		for i, s := range steps {

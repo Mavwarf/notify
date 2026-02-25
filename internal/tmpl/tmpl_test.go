@@ -54,6 +54,11 @@ func TestExpand(t *testing.T) {
 		{"spoken vars", "{Date} at {Time}", Vars{TimeSay: "9:00 AM", DateSay: "January 1, 2026"}, "January 1, 2026 at 9:00 AM"},
 		{"output var", "result:\n{output}", Vars{Output: "3 passed, 1 failed"}, "result:\n3 passed, 1 failed"},
 		{"empty output", "{output}", Vars{}, ""},
+		{"claude_message var", "Claude says: {claude_message}", Vars{ClaudeMessage: "Build complete"}, "Claude says: Build complete"},
+		{"claude_hook var", "hook: {claude_hook}", Vars{ClaudeHook: "Stop"}, "hook: Stop"},
+		{"claude_json var", "raw: {claude_json}", Vars{ClaudeJSON: `{"key":"val"}`}, `raw: {"key":"val"}`},
+		{"empty claude vars", "{claude_message}{claude_hook}{claude_json}", Vars{}, ""},
+		{"all claude vars", "{claude_hook}: {claude_message}", Vars{ClaudeMessage: "Done", ClaudeHook: "Notification"}, "Notification: Done"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

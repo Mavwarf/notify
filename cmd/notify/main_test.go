@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Mavwarf/notify/internal/config"
+	"github.com/Mavwarf/notify/internal/tmpl"
 )
 
 func TestResolveVolumeCLIOverride(t *testing.T) {
@@ -313,5 +314,79 @@ func TestLastNLinesTrailingNewlines(t *testing.T) {
 	input := "a\nb\nc\n\n"
 	if got := lastNLines(input, 2); got != "b\nc" {
 		t.Errorf("lastNLines(%q, 2) = %q, want \"b\\nc\"", input, got)
+	}
+}
+
+// --- stdinVars ---
+
+func TestStdinVarsNil(t *testing.T) {
+	if got := stdinVars(nil); got != nil {
+		t.Error("stdinVars(nil) should return nil")
+	}
+}
+
+func TestStdinVarsStopHook(t *testing.T) {
+	data := map[string]interface{}{
+		"last_assistant_message": "Build complete",
+		"hook_event_name":        "Stop",
+	}
+	fn := stdinVars(data)
+	if fn == nil {
+		t.Fatal("stdinVars returned nil for valid data")
+	}
+	var v tmpl.Vars
+	fn(&v)
+	if v.ClaudeMessage != "Build complete" {
+		t.Errorf("ClaudeMessage = %q, want \"Build complete\"", v.ClaudeMessage)
+	}
+	if v.ClaudeHook != "Stop" {
+		t.Errorf("ClaudeHook = %q, want \"Stop\"", v.ClaudeHook)
+	}
+	if v.ClaudeJSON == "" {
+		t.Error("ClaudeJSON should not be empty")
+	}
+}
+
+func TestStdinVarsNotificationHook(t *testing.T) {
+	data := map[string]interface{}{
+		"message":         "Task finished",
+		"hook_event_name": "Notification",
+	}
+	fn := stdinVars(data)
+	var v tmpl.Vars
+	fn(&v)
+	if v.ClaudeMessage != "Task finished" {
+		t.Errorf("ClaudeMessage = %q, want \"Task finished\"", v.ClaudeMessage)
+	}
+	if v.ClaudeHook != "Notification" {
+		t.Errorf("ClaudeHook = %q, want \"Notification\"", v.ClaudeHook)
+	}
+}
+
+func TestStdinVarsLastAssistantMessageTakesPriority(t *testing.T) {
+	data := map[string]interface{}{
+		"last_assistant_message": "from stop",
+		"message":                "from notification",
+	}
+	fn := stdinVars(data)
+	var v tmpl.Vars
+	fn(&v)
+	if v.ClaudeMessage != "from stop" {
+		t.Errorf("ClaudeMessage = %q, want \"from stop\" (last_assistant_message should win)", v.ClaudeMessage)
+	}
+}
+
+func TestStdinVarsNoMessageFields(t *testing.T) {
+	data := map[string]interface{}{
+		"hook_event_name": "PreToolUse",
+	}
+	fn := stdinVars(data)
+	var v tmpl.Vars
+	fn(&v)
+	if v.ClaudeMessage != "" {
+		t.Errorf("ClaudeMessage = %q, want empty", v.ClaudeMessage)
+	}
+	if v.ClaudeHook != "PreToolUse" {
+		t.Errorf("ClaudeHook = %q, want \"PreToolUse\"", v.ClaudeHook)
 	}
 }

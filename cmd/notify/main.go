@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -196,6 +197,9 @@ func runAction(args []string, configPath string, volume int, logFlag bool, echoF
 		os.Exit(1)
 	}
 
+	// Read piped JSON from stdin (e.g. from Claude Code hooks).
+	stdinData := stdinReader()
+
 	cfg, err := loadAndValidate(configPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -204,7 +208,7 @@ func runAction(args []string, configPath string, volume int, logFlag bool, echoF
 
 	profile = resolveProfile(cfg, profile, explicit)
 
-	if err := dispatchActions(cfg, profile, actionArg, volume, logFlag, echoFlag, cooldownFlag, false, nil); err != nil {
+	if err := dispatchActions(cfg, profile, actionArg, volume, logFlag, echoFlag, cooldownFlag, false, stdinVars(stdinData)); err != nil {
 		os.Exit(1)
 	}
 }
@@ -482,6 +486,53 @@ func baseVars(profile string) tmpl.Vars {
 	}
 }
 
+// stdinReader is the function used to read stdin metadata. Replaced in tests.
+var stdinReader = readStdinJSON
+
+// readStdinJSON reads JSON from stdin when it is piped (not a TTY).
+// Returns nil if stdin is a terminal, empty, or not valid JSON.
+func readStdinJSON() map[string]interface{} {
+	info, err := os.Stdin.Stat()
+	if err != nil {
+		return nil
+	}
+	if info.Mode()&os.ModeCharDevice != 0 {
+		return nil // interactive terminal, not piped
+	}
+	data, err := io.ReadAll(os.Stdin)
+	if err != nil || len(data) == 0 {
+		return nil
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil
+	}
+	return m
+}
+
+// stdinVars returns an extraVars callback that injects stdin JSON fields
+// into template variables. Returns nil if data is nil (no piped input).
+func stdinVars(data map[string]interface{}) func(*tmpl.Vars) {
+	if data == nil {
+		return nil
+	}
+	return func(v *tmpl.Vars) {
+		// Extract message: prefer last_assistant_message, fall back to message.
+		if s, ok := data["last_assistant_message"].(string); ok {
+			v.ClaudeMessage = s
+		} else if s, ok := data["message"].(string); ok {
+			v.ClaudeMessage = s
+		}
+		if s, ok := data["hook_event_name"].(string); ok {
+			v.ClaudeHook = s
+		}
+		// Re-marshal for {claude_json} — always succeeds since we just unmarshaled it.
+		if raw, err := json.Marshal(data); err == nil {
+			v.ClaudeJSON = string(raw)
+		}
+	}
+}
+
 // resolveProfile returns the profile to use. When explicit is false (no
 // profile argument given), it auto-selects via match rules or falls back
 // to "default".
@@ -713,9 +764,17 @@ Template variables:
   {profile}, {Profile}, {time}, {Time}, {date}, {Date}, {hostname}
   Run mode: {command}, {duration}, {Duration}, {output}
   Pipe mode: {output} (the matched line)
+  Stdin JSON: {claude_message}, {claude_hook}, {claude_json}
 
   In run mode, {output} contains the last N lines of command output when
   "output_lines" is set in config. In pipe mode, {output} is the matched line.
+
+  When stdin is piped JSON (e.g. from Claude Code hooks), fields are
+  auto-extracted: {claude_message} from "last_assistant_message" or
+  "message", {claude_hook} from "hook_event_name", {claude_json} is
+  the full raw JSON. No flags needed — detection is automatic.
+  When logging is enabled, claude_hook and claude_message are recorded
+  in the event log and shown in dashboard toast popups.
 
 Examples:
   notify ready                     Run "ready" from the default profile
