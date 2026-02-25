@@ -91,7 +91,7 @@ func handleHistory(w http.ResponseWriter, r *http.Request) {
 	} else {
 		days := 7
 		if d := r.URL.Query().Get("days"); d != "" {
-			if v, err := strconv.Atoi(d); err == nil && v > 0 {
+			if v, err := strconv.Atoi(d); err == nil && v >= 0 {
 				days = v
 			}
 		}
@@ -135,7 +135,7 @@ func handleSummary(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("hours") == "" {
 		days = 7
 		if d := r.URL.Query().Get("days"); d != "" {
-			if v, err := strconv.Atoi(d); err == nil && v > 0 {
+			if v, err := strconv.Atoi(d); err == nil && v >= 0 {
 				days = v
 			}
 		}

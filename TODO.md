@@ -90,8 +90,6 @@ Config option for the threshold: `"shell_hook_threshold": 30` (seconds).
 - **Profile detail view** — click a profile name to see its full step
   pipeline, credentials status, and action list (reuses `/api/test`
   dry-run data)
-- **Export button** — download history as CSV/JSON from the History tab
-  (the `history export` CLI command already has the logic)
 
 **Larger features:**
 - **Timeline view** — visual timeline/gantt showing `run` command

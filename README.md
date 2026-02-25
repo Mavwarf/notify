@@ -933,7 +933,8 @@ four tabs (linkable via URL hash, e.g. `/#watch`):
   An activity chart shows stacked daily bars (green = runs, yellow = skipped)
   with hover tooltips; hidden for hour-based ranges.
   Filter dropdowns let you narrow by profile and event kind (execution,
-  cooldown, silent); filters apply to both loaded entries and new SSE events
+  cooldown, silent); filters apply to both loaded entries and new SSE events.
+  CSV and JSON export buttons download the filtered entries as a file
 - **Config** — credential health panel showing ok/missing status per profile,
   plus read-only JSON view of your config (credentials redacted)
 - **Test** — dry-run interface: pick a profile and action, see which steps

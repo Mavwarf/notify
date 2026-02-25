@@ -2,7 +2,7 @@
 
 ## Features
 
-- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, and dark/light theme toggle *(Feb 25)*
+- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, dark/light theme toggle, and history export *(Feb 25)*
 - Heartbeat for long tasks (`--heartbeat`) — periodic notifications during `notify run` *(Feb 24)*
 - Pipe / stream mode (`notify pipe`) — trigger notifications from stdin patterns *(Feb 24)*
 - Output capture (`{output}`) and pattern matching (`--match`) for `notify run` *(Feb 24)*
@@ -107,6 +107,16 @@ adjusted rgba values for readability on light surfaces. The activity chart reads
 colors from CSS variables at render time so bars and grid lines follow the theme.
 Preference is saved to `localStorage` and restored on page load. Dark is the
 default.
+
+### Dashboard: History Export
+CSV and JSON export buttons in the History tab let you download the currently
+loaded and filtered entries. The buttons sit next to the "Show last" dropdown
+and respect active profile/kind filters — only what you see in the table gets
+exported. CSV includes a `Time,Profile,Action,Kind` header row with proper
+quoting for values containing commas or quotes. JSON outputs a pretty-printed
+array matching the `notify history export` format. Files are named
+`notify-history-YYYY-MM-DD.csv` / `.json`. Download is client-side via Blob
+URL — no server round-trip needed.
 
 ---
 

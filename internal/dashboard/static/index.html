@@ -275,6 +275,20 @@ tr:hover td { background: var(--bg3); }
   font-size: 12px;
 }
 
+.export-btn {
+  padding: 4px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.export-btn:hover { border-color: var(--accent); color: var(--accent); }
+
 .empty-state {
   display: flex;
   align-items: center;
@@ -577,7 +591,11 @@ tr:hover td { background: var(--bg3); }
         <option value="7">7 days</option>
         <option value="14">14 days</option>
         <option value="30">30 days</option>
+        <option value="0">ever</option>
       </select>
+      <span style="margin-left:12px">Export log to:</span>
+      <button class="export-btn" id="export-csv" title="Download as CSV">CSV</button>
+      <button class="export-btn" id="export-json" title="Download as JSON">JSON</button>
     </div>
     <div class="summary-section">
       <h3>Summary</h3>
@@ -804,6 +822,53 @@ tr:hover td { background: var(--bg3); }
     loadHistory();
     loadSummary();
   });
+
+  // ---- Export ----
+  function exportHistory(format) {
+    const filtered = allHistoryEntries.filter(matchesFilter);
+    // Newest first, matching table display order
+    const sorted = filtered.slice().reverse();
+
+    var content, mime, ext;
+    if (format === 'json') {
+      content = JSON.stringify(sorted.map(function(e) {
+        return { time: e.time, profile: e.profile, action: e.action, kind: e.kind };
+      }), null, 2);
+      mime = 'application/json';
+      ext = 'json';
+    } else {
+      var lines = ['Time,Profile,Action,Kind'];
+      for (var i = 0; i < sorted.length; i++) {
+        var e = sorted[i];
+        lines.push(csvField(e.time) + ',' + csvField(e.profile) + ',' + csvField(e.action) + ',' + csvField(e.kind));
+      }
+      content = lines.join('\n');
+      mime = 'text/csv';
+      ext = 'csv';
+    }
+
+    var today = new Date().toISOString().slice(0, 10);
+    var blob = new Blob([content], { type: mime });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'notify-history-' + today + '.' + ext;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function csvField(val) {
+    var s = String(val);
+    if (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1) {
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+  }
+
+  document.getElementById('export-csv').addEventListener('click', function() { exportHistory('csv'); });
+  document.getElementById('export-json').addEventListener('click', function() { exportHistory('json'); });
 
   // ---- Summary ----
   async function loadSummary() {
