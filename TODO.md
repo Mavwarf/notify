@@ -86,13 +86,6 @@ Config option for the threshold: `"shell_hook_threshold": 30` (seconds).
 
 ### Dashboard Enhancements
 
-**Medium effort:**
-- **Profile pie chart** — SVG pie/donut chart in the Watch tab, placed
-  to the right of the summary table, showing percentage share per profile.
-  Uses the same data already available in `data.summary.profiles` (name,
-  total, pct). Inline SVG with `<path>` arcs, color-coded per profile,
-  hover tooltips. No new API work needed
-
 **Larger features:**
 - **Timeline view** — visual timeline/gantt showing `run` command
   durations (start → end), not just point events

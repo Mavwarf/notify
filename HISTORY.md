@@ -2,7 +2,7 @@
 
 ## Features
 
-- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, dark/light theme toggle, history export, clickable profile detail view, approximate time spent per profile, and `--open` flag for chromeless browser window *(Feb 25)*
+- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, dark/light theme toggle, history export, clickable profile detail view, approximate time spent per profile, profile donut chart, screenshot mode, and `--open` flag for chromeless browser window *(Feb 25)*
 - Heartbeat for long tasks (`--heartbeat`) — periodic notifications during `notify run` *(Feb 24)*
 - Pipe / stream mode (`notify pipe`) — trigger notifications from stdin patterns *(Feb 24)*
 - Output capture (`{output}`) and pattern matching (`--match`) for `notify run` *(Feb 24)*
@@ -137,6 +137,26 @@ idle breaks and ignored. Each profile row displays the estimated time in
 `Xh Ym` format with a percentage column, plus a total row. The section is
 hidden when there is no estimated active time (e.g. profiles with only a
 single entry per session). Computed server-side in the `/api/watch` response.
+
+### Dashboard: Profile Donut Chart
+The **Watch** tab now displays an SVG donut chart to the right of the summary
+table, showing the percentage share of notifications per profile. Each profile
+gets a distinct color from a theme-aware palette. Hover any segment for a
+tooltip with the profile name, count, and percentage. The center of the donut
+displays the grand total. The chart is rendered inline with the summary table
+in a flex layout and uses the same data already available from `/api/watch` —
+no extra API calls needed.
+
+### Dashboard: Screenshot Mode
+Press `S` to toggle screenshot mode, which replaces real profile names with
+fake ones (project-alpha, project-beta, etc.) across all tabs — Watch, History,
+Config, and Test. Useful for taking screenshots for blog posts or documentation
+without exposing real project names. The name mapping is built lazily as names
+are encountered and persisted in `localStorage`, so the same real name always
+maps to the same fake name across toggles and page reloads. API calls continue
+to use real names internally; only the displayed text is masked. A yellow
+"screenshot" badge appears in the header when active. Purely client-side — no
+backend changes. Keyboard hint updated to show `s` alongside existing shortcuts.
 
 ### Dashboard: Open in Browser Window (`--open`)
 `notify dashboard --open` launches the dashboard in a chromeless browser window

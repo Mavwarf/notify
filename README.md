@@ -928,6 +928,7 @@ four tabs (linkable via URL hash, e.g. `/#watch`):
 
 - **Watch** (default) — mirrors terminal `history watch`: summary table with
   profile/action counts, percentages, skipped, and "New" deltas since page load,
+  a donut chart showing notification share per profile,
   approximate time spent per profile (gap-based estimation with 5-minute
   threshold), plus hourly breakdown — auto-refreshes every 2 seconds. Day
   navigation buttons (`<` / `>` / Today) let you browse past days; the "New"
@@ -950,8 +951,9 @@ Profile names are clickable everywhere — click one to open a detail modal
 showing its full step pipeline (dry-run) and credential health status.
 
 Keyboard shortcuts: `1`–`4` switch tabs, left/right arrows navigate Watch days,
-`t` jumps to today. A dark/light theme toggle in the header persists your
-preference via `localStorage`.
+`t` jumps to today, `s` toggles screenshot mode (replaces profile names with
+fake ones for privacy-safe screenshots). A dark/light theme toggle in the header
+persists your preference via `localStorage`.
 
 ```bash
 notify dashboard              # default port 8080
