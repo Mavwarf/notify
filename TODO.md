@@ -86,11 +86,6 @@ Config option for the threshold: `"shell_hook_threshold": 30` (seconds).
 
 ### Dashboard Enhancements
 
-**Medium effort:**
-- **Profile detail view** — click a profile name to see its full step
-  pipeline, credentials status, and action list (reuses `/api/test`
-  dry-run data)
-
 **Larger features:**
 - **Timeline view** — visual timeline/gantt showing `run` command
   durations (start → end), not just point events

@@ -943,6 +943,9 @@ four tabs (linkable via URL hash, e.g. `/#watch`):
   Unknown profiles fall back to the `default` profile (same as the CLI).
   Template variables (`{profile}`, `{time}`, etc.) are expanded in step details
 
+Profile names are clickable everywhere — click one to open a detail modal
+showing its full step pipeline (dry-run) and credential health status.
+
 Keyboard shortcuts: `1`–`4` switch tabs, left/right arrows navigate Watch days,
 `t` jumps to today. A dark/light theme toggle in the header persists your
 preference via `localStorage`.

@@ -554,6 +554,78 @@ tr:hover td { background: var(--bg3); }
 }
 
 .theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
+
+/* Profile detail modal */
+.modal-backdrop {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-width: 700px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 20px;
+  z-index: 901;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header h2 { font-size: 16px; color: var(--cyan); font-weight: 600; }
+
+.modal-close {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--fg-dim);
+  cursor: pointer;
+  font-size: 18px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.modal-close:hover { color: var(--accent); border-color: var(--accent); }
+
+.profile-link { cursor: pointer; color: var(--cyan); }
+.profile-link:hover { text-decoration: underline; }
+
+.modal-section-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--fg-dim);
+  margin: 16px 0 8px;
+}
+
+.modal-section-title:first-child { margin-top: 0; }
+
+.modal-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100px;
+  color: var(--fg-dim);
+}
 </style>
 </head>
 <body>
@@ -666,6 +738,15 @@ tr:hover td { background: var(--bg3); }
   </div>
 </div>
 <div class="toast-container" id="toast-container"></div>
+<div class="modal-backdrop" id="modal-backdrop" style="display:none">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <h2 id="modal-title"></h2>
+      <button class="modal-close" id="modal-close">&times;</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
 
 <script>
 (function() {
@@ -781,7 +862,7 @@ tr:hover td { background: var(--bg3); }
     if (isNew) tr.classList.add('new-entry');
     tr.innerHTML =
       '<td>' + formatTime(entry.time) + '</td>' +
-      '<td>' + esc(entry.profile) + '</td>' +
+      '<td><span class="profile-link" onclick="window._openProfileModal(\'' + esc(entry.profile).replace(/'/g, "\\'") + '\')">' + esc(entry.profile) + '</span></td>' +
       '<td>' + esc(entry.action) + '</td>' +
       '<td class="' + kindClass(entry.kind) + '">' + esc(entry.kind) + '</td>';
     // Insert at top (newest first)
@@ -894,7 +975,7 @@ tr:hover td { background: var(--bg3); }
       for (const s of g.summaries) {
         html += '<tr>' +
           '<td>' + esc(g.date) + '</td>' +
-          '<td>' + esc(s.profile) + '</td>' +
+          '<td>' + profileLink(s.profile) + '</td>' +
           '<td>' + esc(s.action) + '</td>' +
           '<td><span class="badge badge-exec">' + s.executions + '</span></td>' +
           '<td>' + (s.skipped > 0 ? '<span class="badge badge-skip">' + s.skipped + '</span>' : '-') + '</td>' +
@@ -1116,10 +1197,13 @@ tr:hover td { background: var(--bg3); }
   }
 
   // ---- Credentials ----
+  let cachedCredentials = null;
+
   async function loadCredentials() {
     try {
       const res = await fetch('/api/credentials');
       const data = await res.json();
+      cachedCredentials = data;
       renderCredentials(data);
     } catch(e) {
       console.error('Failed to load credentials:', e);
@@ -1137,7 +1221,7 @@ tr:hover td { background: var(--bg3); }
     let html = '';
     for (const p of profiles) {
       html += '<div class="cred-profile">';
-      html += '<span class="cred-profile-name">' + esc(p.profile) + '</span>';
+      html += '<span class="cred-profile-name">' + profileLink(p.profile) + '</span>';
       for (const c of p.credentials) {
         const cls = c.status === 'ok' ? 'cred-ok' : 'cred-missing';
         html += '<span class="cred-badge ' + cls + '">' + esc(c.type) + ': ' + esc(c.status) + '</span>';
@@ -1404,7 +1488,7 @@ tr:hover td { background: var(--bg3); }
       }
 
       html += '<tr class="profile-row">';
-      html += '<td class="profile-name">' + esc(p.name) + '</td>';
+      html += '<td class="profile-name">' + profileLink(p.name) + '</td>';
       html += '<td>' + fmtNum(p.total) + '</td>';
       html += '<td>' + (gt > 0 ? p.pct + '%' : '') + '</td>';
       if (hasSkipped) {
@@ -1498,6 +1582,92 @@ tr:hover td { background: var(--bg3); }
     return n < 10 ? '0' + n : String(n);
   }
 
+  // ---- Profile detail modal ----
+  function profileLink(name) {
+    return '<span class="profile-link" onclick="window._openProfileModal(\'' + esc(name).replace(/'/g, "\\'") + '\')">' + esc(name) + '</span>';
+  }
+
+  const modalBackdrop = document.getElementById('modal-backdrop');
+  const modalEl = document.getElementById('modal');
+  const modalTitle = document.getElementById('modal-title');
+  const modalBody = document.getElementById('modal-body');
+
+  function openProfileModal(profileName) {
+    modalTitle.textContent = profileName;
+    modalBody.innerHTML = '<div class="modal-loading">Loading...</div>';
+    modalBackdrop.style.display = '';
+
+    // Fetch dry-run data for all actions
+    fetch('/api/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile: profileName, action: '' })
+    })
+    .then(function(res) {
+      if (!res.ok) return res.text().then(function(t) { throw new Error(t); });
+      return res.json();
+    })
+    .then(function(data) {
+      let html = '';
+
+      // Actions section
+      html += '<div class="modal-section-title">Actions</div>';
+      if (!data || data.length === 0) {
+        html += '<div style="color:var(--fg-dim);font-size:13px">No actions found for this profile.</div>';
+      } else {
+        for (const ar of data) {
+          html += '<div style="margin-bottom:14px">';
+          html += '<div class="action-name">' + esc(ar.action) +
+            ' <span style="color:var(--fg-dim);font-weight:400;font-size:12px">(' +
+            ar.total_run + '/' + (ar.total_run + ar.total_skip) + ' steps would run)';
+          if (ar.resolved) html += ' via ' + esc(ar.resolved);
+          html += '</span></div>';
+          for (const s of ar.steps) {
+            const mc = s.would_run ? 'run' : 'skip';
+            const ml = s.would_run ? 'RUN' : 'SKIP';
+            html += '<div class="step">' +
+              '<span class="marker ' + mc + '">' + ml + '</span>' +
+              '<span class="idx">[' + s.index + ']</span>' +
+              '<span class="type">' + esc(s.type) + '</span>' +
+              '<span class="detail">' + esc(s.detail) + '</span>' +
+              '</div>';
+          }
+          html += '</div>';
+        }
+      }
+
+      // Credentials section (from cache)
+      if (cachedCredentials) {
+        const match = cachedCredentials.find(function(p) { return p.profile === profileName; });
+        if (match) {
+          html += '<div class="modal-section-title">Credentials</div>';
+          html += '<div style="display:flex;gap:8px;flex-wrap:wrap">';
+          for (const c of match.credentials) {
+            const cls = c.status === 'ok' ? 'cred-ok' : 'cred-missing';
+            html += '<span class="cred-badge ' + cls + '">' + esc(c.type) + ': ' + esc(c.status) + '</span>';
+          }
+          html += '</div>';
+        }
+      }
+
+      modalBody.innerHTML = html;
+    })
+    .catch(function(err) {
+      modalBody.innerHTML = '<div style="color:var(--red);font-size:13px">' + esc(String(err)) + '</div>';
+    });
+  }
+
+  window._openProfileModal = openProfileModal;
+
+  function closeModal() {
+    modalBackdrop.style.display = 'none';
+  }
+
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  modalBackdrop.addEventListener('click', function(e) {
+    if (e.target === modalBackdrop) closeModal();
+  });
+
   // ---- Polling: refresh every 2s ----
   setInterval(() => {
     loadHistory();
@@ -1515,6 +1685,13 @@ tr:hover td { background: var(--bg3); }
   }
 
   document.addEventListener('keydown', function(e) {
+    // Escape closes modal first
+    if (e.key === 'Escape' && modalBackdrop.style.display !== 'none') {
+      closeModal();
+      e.preventDefault();
+      return;
+    }
+
     const tag = e.target.tagName.toLowerCase();
     if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
 

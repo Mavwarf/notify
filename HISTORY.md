@@ -2,7 +2,7 @@
 
 ## Features
 
-- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, dark/light theme toggle, and history export *(Feb 25)*
+- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, dark/light theme toggle, history export, and clickable profile detail view *(Feb 25)*
 - Heartbeat for long tasks (`--heartbeat`) — periodic notifications during `notify run` *(Feb 24)*
 - Pipe / stream mode (`notify pipe`) — trigger notifications from stdin patterns *(Feb 24)*
 - Output capture (`{output}`) and pattern matching (`--match`) for `notify run` *(Feb 24)*
@@ -117,6 +117,16 @@ quoting for values containing commas or quotes. JSON outputs a pretty-printed
 array matching the `notify history export` format. Files are named
 `notify-history-YYYY-MM-DD.csv` / `.json`. Download is client-side via Blob
 URL — no server round-trip needed.
+
+### Dashboard: Profile Detail View
+Click any profile name across the dashboard (Watch, History, Config, Test tabs)
+to open a detail modal showing the profile's full step pipeline and credential
+status. The modal fetches dry-run data from `/api/test` (all actions) and
+displays each action with RUN/SKIP markers, step types, and expanded template
+details — the same rendering used by the Test tab. If the profile uses remote
+steps, credential health badges (ok/missing) appear below the actions. Credential
+data is cached from the initial page load to avoid redundant requests. Close the
+modal via the X button, clicking the backdrop, or pressing Escape.
 
 ---
 
