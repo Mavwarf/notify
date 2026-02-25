@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Mavwarf/notify/internal/config"
@@ -133,6 +134,18 @@ type profileCreds struct {
 	Credentials []credStatus `json:"credentials"`
 }
 
+type voiceLine struct {
+	Rank  int    `json:"rank"`
+	Text  string `json:"text"`
+	Count int    `json:"count"`
+	Pct   int    `json:"pct"`
+}
+
+type voiceResponse struct {
+	Lines []voiceLine `json:"lines"`
+	Total int         `json:"total"`
+}
+
 // Serve starts the dashboard HTTP server on 127.0.0.1:port and blocks
 // until interrupted. If open is true, a browser window is launched in
 // app mode (chromeless) pointing at the dashboard URL.
@@ -148,6 +161,7 @@ func Serve(cfg config.Config, configPath string, port int, open bool) error {
 	mux.HandleFunc("/api/credentials", handleCredentials(cfg))
 	mux.HandleFunc("/api/watch", handleWatch)
 	mux.HandleFunc("/api/stats", handleStats)
+	mux.HandleFunc("/api/voice", handleVoice)
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	srv := &http.Server{Addr: addr, Handler: mux}
@@ -652,6 +666,77 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(stats)
+}
+
+func handleVoice(w http.ResponseWriter, r *http.Request) {
+	data, err := os.ReadFile(eventlog.LogPath())
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(voiceResponse{Lines: []voiceLine{}, Total: 0})
+		return
+	}
+
+	content := string(data)
+
+	// Optional ?days=N filter (0 = all time, default).
+	if d := r.URL.Query().Get("days"); d != "" {
+		if v, err := strconv.Atoi(d); err == nil && v > 0 {
+			content = filterVoiceContentByDays(content, v)
+		}
+	}
+
+	lines := eventlog.ParseVoiceLines(content)
+
+	total := 0
+	for _, l := range lines {
+		total += l.Count
+	}
+
+	out := make([]voiceLine, len(lines))
+	for i, l := range lines {
+		pct := 0
+		if total > 0 {
+			pct = l.Count * 100 / total
+		}
+		out[i] = voiceLine{
+			Rank:  i + 1,
+			Text:  l.Text,
+			Count: l.Count,
+			Pct:   pct,
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(voiceResponse{Lines: out, Total: total})
+}
+
+// filterVoiceContentByDays returns only log blocks whose timestamp falls
+// within the last N calendar days.
+func filterVoiceContentByDays(content string, days int) string {
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	cutoff := today.AddDate(0, 0, -(days - 1))
+
+	blocks := strings.Split(content, "\n\n")
+	var kept []string
+	for _, block := range blocks {
+		block = strings.TrimSpace(block)
+		if block == "" {
+			continue
+		}
+		firstLine := block
+		if idx := strings.Index(block, "\n"); idx > 0 {
+			firstLine = block[:idx]
+		}
+		ts, ok := eventlog.ExtractTimestamp(firstLine)
+		if !ok {
+			continue
+		}
+		if !ts.In(now.Location()).Before(cutoff) {
+			kept = append(kept, block)
+		}
+	}
+	return strings.Join(kept, "\n\n")
 }
 
 // loadEntriesByHours reads and parses the event log, filtering to entries

@@ -2,8 +2,9 @@
 
 ## Features
 
+- Voice stats (`notify voice stats`) — say step text usage frequency from event log *(Feb 25)*
 - Tests for `renderHourlyTable` — basic, single-profile, empty, single-hour, and gap-hour scenarios *(Feb 25)*
-- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, dark/light theme toggle, history export, clickable profile detail view, approximate time spent per profile, profile donut chart, log file stats, screenshot mode, and `--open` flag for chromeless browser window *(Feb 25)*
+- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, voice stats, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, dark/light theme toggle, history export, clickable profile detail view, approximate time spent per profile, profile donut chart, log file stats, screenshot mode, and `--open` flag for chromeless browser window *(Feb 25)*
 - Heartbeat for long tasks (`--heartbeat`) — periodic notifications during `notify run` *(Feb 24)*
 - Pipe / stream mode (`notify pipe`) — trigger notifications from stdin patterns *(Feb 24)*
 - Output capture (`{output}`) and pattern matching (`--match`) for `notify run` *(Feb 24)*
@@ -43,9 +44,16 @@
 
 ## 2026-02-25
 
+### Voice Stats (`notify voice stats`)
+New subcommand that scans the event log for `say` step texts and shows usage
+frequency. Helps identify which voice lines are actually used before generating
+AI voice files. Supports optional `[days|all]` argument to filter by time range
+(default: all time). Output includes rank, count, percentage, and the quoted
+text. Backed by a new `ParseVoiceLines()` function in the eventlog package.
+
 ### Web Dashboard (`notify dashboard`)
 Local web UI served on `http://127.0.0.1:8080` (configurable with `--port`).
-Four tabs: **Watch** (default) mirrors the terminal `history watch` output
+Five tabs: **Watch** (default) mirrors the terminal `history watch` output
 with a summary table showing per-profile/action counts, percentages, skipped
 entries, and "New" deltas since page load, plus an hourly breakdown table —
 all auto-refreshing every 2 seconds. **History** shows a live-updating table
@@ -56,7 +64,10 @@ see which steps would run without actually sending anything — the profile
 dropdown merges config profiles with profiles extracted from the last 48h of
 log entries, and unknown profiles fall back to the `default` profile using
 the same `Resolve()` logic as the CLI. Template variables (`{profile}`,
-`{time}`, etc.) are expanded in step details. The **Watch** tab supports day
+`{time}`, etc.) are expanded in step details. **Voice** shows say-step text
+frequencies from the event log with rank, count, percentage, and text columns;
+a time-range dropdown filters by all time, 7, 30, or 90 days. The **Watch**
+tab supports day
 navigation with prev/next/today buttons and accepts a `?date=YYYY-MM-DD`
 query param; the "New" column only appears when viewing today. Tabs are
 linkable via URL hash (e.g. `/#watch`, `/#history`). The dashboard uses
@@ -64,7 +75,7 @@ linkable via URL hash (e.g. `/#watch`, `/#history`). The dashboard uses
 JS, no dependencies) into the binary. API endpoints: `/api/watch` (summary +
 hourly JSON, optional `?date=`), `/api/config`, `/api/history`,
 `/api/summary`, `/api/events` (SSE), `/api/test` (dry-run with fallback),
-`/api/stats` (log file metadata).
+`/api/stats` (log file metadata), `/api/voice` (say-step text frequencies).
 Config is loaded once at startup. Binds to localhost only. Added
 `Profile.MarshalJSON()` to enable JSON serialization of profiles.
 Press `Ctrl+C` to stop.

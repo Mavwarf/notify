@@ -765,6 +765,126 @@ func TestHandleCredentialsMissing(t *testing.T) {
 	}
 }
 
+func TestHandleVoice(t *testing.T) {
+	dir := t.TempDir()
+	logFile := filepath.Join(dir, "notify.log")
+
+	now := time.Now()
+	ts := now.Format(time.RFC3339)
+	yesterday := now.AddDate(0, 0, -1).Format(time.RFC3339)
+	old := now.AddDate(0, 0, -30).Format(time.RFC3339)
+
+	content := fmt.Sprintf(`%s  profile=notify  action=ready  steps=sound,say  afk=false
+%s    step[1] sound  sound=success
+%s    step[2] say  text="Build complete"
+
+%s  profile=notify  action=ready  steps=sound,say  afk=false
+%s    step[1] sound  sound=success
+%s    step[2] say  text="Build complete"
+
+%s  profile=boss  action=ready  steps=sound,say  afk=false
+%s    step[1] sound  sound=notification
+%s    step[2] say  text="Boss is ready"
+
+%s  profile=notify  action=error  steps=sound,say  afk=false
+%s    step[1] sound  sound=error
+%s    step[2] say  text="Build failed"
+
+`, ts, ts, ts, yesterday, yesterday, yesterday, yesterday, yesterday, yesterday, old, old, old)
+
+	if err := os.WriteFile(logFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	origPath := eventlog.LogPath
+	eventlog.LogPath = func() string { return logFile }
+	defer func() { eventlog.LogPath = origPath }()
+
+	// Test all time.
+	req := httptest.NewRequest("GET", "/api/voice", nil)
+	w := httptest.NewRecorder()
+	handleVoice(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var resp voiceResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	if resp.Total != 4 {
+		t.Fatalf("expected total 4, got %d", resp.Total)
+	}
+	if len(resp.Lines) != 3 {
+		t.Fatalf("expected 3 unique lines, got %d", len(resp.Lines))
+	}
+	// "Build complete" has count 2, should be first (highest).
+	if resp.Lines[0].Text != "Build complete" {
+		t.Fatalf("expected first line 'Build complete', got %q", resp.Lines[0].Text)
+	}
+	if resp.Lines[0].Count != 2 {
+		t.Fatalf("expected count 2 for 'Build complete', got %d", resp.Lines[0].Count)
+	}
+	if resp.Lines[0].Rank != 1 {
+		t.Fatalf("expected rank 1, got %d", resp.Lines[0].Rank)
+	}
+
+	// Test with days filter — last 7 days should exclude the 30-day-old entry.
+	req2 := httptest.NewRequest("GET", "/api/voice?days=7", nil)
+	w2 := httptest.NewRecorder()
+	handleVoice(w2, req2)
+
+	if w2.Code != 200 {
+		t.Fatalf("expected 200, got %d", w2.Code)
+	}
+
+	var resp2 voiceResponse
+	if err := json.Unmarshal(w2.Body.Bytes(), &resp2); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	if resp2.Total != 3 {
+		t.Fatalf("expected total 3 for 7-day filter, got %d", resp2.Total)
+	}
+	if len(resp2.Lines) != 2 {
+		t.Fatalf("expected 2 unique lines for 7-day filter, got %d", len(resp2.Lines))
+	}
+}
+
+func TestHandleVoiceEmpty(t *testing.T) {
+	dir := t.TempDir()
+	logFile := filepath.Join(dir, "notify.log")
+
+	origPath := eventlog.LogPath
+	eventlog.LogPath = func() string { return logFile }
+	defer func() { eventlog.LogPath = origPath }()
+
+	req := httptest.NewRequest("GET", "/api/voice", nil)
+	w := httptest.NewRecorder()
+	handleVoice(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var resp voiceResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	if resp.Lines == nil {
+		t.Fatal("lines should be [] not null")
+	}
+	if len(resp.Lines) != 0 {
+		t.Fatalf("expected 0 lines, got %d", len(resp.Lines))
+	}
+	if resp.Total != 0 {
+		t.Fatalf("expected total 0, got %d", resp.Total)
+	}
+}
+
 func TestProfileMarshalJSON(t *testing.T) {
 	cfg := testConfig()
 	data, err := json.Marshal(cfg.Profiles["boss"])

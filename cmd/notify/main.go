@@ -155,6 +155,8 @@ func main() {
 		dryRun(filtered[1:], configPath)
 	case "play":
 		playCmd(filtered[1:], volume)
+	case "voice":
+		voiceCmd(filtered[1:])
 	case "history":
 		historyCmd(filtered[1:])
 	case "dashboard":
@@ -682,7 +684,7 @@ Commands:
                          --heartbeat/-H fires the "heartbeat" action periodically
   play [sound|file.wav]  Preview a built-in sound or WAV file (no args lists built-ins)
   test [profile]         Dry-run: show what would happen without sending
-  dashboard [--port N]   Local web UI with watch (day nav, donut chart), history, config, test
+  dashboard [--port N]   Local web UI with watch, history, config, test, voice tabs
            [--open]      Add --open to launch in a chromeless browser window
   config validate        Check config file for errors
   history [N]            Show last N log entries (default 10)
@@ -691,6 +693,7 @@ Commands:
   history export [days]  Export log entries as JSON (default: all)
   history clean [days]   Remove old entries, keep last N days (no arg = clear all)
   history clear          Delete the log file
+  voice stats [days|all]  Show say step text usage frequency (default: all)
   silent [duration|off]  Suppress all notifications for a duration (e.g. 1h, 30m)
   list, -l, --list       List all profiles and actions
   version, -V           Show version and build date

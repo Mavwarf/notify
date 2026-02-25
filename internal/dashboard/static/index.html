@@ -649,7 +649,7 @@ tr:hover td { background: var(--bg3); }
   </header>
   <div style="font-size:12px;color:var(--fg-dim);margin:-12px 0 16px;display:flex;justify-content:space-between">
     <span>Cross-platform notification engine for the command line. <a href="https://github.com/Mavwarf/notify" target="_blank" rel="noopener" style="color:var(--cyan)">github.com/Mavwarf/notify</a></span>
-    <span class="shortcuts-hint">Keys: 1-4 tabs, arrows nav days, t today, s screenshot</span>
+    <span class="shortcuts-hint">Keys: 1-5 tabs, arrows nav days, t today, s screenshot</span>
   </div>
 
   <div class="tabs">
@@ -657,6 +657,7 @@ tr:hover td { background: var(--bg3); }
     <button class="tab" data-panel="history">History</button>
     <button class="tab" data-panel="config">Config</button>
     <button class="tab" data-panel="test">Test</button>
+    <button class="tab" data-panel="voice">Voice</button>
   </div>
 
   <div class="panel" id="panel-history">
@@ -746,6 +747,21 @@ tr:hover td { background: var(--bg3); }
     </div>
     <div class="test-results" id="test-results">
       <div class="empty-state">Select a profile and click Dry Run to preview step execution.</div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-voice">
+    <div class="days-control">
+      <span>Time range</span>
+      <select id="voice-days">
+        <option value="0" selected>All time</option>
+        <option value="7">Last 7 days</option>
+        <option value="30">Last 30 days</option>
+        <option value="90">Last 90 days</option>
+      </select>
+    </div>
+    <div id="voice-content">
+      <div class="empty-state">Loading...</div>
     </div>
   </div>
 </div>
@@ -1875,12 +1891,48 @@ tr:hover td { background: var(--bg3); }
     if (e.target === modalBackdrop) closeModal();
   });
 
+  // ---- Voice tab ----
+  var voiceDays = document.getElementById('voice-days');
+  var voiceContent = document.getElementById('voice-content');
+
+  async function loadVoice() {
+    var days = voiceDays.value;
+    try {
+      var resp = await fetch('/api/voice?days=' + days);
+      var data = await resp.json();
+      renderVoice(data);
+    } catch(e) {
+      voiceContent.innerHTML = '<div class="empty-state">Failed to load voice data.</div>';
+    }
+  }
+
+  function renderVoice(data) {
+    if (!data.lines || data.lines.length === 0) {
+      voiceContent.innerHTML = '<div class="empty-state">No voice lines found.</div>';
+      return;
+    }
+    var html = '<div style="margin-bottom:12px;color:var(--fg-dim);font-size:13px">' +
+      fmtNum(data.total) + ' total utterances across ' + fmtNum(data.lines.length) + ' unique texts</div>';
+    html += '<table><thead><tr><th>#</th><th>Count</th><th>%</th><th>Text</th></tr></thead><tbody>';
+    for (var i = 0; i < data.lines.length; i++) {
+      var l = data.lines[i];
+      html += '<tr><td>' + l.rank + '</td><td>' + fmtNum(l.count) +
+        '</td><td>' + l.pct + '%</td><td style="color:var(--fg-dim)">&ldquo;</span>' +
+        esc(l.text) + '<span style="color:var(--fg-dim)">&rdquo;</td></tr>';
+    }
+    html += '</tbody></table>';
+    voiceContent.innerHTML = html;
+  }
+
+  voiceDays.addEventListener('change', loadVoice);
+
   // ---- Polling: refresh every 2s ----
   setInterval(() => {
     loadHistory();
     loadSummary();
     // Only auto-refresh watch when viewing today (live data).
     if (!watchDate) loadWatch();
+    loadVoice();
   }, 2000);
 
   // ---- Screenshot toggle ----
@@ -1898,7 +1950,7 @@ tr:hover td { background: var(--bg3); }
   }
 
   // ---- Keyboard shortcuts ----
-  const tabNames = ['watch', 'history', 'config', 'test'];
+  const tabNames = ['watch', 'history', 'config', 'test', 'voice'];
 
   function activeTab() {
     const active = document.querySelector('.tab.active');
@@ -1916,8 +1968,8 @@ tr:hover td { background: var(--bg3); }
     const tag = e.target.tagName.toLowerCase();
     if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
 
-    // 1-4: switch tabs
-    if (e.key >= '1' && e.key <= '4') {
+    // 1-5: switch tabs
+    if (e.key >= '1' && e.key <= '5') {
       switchTab(tabNames[parseInt(e.key) - 1]);
       e.preventDefault();
       return;
@@ -1955,6 +2007,7 @@ tr:hover td { background: var(--bg3); }
   loadSummary();
   loadStats().then(loadWatch);
   loadConfig();
+  loadVoice();
   connectSSE();
 })();
 </script>

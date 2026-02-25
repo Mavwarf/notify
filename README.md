@@ -150,6 +150,7 @@ notify history watch                   # Live today's summary (refreshes every 2
 notify history export [days]           # Export log entries as JSON (default: all)
 notify history clean [days]             # Remove old entries, keep last N days
 notify history clear                   # Delete the log file
+notify voice stats [days|all]           # Show say step text usage frequency
 notify silent [duration|off]           # Suppress notifications temporarily
 notify list                            # List all profiles and actions
 notify version                         # Show version and build date
@@ -879,6 +880,8 @@ notify b ready                    # Use alias "b" for the boss profile
 notify play                       # List all built-in sounds
 notify play success               # Preview the success sound
 notify -v 50 play blip            # Preview at 50% volume
+notify voice stats                # Show all-time say text frequencies
+notify voice stats 7              # Show say text frequencies for last 7 days
 notify silent                     # Show current silent status
 notify silent off                 # Disable silent mode
 ```
@@ -924,7 +927,7 @@ for spotting your most active working hours. Press `x` or `Esc` to exit.
 ### Web dashboard
 
 `notify dashboard` starts a local web UI on `http://127.0.0.1:8080` with
-four tabs (linkable via URL hash, e.g. `/#watch`):
+five tabs (linkable via URL hash, e.g. `/#watch`):
 
 - **Watch** (default) — mirrors terminal `history watch`: summary table with
   profile/action counts, percentages, skipped, and "New" deltas since page load,
@@ -947,11 +950,14 @@ four tabs (linkable via URL hash, e.g. `/#watch`):
   both config profiles and profiles extracted from the last 48h of log entries.
   Unknown profiles fall back to the `default` profile (same as the CLI).
   Template variables (`{profile}`, `{time}`, etc.) are expanded in step details
+- **Voice** — say-step text frequencies from the event log, with rank, count,
+  percentage, and text columns. A time-range dropdown filters by all time, 7,
+  30, or 90 days
 
 Profile names are clickable everywhere — click one to open a detail modal
 showing its full step pipeline (dry-run) and credential health status.
 
-Keyboard shortcuts: `1`–`4` switch tabs, left/right arrows navigate Watch days,
+Keyboard shortcuts: `1`–`5` switch tabs, left/right arrows navigate Watch days,
 `t` jumps to today, `s` toggles screenshot mode (replaces profile names with
 fake ones for privacy-safe screenshots). A dark/light theme toggle in the header
 persists your preference via `localStorage`.
