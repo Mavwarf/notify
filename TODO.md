@@ -172,12 +172,6 @@ file exists (e.g. `[say] "Build complete" (ai: nova)` vs
 - Cache lookup happens in `internal/speech/` before falling back to
   the platform TTS engine.
 
-### Dashboard Enhancements
-
-- ~~**Timeline view**~~ — done as activity timeline heatmap (per-profile
-  rows, hour cells with opacity intensity). True Gantt with start/end
-  would require logging command start events.
-
 ---
 
 ## Tech Debt / Cleanup
