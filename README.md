@@ -933,7 +933,8 @@ five tabs (linkable via URL hash, e.g. `/#watch`):
   profile/action counts, percentages, skipped, and "New" deltas since page load,
   donut charts showing notification share and time distribution per profile,
   approximate time spent per profile (gap-based estimation with 5-minute
-  threshold), plus hourly breakdown with bar chart — auto-refreshes every 2 seconds. A compact
+  threshold), plus hourly breakdown with bar chart and activity timeline
+  heatmap — auto-refreshes every 2 seconds. A compact
   log stats line at the bottom shows total entries, file size, and date range.
   Day navigation buttons (`<` / `>` / Today) let you browse past days; the "New"
   column only appears when viewing today

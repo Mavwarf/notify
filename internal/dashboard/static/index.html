@@ -1667,7 +1667,7 @@ tr:hover td { background: var(--bg3); }
 
       html += '</tbody></table>';
       html += '</div>'; // end table wrapper
-      html += renderHourlyBarChart(data.hourly);
+      html += '<div style="flex-shrink:0">' + renderHourlyBarChart(data.hourly) + renderActivityTimeline(data.hourly) + '</div>';
       html += '</div>'; // end flex wrapper
     }
 
@@ -1787,8 +1787,80 @@ tr:hover td { background: var(--bg3); }
     }
 
     svg += '</svg>';
-    return '<div style="flex-shrink:0;text-align:center;padding-top:5px">' +
+    return '<div style="flex-shrink:0;text-align:center;padding-top:20px">' +
       '<div class="watch-section-title" style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)">Activity by hour</div>' +
+      '<div style="position:relative;display:inline-block">' + svg +
+      '<div class="chart-tooltip donut-tooltip"></div></div></div>';
+  }
+
+  // ---- Activity timeline ----
+  function renderActivityTimeline(hourly) {
+    var hours = hourly.hours;
+    var profiles = hourly.profiles || [];
+    if (!hours || hours.length === 0 || profiles.length === 0) return '';
+
+    var cs = getComputedStyle(document.documentElement);
+    var fg = cs.getPropertyValue('--fg').trim();
+    var fgDim = cs.getPropertyValue('--fg-dim').trim();
+
+    var cellW = 14, gap = 2, rowH = 20, rowGap = 3, labelW = 60, labelH = 14;
+    var chartW = hours.length * (cellW + gap) - gap;
+    var svgW = labelW + chartW + 2;
+    var svgH = profiles.length * (rowH + rowGap) - rowGap + labelH + 4;
+
+    var svg = '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 ' + svgW + ' ' + svgH + '">';
+
+    // Find max per-cell count for opacity scaling.
+    var maxCount = 0;
+    for (var i = 0; i < hours.length; i++) {
+      for (var j = 0; j < profiles.length; j++) {
+        if (hours[i].counts[j] > maxCount) maxCount = hours[i].counts[j];
+      }
+    }
+
+    for (var p = 0; p < profiles.length; p++) {
+      var y = p * (rowH + rowGap);
+
+      // Profile label
+      svg += '<text x="' + (labelW - 4) + '" y="' + (y + rowH - 2) +
+        '" text-anchor="end" font-size="8" font-family="inherit" fill="' + fgDim + '">' +
+        esc(maskProfile(profiles[p])).replace(/"/g, '&quot;') + '</text>';
+
+      for (var i = 0; i < hours.length; i++) {
+        var x = labelW + i * (cellW + gap);
+        var count = hours[i].counts[p];
+
+        var pName = esc(maskProfile(profiles[p])).replace(/"/g, '&quot;');
+        var hrTotal = hours[i].total;
+        var hrPct = hrTotal > 0 ? Math.round(count * 100 / hrTotal) : 0;
+        if (count > 0) {
+          svg += '<rect class="donut-segment" x="' + x + '" y="' + y + '" width="' + cellW + '" height="' + rowH +
+            '" fill="' + fg + '" stroke="' + fg + '" stroke-width="1" rx="1"' +
+            ' opacity="' + (0.25 + 0.75 * (count / maxCount)).toFixed(2) + '"' +
+            ' data-name="' + pName + ' · ' + pad2(hours[i].hour) + ':00"' +
+            ' data-total="' + count + '" data-pct="' + hrPct + '"' +
+            ' style="cursor:crosshair;transition:opacity 0.15s"/>';
+        } else {
+          svg += '<rect x="' + x + '" y="' + y + '" width="' + cellW + '" height="' + rowH +
+            '" fill="none" stroke="' + fgDim + '" stroke-width="0.5" rx="1" opacity="0.3"/>';
+        }
+      }
+    }
+
+    // Hour labels
+    var labelY = profiles.length * (rowH + rowGap) + labelH;
+    for (var i = 0; i < hours.length; i++) {
+      if (i % 3 === 0) {
+        var x = labelW + i * (cellW + gap) + cellW / 2;
+        svg += '<text x="' + x + '" y="' + labelY +
+          '" text-anchor="middle" font-size="7" font-family="inherit" fill="' + fgDim + '">' +
+          pad2(hours[i].hour) + '</text>';
+      }
+    }
+
+    svg += '</svg>';
+    return '<div style="text-align:center;margin-top:12px">' +
+      '<div class="watch-section-title" style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)">Timeline</div>' +
       '<div style="position:relative;display:inline-block">' + svg +
       '<div class="chart-tooltip donut-tooltip"></div></div></div>';
   }
