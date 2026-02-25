@@ -428,6 +428,49 @@ tr:hover td { background: var(--bg3); }
   margin-left: auto;
   opacity: 0.6;
 }
+
+/* Toast notifications */
+.toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.toast {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--green);
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-size: 13px;
+  min-width: 240px;
+  max-width: 360px;
+  animation: toastIn 0.3s ease-out, toastOut 0.3s ease-in forwards;
+  animation-delay: 0s, 4s;
+  pointer-events: auto;
+}
+
+.toast-cooldown { border-left-color: var(--yellow); }
+.toast-silent { border-left-color: var(--fg-dim); }
+
+.toast-profile { color: var(--cyan); font-weight: 600; }
+.toast-action { color: var(--fg); }
+.toast-kind { font-size: 11px; margin-top: 2px; }
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes toastOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
 </style>
 </head>
 <body>
@@ -528,6 +571,7 @@ tr:hover td { background: var(--bg3); }
     </div>
   </div>
 </div>
+<div class="toast-container" id="toast-container"></div>
 
 <script>
 (function() {
@@ -697,6 +741,21 @@ tr:hover td { background: var(--bg3); }
     el.innerHTML = html;
   }
 
+  // ---- Toast notifications ----
+  const toastContainer = document.getElementById('toast-container');
+
+  function showToast(entry) {
+    const el = document.createElement('div');
+    const kindCls = entry.kind === 'cooldown' ? ' toast-cooldown' : entry.kind === 'silent' ? ' toast-silent' : '';
+    el.className = 'toast' + kindCls;
+    el.innerHTML =
+      '<span class="toast-profile">' + esc(entry.profile) + '</span> ' +
+      '<span class="toast-action">' + esc(entry.action) + '</span>' +
+      '<div class="toast-kind ' + kindClass(entry.kind) + '">' + esc(entry.kind) + '</div>';
+    toastContainer.appendChild(el);
+    setTimeout(() => el.remove(), 4300);
+  }
+
   // ---- SSE ----
   const sseDot = document.getElementById('sse-dot');
   const sseStatus = document.getElementById('sse-status');
@@ -714,6 +773,7 @@ tr:hover td { background: var(--bg3); }
         const entries = JSON.parse(event.data);
         for (const e of entries) {
           appendHistoryRow(e, true);
+          showToast(e);
         }
       } catch(e) {
         console.error('SSE parse error:', e);
