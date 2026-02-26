@@ -1,37 +1,11 @@
 # TODO
 
-### Rework Wiki (high priority)
-
-The GitHub wiki (`Home.md`) was written Feb 20 and is severely outdated.
-Currently reads as a personal setup guide — should be restructured into
-a proper project wiki where the Claude Code use-case is just one
-example section, not the framing for the entire page.
-
-**Structure ideas:**
-- **Home** — what notify is, quick start, installation
-- **Configuration** — config format, profiles, actions, steps, credentials,
-  inheritance, aliases, match rules, exit codes, cooldown, quiet hours
-- **Step Types** — all types with examples (sound, say, toast, discord,
-  discord_voice, slack, telegram, telegram_audio, telegram_voice, webhook)
-- **Template Variables** — full table including `{claude_*}`, `{output}`,
-  `{time}`/`{date}`/`{hostname}` and uppercase spoken variants
-- **Subcommands** — run, pipe, send, test, play, silent, history, dashboard,
-  config validate, voice stats
-- **Dashboard** — web UI overview, tabs, API endpoints, `--open` flag
-- **Use Cases / Examples** — Claude Code hooks (with stdin JSON injection),
-  CI/CD pipelines, build watchers, multi-project workflows
-- **History & Logging** — event log, summary, watch, clean, export
-
-The current "my config" / "my use case" content needs updating too —
-it's missing many features added since Feb 20 (dashboard, stdin JSON,
-pipe mode, heartbeat, output capture, notification groups, silent mode,
-all the new step types, etc.).
-
 ### Config Bootstrapper (`notify init`)
 
 Interactive config generator. Asks which platforms you want, generates
 a starter config with credentials. Lowers the barrier for first-time
-setup.
+setup. Lower priority now that built-in defaults let basic commands
+work without any config file.
 
 ### MQTT Publish
 
