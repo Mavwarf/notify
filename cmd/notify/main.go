@@ -170,6 +170,8 @@ func main() {
 		silentCmd(filtered[1:], configPath, logFlag)
 	case "run":
 		runWrapped(filtered[1:], configPath, volume, logFlag, echoFlag, cooldownFlag, matches, heartbeatSec)
+	case "watch":
+		watchCmd(filtered[1:], configPath, volume, logFlag, echoFlag, cooldownFlag)
 	case "pipe":
 		runPipe(filtered[1:], configPath, volume, logFlag, echoFlag, cooldownFlag, matches)
 	default:
@@ -712,6 +714,7 @@ Docs: https://github.com/Mavwarf/notify
 Usage:
   notify [options] [profile] <action[,action2,...]>
   notify run [options] [profile] -- <command...>
+  notify watch --pid <PID> [options] [profile]
   notify pipe [options] [profile] [--match <pattern> <action>...]
   notify send [--title <title>] <type> <message>
 
@@ -734,6 +737,8 @@ Commands:
   pipe [profile]         Read stdin line-by-line, trigger action on pattern match
                          Without --match, every line triggers "ready"
                          {output} = the matched line
+  watch --pid <PID>      Watch a running process; notify when it exits
+                         Fires "ready" action with {command} = "PID <N>"
   run                    Wrap a command; map exit code or output pattern to action
                          --heartbeat/-H fires the "heartbeat" action periodically
   play [sound|file.wav]  Preview a built-in sound or WAV file (no args lists built-ins)
@@ -766,7 +771,7 @@ Profile auto-selection:
 
 Template variables:
   {profile}, {Profile}, {time}, {Time}, {date}, {Date}, {hostname}
-  Run mode: {command}, {duration}, {Duration}, {output}
+  Run/watch mode: {command}, {duration}, {Duration}, {output}
   Pipe mode: {output} (the matched line)
   Stdin JSON: {claude_message}, {claude_hook}, {claude_json}
 
@@ -791,6 +796,8 @@ Examples:
                                    Heartbeat every 5 minutes during build
   notify run -H 2m boss -- cargo test
                                    Heartbeat every 2 minutes for boss profile
+  notify watch --pid 1234           Watch PID 1234, notify when it exits
+  notify watch --pid 1234 boss      Watch PID with a specific profile
   notify run -M FAIL error -M passed ready -- pytest
                                    Select action by output pattern
   tail -f build.log | notify pipe boss -M SUCCESS done -M FAIL error

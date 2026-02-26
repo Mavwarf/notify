@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -11,8 +12,10 @@ import (
 	"github.com/Mavwarf/notify/internal/config"
 	"github.com/Mavwarf/notify/internal/dashboard"
 	"github.com/Mavwarf/notify/internal/eventlog"
+	"github.com/Mavwarf/notify/internal/procwait"
 	"github.com/Mavwarf/notify/internal/runner"
 	"github.com/Mavwarf/notify/internal/silent"
+	"github.com/Mavwarf/notify/internal/tmpl"
 )
 
 // sendTypes is the set of step types supported by "notify send".
@@ -293,6 +296,61 @@ func credStatus(ok bool) string {
 		return " configured"
 	}
 	return " not configured"
+}
+
+func watchCmd(args []string, configPath string, volume int, logFlag bool, echoFlag bool, cooldownFlag bool) {
+	// Parse --pid flag from args.
+	pid := -1
+	rest := make([]string, len(args))
+	copy(rest, args)
+	for i := 0; i < len(rest); i++ {
+		if rest[i] == "--pid" && i+1 < len(rest) {
+			v, err := strconv.Atoi(rest[i+1])
+			if err != nil || v <= 0 {
+				fmt.Fprintf(os.Stderr, "Error: --pid requires a positive integer\n")
+				os.Exit(1)
+			}
+			pid = v
+			rest = append(rest[:i], rest[i+2:]...)
+			break
+		}
+	}
+
+	if pid < 0 {
+		fmt.Fprintf(os.Stderr, "Error: --pid is required\n")
+		fmt.Fprintf(os.Stderr, "Usage: notify watch --pid <PID> [profile]\n")
+		os.Exit(1)
+	}
+
+	cfg, err := loadAndValidate(configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Remaining args are optional [profile].
+	profile := "default"
+	explicit := len(rest) > 0
+	if explicit {
+		profile = rest[0]
+	}
+	profile = resolveProfile(cfg, profile, explicit)
+
+	fmt.Fprintf(os.Stderr, "notify: watching PID %d...\n", pid)
+
+	start := time.Now()
+	if err := procwait.Wait(pid); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	elapsed := time.Since(start)
+
+	dispatchActions(cfg, profile, "ready", volume, logFlag, echoFlag, cooldownFlag, true,
+		func(v *tmpl.Vars) {
+			v.Command = fmt.Sprintf("PID %d", pid)
+			v.Duration = formatDuration(elapsed)
+			v.DurationSay = formatDurationSay(elapsed)
+		})
 }
 
 func dashboardCmd(configPath string, port int, open bool) {

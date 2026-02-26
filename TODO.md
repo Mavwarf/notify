@@ -56,11 +56,11 @@ Would require rewriting `internal/toast/toast_windows.go` to build XML templates
 and use `Windows.UI.Notifications.ToastNotificationManager` via PowerShell.
 Linux and macOS toast implementations would remain unchanged.
 
-### `notify watch` (PID or File)
+### `notify watch` — File Watching (stretch)
 
-Watch a running process or file for changes: `notify watch --pid 1234`
-triggers when the PID exits, `notify watch --file build.log` triggers
-when the file is modified. Polling-based with configurable interval.
+PID watching is done (`notify watch --pid <PID>`). File watching
+(`notify watch --file build.log`) remains a possibility — trigger when
+a file is modified. Would need `fsnotify` or polling with `os.Stat`.
 
 ### Plugin System
 
@@ -188,6 +188,12 @@ file exists (e.g. `[say] "Build complete" (ai: nova)` vs
 ---
 
 ## Tech Debt / Cleanup
+
+### Update wiki
+
+Wiki pages need updating for recent features: PID watch
+(`notify watch --pid`), built-in default config (zero-config fallback),
+stdin JSON injection, and web dashboard.
 
 ### Test platform-specific packages (low)
 

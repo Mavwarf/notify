@@ -2,6 +2,7 @@
 
 ## Features
 
+- PID watch (`notify watch --pid`) — watch a running process, notify when it exits *(Feb 26)*
 - Built-in default config — zero-config fallback with `ready`, `error`, `done`, `attention` actions using local audio *(Feb 26)*
 - Stdin JSON injection — auto-detect piped JSON on stdin for hook integration (`{claude_message}`, `{claude_hook}`, `{claude_json}`) *(Feb 25)*
 - Voice stats (`notify voice stats`) — say step text usage frequency from event log *(Feb 25)*
@@ -45,6 +46,23 @@
 ---
 
 ## 2026-02-26
+
+### PID Watch (`notify watch --pid`)
+
+Watch a running process and fire a notification when it exits. Useful when you
+started a long command and forgot to wrap it with `notify run`:
+
+```bash
+notify watch --pid 1234           # default profile, "ready" action
+notify watch --pid 1234 boss      # specific profile
+```
+
+Uses platform-specific efficient waiting: `OpenProcess(SYNCHRONIZE)` +
+`WaitForSingleObject` on Windows (true kernel-level blocking, no polling),
+`kill(pid, 0)` polling every 500ms on Linux/macOS. Template variables
+`{command}` (set to `"PID <N>"`), `{duration}`, and `{Duration}` are available.
+No exit code detection — non-child processes don't expose exit codes
+cross-platform, so the action is always `ready`.
 
 ### Built-in Default Config (Zero-Config Fallback)
 When no `notify-config.json` exists and no `--config` path is specified, `notify`

@@ -110,6 +110,9 @@ internal/
     idle_windows.go      User idle time via GetLastInputInfo (Win32)
     idle_darwin.go       User idle time via ioreg HIDIdleTime
     idle_linux.go        User idle time via xprintidle
+  procwait/
+    wait_windows.go      Wait for PID exit via OpenProcess + WaitForSingleObject
+    wait_unix.go         Wait for PID exit via kill(pid, 0) polling
   webhook/
     webhook.go           Generic HTTP POST webhook integration
   runner/
@@ -138,6 +141,7 @@ internal/
 ```bash
 notify [options] [profile] <action[,action2,...]>
 notify run [options] [profile] -- <command...>
+notify watch --pid <PID> [options] [profile]  # Watch a process, notify on exit
 notify pipe [options] [profile] [--match <pat> <action>...]  # Stream mode
 notify send [--title <title>] <type> <message>  # Send a one-off notification
 notify play [sound]                    # Preview a built-in sound (or list all)
