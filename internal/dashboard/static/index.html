@@ -485,6 +485,9 @@ tr:hover td { background: var(--bg3); }
 .watch-table .profile-row td { font-weight: 600; }
 .watch-table .profile-name { color: var(--cyan); }
 .watch-table .action-name { color: var(--fg); padding-left: 28px !important; font-weight: 400; }
+.watch-table .action-row td { color: var(--fg-dim); }
+.watch-table .profile-row td:not(:first-child),
+.watch-table .total-row td:not(:first-child) { padding-right: 40px; }
 .watch-table .total-row td { font-weight: 700; border-top: 1px solid var(--border); }
 .watch-table .val-skip { color: var(--yellow); }
 .watch-table .val-new { color: var(--green); }
@@ -1740,7 +1743,7 @@ tr:hover td { background: var(--bg3); }
       for (const a of p.actions) {
         const key = p.name + '/' + a.name;
         const aN = showNew ? a.total - (watchBaseline[key] || 0) : 0;
-        html += '<tr>';
+        html += '<tr class="action-row">';
         html += '<td class="action-name">' + esc(a.name) + '</td>';
         html += '<td>' + fmtNum(a.total) + '</td>';
         html += '<td></td>';
