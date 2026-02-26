@@ -2,6 +2,7 @@
 
 ## Features
 
+- Dashboard time-spent fix — total now uses merged timeline so overlapping profiles don't inflate wall-clock time *(Feb 26)*
 - Shell hook (`notify shell-hook`) — automatic notifications for long-running commands via bash/zsh/PowerShell hooks *(Feb 26)*
 - PID watch (`notify watch --pid`) — watch a running process, notify when it exits *(Feb 26)*
 - Built-in default config — zero-config fallback with `ready`, `error`, `done`, `attention` actions using local audio *(Feb 26)*
@@ -47,6 +48,16 @@
 ---
 
 ## 2026-02-26
+
+### Dashboard: Time-Spent Total Fix
+
+The "Approx. time spent" total in the Watch tab previously summed per-profile
+seconds independently. When multiple profiles had activity during the same
+time window, the total exceeded actual wall-clock time (e.g. two profiles both
+active from 10:00–10:04 would report 8 minutes instead of 4). The total now
+uses a merged timeline of all profiles' timestamps with the same 5-minute gap
+logic, so overlapping activity is only counted once. Per-profile breakdowns
+are unchanged.
 
 ### Shell Hook (`notify shell-hook`)
 
@@ -228,9 +239,11 @@ table and the hourly breakdown. For each profile, consecutive log entries are
 walked chronologically — if the gap between two entries is 5 minutes or less,
 that gap is counted as active time. Gaps exceeding 5 minutes are treated as
 idle breaks and ignored. Each profile row displays the estimated time in
-`Xh Ym` format with a percentage column, plus a total row. The section is
-hidden when there is no estimated active time (e.g. profiles with only a
-single entry per session). Computed server-side in the `/api/watch` response.
+`Xh Ym` format with a percentage column, plus a total row. The total is
+computed from a merged timeline of all profiles so overlapping activity windows
+are counted once (not double-counted per profile). The section is hidden when
+there is no estimated active time (e.g. profiles with only a single entry per
+session). Computed server-side in the `/api/watch` response.
 
 ### Dashboard: Charts & Activity Timeline
 The **Watch** tab displays outline-style charts next to each data table: donut

@@ -187,7 +187,9 @@ func ComputeTimeSpent(entries []Entry, targetDate time.Time, loc *time.Location)
 	}
 	sort.Strings(names)
 
+	// Compute per-profile time.
 	var td TimeSpentData
+	var allTimes []time.Time
 	for _, p := range names {
 		times := profileEntries[p]
 		sort.Slice(times, func(i, j int) bool { return times[i].Before(times[j]) })
@@ -199,7 +201,16 @@ func ComputeTimeSpent(entries []Entry, targetDate time.Time, loc *time.Location)
 			}
 		}
 		td.Profiles = append(td.Profiles, TimeSpentProfile{Name: p, Seconds: secs})
-		td.Total += secs
+		allTimes = append(allTimes, times...)
+	}
+
+	// Compute total from merged timeline so overlapping profiles don't inflate.
+	sort.Slice(allTimes, func(i, j int) bool { return allTimes[i].Before(allTimes[j]) })
+	for i := 1; i < len(allTimes); i++ {
+		gap := allTimes[i].Sub(allTimes[i-1])
+		if gap <= gapThreshold {
+			td.Total += int(gap.Seconds())
+		}
 	}
 
 	return td

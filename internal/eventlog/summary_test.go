@@ -292,9 +292,11 @@ func TestComputeTimeSpentMultipleProfiles(t *testing.T) {
 	if len(td.Profiles) != 2 {
 		t.Fatalf("Profiles len = %d, want 2", len(td.Profiles))
 	}
-	// app: 1min=60s, dev: 4min=240s, total=300s
-	if td.Total != 300 {
-		t.Errorf("Total = %d, want 300", td.Total)
+	// app: 1min=60s, dev: 4min=240s
+	// Total uses merged timeline (10:00, 10:00, 10:01, 10:04) = 0+60+180 = 240s
+	// (not 300, which would double-count the overlap)
+	if td.Total != 240 {
+		t.Errorf("Total = %d, want 240", td.Total)
 	}
 	// Profiles sorted alphabetically.
 	if td.Profiles[0].Name != "app" || td.Profiles[0].Seconds != 60 {
@@ -302,6 +304,60 @@ func TestComputeTimeSpentMultipleProfiles(t *testing.T) {
 	}
 	if td.Profiles[1].Name != "dev" || td.Profiles[1].Seconds != 240 {
 		t.Errorf("dev = %+v, want {dev 240}", td.Profiles[1])
+	}
+}
+
+func TestComputeTimeSpentOverlappingProfilesMerged(t *testing.T) {
+	loc := time.UTC
+	target := time.Date(2026, 2, 25, 0, 0, 0, 0, loc)
+	// Three profiles all active during the same 10:00-10:03 window.
+	entries := []Entry{
+		{Time: time.Date(2026, 2, 25, 10, 0, 0, 0, loc), Profile: "a", Action: "x", Kind: KindExecution},
+		{Time: time.Date(2026, 2, 25, 10, 3, 0, 0, loc), Profile: "a", Action: "x", Kind: KindExecution},
+		{Time: time.Date(2026, 2, 25, 10, 0, 0, 0, loc), Profile: "b", Action: "x", Kind: KindExecution},
+		{Time: time.Date(2026, 2, 25, 10, 3, 0, 0, loc), Profile: "b", Action: "x", Kind: KindExecution},
+		{Time: time.Date(2026, 2, 25, 10, 0, 0, 0, loc), Profile: "c", Action: "x", Kind: KindExecution},
+		{Time: time.Date(2026, 2, 25, 10, 3, 0, 0, loc), Profile: "c", Action: "x", Kind: KindExecution},
+	}
+
+	td := ComputeTimeSpent(entries, target, loc)
+
+	// Each profile: 3min = 180s
+	for _, p := range td.Profiles {
+		if p.Seconds != 180 {
+			t.Errorf("%s seconds = %d, want 180", p.Name, p.Seconds)
+		}
+	}
+	// Total should be 180s (3 minutes wall-clock), not 540s (3×180).
+	// Merged: 10:00, 10:00, 10:00, 10:03, 10:03, 10:03 → 0+0+180+0+0 = 180s
+	if td.Total != 180 {
+		t.Errorf("Total = %d, want 180 (merged, not 540)", td.Total)
+	}
+}
+
+func TestComputeTimeSpentNonOverlappingProfiles(t *testing.T) {
+	loc := time.UTC
+	target := time.Date(2026, 2, 25, 0, 0, 0, 0, loc)
+	// Two profiles active in completely separate time windows (>5min gap between).
+	entries := []Entry{
+		{Time: time.Date(2026, 2, 25, 10, 0, 0, 0, loc), Profile: "morning", Action: "x", Kind: KindExecution},
+		{Time: time.Date(2026, 2, 25, 10, 2, 0, 0, loc), Profile: "morning", Action: "x", Kind: KindExecution},
+		{Time: time.Date(2026, 2, 25, 14, 0, 0, 0, loc), Profile: "afternoon", Action: "x", Kind: KindExecution},
+		{Time: time.Date(2026, 2, 25, 14, 3, 0, 0, loc), Profile: "afternoon", Action: "x", Kind: KindExecution},
+	}
+
+	td := ComputeTimeSpent(entries, target, loc)
+
+	// morning: 2min=120s, afternoon: 3min=180s
+	// No overlap, so total = sum = 300s
+	if td.Profiles[0].Seconds != 180 { // afternoon (sorted)
+		t.Errorf("afternoon seconds = %d, want 180", td.Profiles[0].Seconds)
+	}
+	if td.Profiles[1].Seconds != 120 { // morning (sorted)
+		t.Errorf("morning seconds = %d, want 120", td.Profiles[1].Seconds)
+	}
+	if td.Total != 300 {
+		t.Errorf("Total = %d, want 300 (no overlap)", td.Total)
 	}
 }
 
