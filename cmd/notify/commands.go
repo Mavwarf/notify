@@ -365,3 +365,64 @@ func dashboardCmd(configPath string, port int, open bool) {
 		os.Exit(1)
 	}
 }
+
+// hookCmd handles the internal "_hook" command called by shell hook snippets.
+// Usage: notify _hook --command <cmd> --seconds <N> --exit <code> [profile]
+func hookCmd(args []string, configPath string, volume int, logFlag bool, echoFlag bool, cooldownFlag bool) {
+	var command string
+	seconds := 0
+	exitCode := 0
+	var rest []string
+
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--command":
+			if i+1 < len(args) {
+				command = args[i+1]
+				i++
+			}
+		case "--seconds":
+			if i+1 < len(args) {
+				v, err := strconv.Atoi(args[i+1])
+				if err == nil {
+					seconds = v
+				}
+				i++
+			}
+		case "--exit":
+			if i+1 < len(args) {
+				v, err := strconv.Atoi(args[i+1])
+				if err == nil {
+					exitCode = v
+				}
+				i++
+			}
+		default:
+			rest = append(rest, args[i])
+		}
+	}
+
+	cfg, err := loadAndValidate(configPath)
+	if err != nil {
+		os.Exit(1) // silent failure — running in background from shell
+	}
+
+	// Optional profile argument.
+	profile := "default"
+	explicit := len(rest) > 0
+	if explicit {
+		profile = rest[0]
+	}
+	profile = resolveProfile(cfg, profile, explicit)
+
+	// Determine action from exit code.
+	actionArg := resolveExitAction(cfg.Options.ExitCodes, exitCode)
+
+	elapsed := time.Duration(seconds) * time.Second
+	dispatchActions(cfg, profile, actionArg, volume, logFlag, echoFlag, cooldownFlag, true,
+		func(v *tmpl.Vars) {
+			v.Command = command
+			v.Duration = formatDuration(elapsed)
+			v.DurationSay = formatDurationSay(elapsed)
+		})
+}

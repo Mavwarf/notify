@@ -2,6 +2,7 @@
 
 ## Features
 
+- Shell hook (`notify shell-hook`) — automatic notifications for long-running commands via bash/zsh/PowerShell hooks *(Feb 26)*
 - PID watch (`notify watch --pid`) — watch a running process, notify when it exits *(Feb 26)*
 - Built-in default config — zero-config fallback with `ready`, `error`, `done`, `attention` actions using local audio *(Feb 26)*
 - Stdin JSON injection — auto-detect piped JSON on stdin for hook integration (`{claude_message}`, `{claude_hook}`, `{claude_json}`) *(Feb 25)*
@@ -46,6 +47,31 @@
 ---
 
 ## 2026-02-26
+
+### Shell Hook (`notify shell-hook`)
+
+Install a precmd/preexec hook into bash, zsh, or PowerShell that automatically
+triggers a notification after any command exceeding a time threshold (default 30s).
+No `notify run` wrapping needed — the hook measures elapsed time and calls
+`notify _hook` in the background with the command string, duration, and exit code.
+
+```bash
+notify shell-hook install              # auto-detect shell, install hook
+notify shell-hook install --shell zsh  # explicit shell
+notify shell-hook install --threshold 60  # custom threshold (60s)
+notify shell-hook uninstall            # clean removal
+notify shell-hook status               # check if installed
+```
+
+The threshold is embedded directly in the shell snippet as an arithmetic check,
+so no Go process spawns for short commands. Exit code mapping (`exit_codes` in
+config) works automatically — the snippet captures `$?` / `$LASTEXITCODE` and
+passes it to `notify _hook --exit`.
+
+Config option `"shell_hook_threshold"` sets the default threshold (used when
+`--threshold` is not specified at install time). Snippets are delimited by
+`# BEGIN notify shell-hook` / `# END notify shell-hook` markers for clean
+uninstall.
 
 ### PID Watch (`notify watch --pid`)
 

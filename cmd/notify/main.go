@@ -172,6 +172,10 @@ func main() {
 		runWrapped(filtered[1:], configPath, volume, logFlag, echoFlag, cooldownFlag, matches, heartbeatSec)
 	case "watch":
 		watchCmd(filtered[1:], configPath, volume, logFlag, echoFlag, cooldownFlag)
+	case "shell-hook":
+		shellHookCmd(filtered[1:], configPath)
+	case "_hook":
+		hookCmd(filtered[1:], configPath, volume, logFlag, echoFlag, cooldownFlag)
 	case "pipe":
 		runPipe(filtered[1:], configPath, volume, logFlag, echoFlag, cooldownFlag, matches)
 	default:
@@ -717,6 +721,7 @@ Usage:
   notify watch --pid <PID> [options] [profile]
   notify pipe [options] [profile] [--match <pattern> <action>...]
   notify send [--title <title>] <type> <message>
+  notify shell-hook <install|uninstall|status> [--shell <shell>] [--threshold <N>]
 
 Options:
   --volume, -v <0-100>   Override volume (default: config or 100)
@@ -741,6 +746,11 @@ Commands:
                          Fires "ready" action with {command} = "PID <N>"
   run                    Wrap a command; map exit code or output pattern to action
                          --heartbeat/-H fires the "heartbeat" action periodically
+  shell-hook install     Install shell hook for automatic long-command notifications
+                         --shell bash|zsh|powershell  Override auto-detected shell
+                         --threshold N  Override threshold in seconds (default: 30)
+  shell-hook uninstall   Remove shell hook from shell config
+  shell-hook status      Check if shell hook is installed
   play [sound|file.wav]  Preview a built-in sound or WAV file (no args lists built-ins)
   test [profile]         Dry-run: show what would happen without sending
   dashboard [--port N]   Local web UI with watch, history, config, test, voice, silent tabs

@@ -75,27 +75,11 @@ Actions that trigger other actions based on step outcomes. E.g.
 step in the current action fails. Enables retry and escalation
 patterns without shell scripting.
 
-### Shell Integration (`notify shell-hook`)
+### ~~Shell Integration (`notify shell-hook`)~~ — done
 
-Install a precmd/preexec hook into bash, zsh, or PowerShell that
-automatically notifies after any command exceeding a time threshold.
-No `notify run` wrapping needed — the hook measures elapsed time and
-calls notify with the command string and duration.
-
-```bash
-notify shell-hook install     # add hook to .bashrc / .zshrc / $PROFILE
-notify shell-hook uninstall   # remove it
-```
-
-Config option for the threshold: `"shell_hook_threshold": 30` (seconds).
-
-**Use cases:**
-- `make build` takes 4 minutes — you get a notification without having
-  to remember `notify run -- make build`
-- Long-running `git rebase`, `docker build`, `terraform apply` — all
-  covered transparently
-- New users get value immediately after install without learning
-  `notify run` syntax
+Implemented: `notify shell-hook install/uninstall/status` with bash,
+zsh, and PowerShell support. Internal `_hook` command handles dispatch.
+Config option `"shell_hook_threshold"` for default threshold.
 
 ### AI Voice Generation (`notify voice`)
 

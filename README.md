@@ -72,6 +72,9 @@ go install github.com/Mavwarf/notify/cmd/notify@latest
   or Telegram message when AFK.
 - **Quiet hours** — time-based `"hours:X-Y"` condition suppresses loud steps
   at night and routes to silent channels instead.
+- **Shell hook** — `notify shell-hook install` adds a precmd/preexec hook
+  to bash, zsh, or PowerShell that automatically notifies after any command
+  exceeding a time threshold (default 30s). No `notify run` wrapping needed.
 - **Cross-platform** — uses [oto](https://github.com/ebitengine/oto) for
   native audio output on Windows (WASAPI), macOS (Core Audio), and
   Linux (ALSA).
@@ -126,6 +129,7 @@ internal/
   shell/
     escape.go            PowerShell string escaping
     escape_darwin.go     AppleScript string escaping
+    hook.go              Shell hook snippet generation, install/uninstall (bash/zsh/PowerShell)
   speech/
     say_windows.go       TTS via PowerShell System.Speech
     say_darwin.go        TTS via macOS say command
@@ -144,6 +148,9 @@ notify run [options] [profile] -- <command...>
 notify watch --pid <PID> [options] [profile]  # Watch a process, notify on exit
 notify pipe [options] [profile] [--match <pat> <action>...]  # Stream mode
 notify send [--title <title>] <type> <message>  # Send a one-off notification
+notify shell-hook install               # Auto-notify after long commands
+notify shell-hook uninstall            # Remove shell hook
+notify shell-hook status               # Check if hook is installed
 notify play [sound]                    # Preview a built-in sound (or list all)
 notify test [profile]                  # Dry-run: show what would happen
 notify dashboard [--port N] [--open]   # Local web UI (default port 8080)
@@ -201,6 +208,7 @@ notify help                            # Show help
     },
     "output_lines": 0,
     "heartbeat_seconds": 0,
+    "shell_hook_threshold": 30,
     "credentials": {
       "discord_webhook": "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN",
       "slack_webhook": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
