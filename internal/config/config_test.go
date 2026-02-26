@@ -1855,6 +1855,40 @@ func TestValidateOutputLinesTooLarge(t *testing.T) {
 	}
 }
 
+func TestValidateShellHookThresholdValid(t *testing.T) {
+	cfg := Config{
+		Options:  Options{DefaultVolume: 100, ShellHookThreshold: 30},
+		Profiles: map[string]Profile{"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "success"}}}})},
+	}
+	if err := Validate(cfg); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateShellHookThresholdZero(t *testing.T) {
+	cfg := Config{
+		Options:  Options{DefaultVolume: 100, ShellHookThreshold: 0},
+		Profiles: map[string]Profile{"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "success"}}}})},
+	}
+	if err := Validate(cfg); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateShellHookThresholdNegative(t *testing.T) {
+	cfg := Config{
+		Options:  Options{DefaultVolume: 100, ShellHookThreshold: -1},
+		Profiles: map[string]Profile{"default": p(map[string]Action{"ready": {Steps: []Step{{Type: "sound", Sound: "success"}}}})},
+	}
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for negative shell_hook_threshold")
+	}
+	if !strings.Contains(err.Error(), "shell_hook_threshold") {
+		t.Errorf("error should mention shell_hook_threshold: %v", err)
+	}
+}
+
 func TestValidateMatchGood(t *testing.T) {
 	cfg := Config{
 		Options: Options{DefaultVolume: 100, AFKThresholdSeconds: 300},

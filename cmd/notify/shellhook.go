@@ -66,11 +66,16 @@ func shellHookCmd(args []string, configPath string) {
 	}
 }
 
-func shellHookInstall(configPath, shellOverride string, thresholdOverride int) {
-	sh := shellOverride
-	if sh == "" {
-		sh = shell.DetectShell()
+// resolveShell returns the explicit override or auto-detects the current shell.
+func resolveShell(override string) string {
+	if override != "" {
+		return override
 	}
+	return shell.DetectShell()
+}
+
+func shellHookInstall(configPath, shellOverride string, thresholdOverride int) {
+	sh := resolveShell(shellOverride)
 
 	// Resolve threshold: CLI flag > config > default.
 	threshold := DefaultShellHookThreshold
@@ -110,10 +115,7 @@ func shellHookInstall(configPath, shellOverride string, thresholdOverride int) {
 }
 
 func shellHookUninstall(shellOverride string) {
-	sh := shellOverride
-	if sh == "" {
-		sh = shell.DetectShell()
-	}
+	sh := resolveShell(shellOverride)
 
 	configFile, err := shell.Uninstall(sh)
 	if err != nil {
@@ -125,10 +127,7 @@ func shellHookUninstall(shellOverride string) {
 }
 
 func shellHookStatus(shellOverride string) {
-	sh := shellOverride
-	if sh == "" {
-		sh = shell.DetectShell()
-	}
+	sh := resolveShell(shellOverride)
 
 	configFile, installed, err := shell.IsInstalled(sh)
 	if err != nil {
