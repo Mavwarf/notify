@@ -2,6 +2,7 @@
 
 ## Features
 
+- Built-in default config — zero-config fallback with `ready`, `error`, `done`, `attention` actions using local audio *(Feb 26)*
 - Stdin JSON injection — auto-detect piped JSON on stdin for hook integration (`{claude_message}`, `{claude_hook}`, `{claude_json}`) *(Feb 25)*
 - Voice stats (`notify voice stats`) — say step text usage frequency from event log *(Feb 25)*
 - Tests for `renderHourlyTable` — basic, single-profile, empty, single-hour, and gap-hour scenarios *(Feb 25)*
@@ -40,6 +41,23 @@
 - Template variables: `{profile}`, `{command}`, `{duration}` *(Feb 20)*
 - Opt-in event logging *(Feb 20)*
 - Multi-step notification pipelines: sound, speech, toast *(Feb 19)*
+
+---
+
+## 2026-02-26
+
+### Built-in Default Config (Zero-Config Fallback)
+When no `notify-config.json` exists and no `--config` path is specified, `notify`
+now falls back to a built-in default configuration instead of erroring with "no
+notify-config.json found". The built-in config provides a `default` profile with
+four actions: `ready` (success sound + "{Profile} ready"), `error` (error sound +
+"Something went wrong with {profile}"), `done` (blip sound + "{Profile} done"),
+and `attention` (alert sound + "{Profile} needs your attention"). All steps use
+local audio only — no credentials, no logging, no cooldown. A one-line hint is
+printed to stderr (`notify: using built-in defaults (create notify-config.json to
+customize)`) so users know they can create a config file for full customization.
+If `--config` points to a non-existent path, the error is still raised. Once a
+config file exists, the built-in default is completely ignored.
 
 ---
 

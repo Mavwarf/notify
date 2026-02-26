@@ -178,6 +178,7 @@ notify help                            # Show help
 1. `--config <path>` (explicit)
 2. `notify-config.json` next to the binary
 3. `~/.config/notify/notify-config.json` (Linux/macOS) or `%APPDATA%\notify\notify-config.json` (Windows)
+4. **Built-in defaults** — if no config file exists, `notify` uses a built-in `default` profile with four actions (`ready`, `error`, `done`, `attention`) using local sound + speech. No setup needed for basic usage.
 
 ### Config format
 

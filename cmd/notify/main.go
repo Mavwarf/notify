@@ -435,6 +435,9 @@ func loadAndValidate(configPath string) (config.Config, error) {
 	if err := config.Validate(cfg); err != nil {
 		return config.Config{}, err
 	}
+	if cfg.Builtin {
+		fmt.Fprintf(os.Stderr, "notify: using built-in defaults (create notify-config.json to customize)\n")
+	}
 	return cfg, nil
 }
 
@@ -754,6 +757,7 @@ Config resolution:
   1. --config <path>              (explicit)
   2. notify-config.json next to binary   (portable)
   3. ~/.config/notify/notify-config.json (user default)
+  4. Built-in defaults            (zero-config: ready, error, done, attention)
 
 Profile auto-selection:
   When profile is omitted, match rules select a profile by working

@@ -44,6 +44,7 @@ type Options struct {
 type Config struct {
 	Options  Options            `json:"config"`
 	Profiles map[string]Profile `json:"profiles"`
+	Builtin  bool               `json:"-"` // true when using built-in defaults (no config file)
 }
 
 // UnmarshalJSON sets defaults then decodes the JSON structure.
@@ -343,6 +344,42 @@ func validateHoursSpec(spec string) error {
 	return nil
 }
 
+// DefaultConfig returns a built-in config with a "default" profile containing
+// four basic actions (ready, error, done, attention) using only local audio
+// steps. Used as a fallback when no config file exists so that basic commands
+// work out of the box without any setup.
+func DefaultConfig() Config {
+	return Config{
+		Options: Options{
+			AFKThresholdSeconds: DefaultAFKThreshold,
+			DefaultVolume:       DefaultVolume,
+		},
+		Profiles: map[string]Profile{
+			"default": {
+				Actions: map[string]Action{
+					"ready": {Steps: []Step{
+						{Type: "sound", Sound: "success"},
+						{Type: "say", Text: "{Profile} ready"},
+					}},
+					"error": {Steps: []Step{
+						{Type: "sound", Sound: "error"},
+						{Type: "say", Text: "Something went wrong with {profile}"},
+					}},
+					"done": {Steps: []Step{
+						{Type: "sound", Sound: "blip"},
+						{Type: "say", Text: "{Profile} done"},
+					}},
+					"attention": {Steps: []Step{
+						{Type: "sound", Sound: "alert"},
+						{Type: "say", Text: "{Profile} needs your attention"},
+					}},
+				},
+			},
+		},
+		Builtin: true,
+	}
+}
+
 // FindPath resolves the config file path using the same resolution order
 // as Load. Returns the resolved path or an error if no config file is found.
 func FindPath(explicitPath string) (string, error) {
@@ -372,9 +409,15 @@ func FindPath(explicitPath string) (string, error) {
 //  1. explicitPath (if non-empty)
 //  2. notify-config.json next to the running binary
 //  3. ~/.config/notify/notify-config.json
+//
+// When no config file is found and explicitPath is empty, Load returns
+// DefaultConfig() so that basic commands work without any setup.
 func Load(explicitPath string) (Config, error) {
 	p, err := FindPath(explicitPath)
 	if err != nil {
+		if explicitPath == "" {
+			return DefaultConfig(), nil
+		}
 		return Config{}, err
 	}
 	return readConfig(p)

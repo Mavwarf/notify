@@ -1877,3 +1877,56 @@ func TestValidateMatchGood(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
+
+func TestDefaultConfig(t *testing.T) {
+	cfg := DefaultConfig()
+
+	if !cfg.Builtin {
+		t.Error("DefaultConfig().Builtin should be true")
+	}
+	if cfg.Options.DefaultVolume != DefaultVolume {
+		t.Errorf("DefaultVolume = %d, want %d", cfg.Options.DefaultVolume, DefaultVolume)
+	}
+	if cfg.Options.AFKThresholdSeconds != DefaultAFKThreshold {
+		t.Errorf("AFKThreshold = %d, want %d", cfg.Options.AFKThresholdSeconds, DefaultAFKThreshold)
+	}
+
+	prof, ok := cfg.Profiles["default"]
+	if !ok {
+		t.Fatal("missing default profile")
+	}
+
+	wantActions := []string{"ready", "error", "done", "attention"}
+	for _, name := range wantActions {
+		act, ok := prof.Actions[name]
+		if !ok {
+			t.Errorf("missing action %q", name)
+			continue
+		}
+		if len(act.Steps) == 0 {
+			t.Errorf("action %q has no steps", name)
+		}
+		// Every action starts with a sound step.
+		if act.Steps[0].Type != "sound" {
+			t.Errorf("action %q first step type = %q, want sound", name, act.Steps[0].Type)
+		}
+	}
+}
+
+func TestDefaultConfigValidates(t *testing.T) {
+	cfg := DefaultConfig()
+	if err := Validate(cfg); err != nil {
+		t.Errorf("DefaultConfig() fails validation: %v", err)
+	}
+}
+
+func TestDefaultConfigBuiltinNotSerialized(t *testing.T) {
+	cfg := DefaultConfig()
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	if strings.Contains(string(data), "builtin") {
+		t.Error("Builtin field should not appear in JSON output")
+	}
+}
