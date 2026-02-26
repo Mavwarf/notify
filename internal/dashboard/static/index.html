@@ -757,6 +757,22 @@ tr:hover td { background: var(--bg3); }
   min-height: 100px;
   color: var(--fg-dim);
 }
+.voice-play-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  width: 28px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: border-color 0.15s, opacity 0.15s;
+}
+.voice-play-btn:hover { border-color: var(--accent); opacity: 0.85; }
 </style>
 </head>
 <body>
@@ -2260,6 +2276,49 @@ tr:hover td { background: var(--bg3); }
     }
   }
 
+  var voiceAudio = null;
+  var voicePlayingHash = null;
+
+  window.voicePlay = voicePlay;
+  function voicePlay(hash) {
+    if (voiceAudio && voicePlayingHash === hash) {
+      voiceAudio.pause();
+      voiceAudio = null;
+      voicePlayingHash = null;
+      renderVoiceButtons();
+      return;
+    }
+    if (voiceAudio) {
+      voiceAudio.pause();
+    }
+    voiceAudio = new Audio('/api/voice/play/' + hash);
+    voicePlayingHash = hash;
+    renderVoiceButtons();
+    voiceAudio.addEventListener('ended', function() {
+      voiceAudio = null;
+      voicePlayingHash = null;
+      renderVoiceButtons();
+    });
+    voiceAudio.addEventListener('error', function() {
+      voiceAudio = null;
+      voicePlayingHash = null;
+      renderVoiceButtons();
+    });
+    voiceAudio.play().catch(function() {
+      voiceAudio = null;
+      voicePlayingHash = null;
+      renderVoiceButtons();
+    });
+  }
+
+  function renderVoiceButtons() {
+    var btns = document.querySelectorAll('.voice-play-btn');
+    for (var i = 0; i < btns.length; i++) {
+      var btn = btns[i];
+      btn.textContent = btn.dataset.hash === voicePlayingHash ? '\u25A0' : '\u25B6';
+    }
+  }
+
   function renderVoice(data) {
     if (!data.lines || data.lines.length === 0) {
       voiceContent.innerHTML = '<div class="empty-state">No voice lines found.</div>';
@@ -2267,12 +2326,19 @@ tr:hover td { background: var(--bg3); }
     }
     var html = '<div style="margin-bottom:12px;color:var(--fg-dim);font-size:13px">' +
       fmtNum(data.total) + ' total utterances across ' + fmtNum(data.lines.length) + ' unique texts</div>';
-    html += '<table><thead><tr><th>#</th><th>Count</th><th>%</th><th>Text</th></tr></thead><tbody>';
+    html += '<table><thead><tr><th>#</th><th>Count</th><th>%</th><th>Text</th><th style="width:1%"></th></tr></thead><tbody>';
     for (var i = 0; i < data.lines.length; i++) {
       var l = data.lines[i];
+      var playCell = '';
+      if (l.cached) {
+        var icon = (voicePlayingHash === l.hash) ? '\u25A0' : '\u25B6';
+        playCell = '<button class="voice-play-btn" data-hash="' + esc(l.hash) +
+          '" onclick="voicePlay(\'' + esc(l.hash) + '\')" title="' +
+          esc(l.voice || 'ai') + '">' + icon + '</button>';
+      }
       html += '<tr><td>' + l.rank + '</td><td>' + fmtNum(l.count) +
         '</td><td>' + l.pct + '%</td><td style="color:var(--fg-dim)">&ldquo;</span>' +
-        esc(l.text) + '<span style="color:var(--fg-dim)">&rdquo;</td></tr>';
+        esc(l.text) + '<span style="color:var(--fg-dim)">&rdquo;</td><td>' + playCell + '</td></tr>';
     }
     html += '</tbody></table>';
     voiceContent.innerHTML = html;

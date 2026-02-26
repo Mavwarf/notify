@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strconv"
@@ -20,6 +21,7 @@ import (
 	"github.com/Mavwarf/notify/internal/runner"
 	"github.com/Mavwarf/notify/internal/silent"
 	"github.com/Mavwarf/notify/internal/tmpl"
+	"github.com/Mavwarf/notify/internal/voice"
 )
 
 //go:embed static/index.html
@@ -148,10 +150,13 @@ type profileCreds struct {
 }
 
 type voiceLine struct {
-	Rank  int    `json:"rank"`
-	Text  string `json:"text"`
-	Count int    `json:"count"`
-	Pct   int    `json:"pct"`
+	Rank   int    `json:"rank"`
+	Text   string `json:"text"`
+	Count  int    `json:"count"`
+	Pct    int    `json:"pct"`
+	Cached bool   `json:"cached"`
+	Hash   string `json:"hash,omitempty"`
+	Voice  string `json:"voice,omitempty"`
 }
 
 type voiceResponse struct {
@@ -175,6 +180,7 @@ func Serve(cfg config.Config, configPath string, port int, open bool) error {
 	mux.HandleFunc("/api/watch", handleWatch)
 	mux.HandleFunc("/api/stats", handleStats)
 	mux.HandleFunc("/api/voice", handleVoice)
+	mux.HandleFunc("/api/voice/play/", handleVoicePlay)
 	mux.HandleFunc("/api/silent", handleSilent)
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
@@ -691,6 +697,9 @@ func handleVoice(w http.ResponseWriter, r *http.Request) {
 
 	lines := eventlog.ParseVoiceLines(content)
 
+	// Load voice cache to check which texts have pre-generated WAVs.
+	cache, _ := voice.OpenCache()
+
 	total := 0
 	for _, l := range lines {
 		total += l.Count
@@ -702,16 +711,59 @@ func handleVoice(w http.ResponseWriter, r *http.Request) {
 		if total > 0 {
 			pct = l.Count * 100 / total
 		}
-		out[i] = voiceLine{
+		vl := voiceLine{
 			Rank:  i + 1,
 			Text:  l.Text,
 			Count: l.Count,
 			Pct:   pct,
 		}
+		if cache != nil {
+			if _, ok := cache.Lookup(l.Text); ok {
+				hash := voice.TextHash(l.Text)
+				vl.Cached = true
+				vl.Hash = hash
+				if e, ok := cache.Entries[hash]; ok {
+					vl.Voice = e.Voice
+				}
+			}
+		}
+		out[i] = vl
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(voiceResponse{Lines: out, Total: total})
+}
+
+func handleVoicePlay(w http.ResponseWriter, r *http.Request) {
+	// URL: /api/voice/play/{hash}
+	hash := r.URL.Path[len("/api/voice/play/"):]
+	if hash == "" {
+		http.Error(w, "missing hash", http.StatusBadRequest)
+		return
+	}
+
+	cache, err := voice.OpenCache()
+	if err != nil {
+		http.Error(w, "voice cache unavailable", http.StatusInternalServerError)
+		return
+	}
+
+	entry, ok := cache.Entries[hash]
+	if !ok {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	wavPath := filepath.Join(cache.Dir, entry.Hash+".wav")
+	data, err := os.ReadFile(wavPath)
+	if err != nil {
+		http.Error(w, "file not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "audio/wav")
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	w.Write(data)
 }
 
 type silentResponse struct {

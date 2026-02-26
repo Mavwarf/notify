@@ -1123,7 +1123,8 @@ six tabs (linkable via URL hash, e.g. `/#watch`):
   Template variables (`{profile}`, `{time}`, etc.) are expanded in step details
 - **Voice** — say-step text frequencies from the event log, with rank, count,
   percentage, and text columns. A time-range dropdown filters by all time, 7,
-  30, or 90 days
+  30, or 90 days. Pre-generated AI voice entries show a play button to preview
+  the cached WAV directly in the browser
 - **Silent** — view and control silent mode from the dashboard. Shows current
   status with countdown timer, quick-set buttons (15m, 30m, 1h, 2h, 4h),
   custom duration input, and disable button. A status badge appears next to

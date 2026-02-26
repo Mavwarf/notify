@@ -2,6 +2,7 @@
 
 ## Features
 
+- Dashboard voice playback — play button in Voice tab to preview pre-generated AI voice files in the browser *(Feb 26)*
 - AI voice generation (`notify voice generate/list/clear`) — pre-generate high-quality AI voice files via OpenAI TTS for frequently used say steps; cached WAVs play automatically, falls back to system TTS *(Feb 26)*
 - Interactive config generator (`notify init`) — walk-through setup for channels, credentials, and profiles; `--defaults` for quick start *(Feb 26)*
 - Dashboard time-spent fix — total now uses merged timeline so overlapping profiles don't inflate wall-clock time *(Feb 26)*
@@ -50,6 +51,15 @@
 ---
 
 ## 2026-02-26
+
+### Dashboard: Voice Playback
+
+The Voice tab now shows a play button next to any say-step text that has a
+pre-generated AI voice file in the cache. Clicking the button streams the
+cached WAV through the browser's audio API. Clicking again stops playback.
+The button tooltip shows the voice name (e.g. "nova"). Backed by a new
+`/api/voice/play/{hash}` endpoint that serves WAV files from the voice cache,
+and extended `/api/voice` response with `cached`, `hash`, and `voice` fields.
 
 ### AI Voice Generation (`notify voice generate/list/clear`)
 
