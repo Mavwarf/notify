@@ -13,7 +13,6 @@ import (
 	"runtime"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/Mavwarf/notify/internal/config"
@@ -686,7 +685,7 @@ func handleVoice(w http.ResponseWriter, r *http.Request) {
 	// Optional ?days=N filter (0 = all time, default).
 	if d := r.URL.Query().Get("days"); d != "" {
 		if v, err := strconv.Atoi(d); err == nil && v > 0 {
-			content = filterVoiceContentByDays(content, v)
+			content = eventlog.FilterBlocksByDays(content, v)
 		}
 	}
 
@@ -769,34 +768,6 @@ func handleSilent(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// filterVoiceContentByDays returns only log blocks whose timestamp falls
-// within the last N calendar days.
-func filterVoiceContentByDays(content string, days int) string {
-	now := time.Now()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	cutoff := today.AddDate(0, 0, -(days - 1))
-
-	blocks := strings.Split(content, "\n\n")
-	var kept []string
-	for _, block := range blocks {
-		block = strings.TrimSpace(block)
-		if block == "" {
-			continue
-		}
-		firstLine := block
-		if idx := strings.Index(block, "\n"); idx > 0 {
-			firstLine = block[:idx]
-		}
-		ts, ok := eventlog.ExtractTimestamp(firstLine)
-		if !ok {
-			continue
-		}
-		if !ts.In(now.Location()).Before(cutoff) {
-			kept = append(kept, block)
-		}
-	}
-	return strings.Join(kept, "\n\n")
-}
 
 // loadEntriesByHours reads and parses the event log, filtering to entries
 // from the last N hours.
@@ -871,6 +842,9 @@ func redactCreds(c config.Credentials) config.Credentials {
 	}
 	if c.TelegramChatID != "" {
 		c.TelegramChatID = "***"
+	}
+	if c.OpenAIAPIKey != "" {
+		c.OpenAIAPIKey = "***"
 	}
 	return c
 }

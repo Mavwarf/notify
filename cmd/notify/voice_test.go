@@ -87,7 +87,7 @@ func TestVoiceStatsRenderingWithDays(t *testing.T) {
 	}
 }
 
-// --- filterContentByDays ---
+// --- eventlog.FilterBlocksByDays ---
 
 // makeLogBlock creates a log block with a given timestamp for testing.
 func makeLogBlock(t time.Time, profile, action string) string {
@@ -100,7 +100,7 @@ func TestFilterContentByDaysKeepsRecent(t *testing.T) {
 	yesterday := makeLogBlock(now.AddDate(0, 0, -1), "app", "done")
 
 	content := today + "\n\n" + yesterday
-	result := filterContentByDays(content, 7)
+	result := eventlog.FilterBlocksByDays(content, 7)
 
 	if !strings.Contains(result, "ready") {
 		t.Error("should keep today's entry")
@@ -116,7 +116,7 @@ func TestFilterContentByDaysRemovesOld(t *testing.T) {
 	old := makeLogBlock(now.AddDate(0, 0, -30), "app", "ancient")
 
 	content := today + "\n\n" + old
-	result := filterContentByDays(content, 7)
+	result := eventlog.FilterBlocksByDays(content, 7)
 
 	if !strings.Contains(result, "ready") {
 		t.Error("should keep today's entry")
@@ -132,7 +132,7 @@ func TestFilterContentByDaysAllOld(t *testing.T) {
 	old2 := makeLogBlock(now.AddDate(0, 0, -20), "app", "old2")
 
 	content := old1 + "\n\n" + old2
-	result := filterContentByDays(content, 3)
+	result := eventlog.FilterBlocksByDays(content, 3)
 
 	if strings.TrimSpace(result) != "" {
 		t.Errorf("should return empty for all old entries, got: %q", result)
@@ -149,7 +149,7 @@ func TestFilterContentByDaysEdgeCutoff(t *testing.T) {
 	outside := makeLogBlock(today.AddDate(0, 0, -7), "app", "outside")
 
 	content := boundary + "\n\n" + outside
-	result := filterContentByDays(content, 7)
+	result := eventlog.FilterBlocksByDays(content, 7)
 
 	if !strings.Contains(result, "boundary") {
 		t.Error("entry at cutoff boundary should be kept")
@@ -165,7 +165,7 @@ func TestFilterContentByDaysOneDayKeepsToday(t *testing.T) {
 	yesterday := makeLogBlock(now.AddDate(0, 0, -1), "app", "yesterday")
 
 	content := today + "\n\n" + yesterday
-	result := filterContentByDays(content, 1)
+	result := eventlog.FilterBlocksByDays(content, 1)
 
 	if !strings.Contains(result, "today") {
 		t.Error("days=1 should keep today's entry")
@@ -176,7 +176,7 @@ func TestFilterContentByDaysOneDayKeepsToday(t *testing.T) {
 }
 
 func TestFilterContentByDaysEmptyContent(t *testing.T) {
-	result := filterContentByDays("", 7)
+	result := eventlog.FilterBlocksByDays("", 7)
 	if strings.TrimSpace(result) != "" {
 		t.Errorf("empty content should return empty, got: %q", result)
 	}
@@ -188,7 +188,7 @@ func TestFilterContentByDaysMalformedBlock(t *testing.T) {
 	bad := "not-a-timestamp  some data"
 
 	content := good + "\n\n" + bad
-	result := filterContentByDays(content, 7)
+	result := eventlog.FilterBlocksByDays(content, 7)
 
 	if !strings.Contains(result, "ready") {
 		t.Error("valid block should be kept")

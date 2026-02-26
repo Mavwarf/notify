@@ -85,6 +85,11 @@ go install github.com/Mavwarf/notify/cmd/notify@latest
 cmd/
   notify/
     main.go              CLI entry point, flag parsing, AFK wiring
+    commands.go          Subcommand handlers: send, silent, config, play, list, dry-run
+    history.go           History/summary table rendering and commands
+    voice.go             Voice subcommands: generate, test, play, list, clear, stats
+    init.go              Interactive config generation (notify init)
+    shellhook.go         Shell hook install/uninstall subcommand
     notify-config.example.json  Example config file
 internal/
   audio/
@@ -124,6 +129,8 @@ internal/
     runner.go            Step executor (dispatches to audio/speech/toast/discord/discord_voice/slack/telegram/telegram_audio/telegram_voice/webhook)
   eventlog/
     eventlog.go          Append-only invocation log (notify.log)
+    parse.go             Log entry parsing, day summaries, voice line extraction
+    summary.go           Shared aggregation: groups, hourly, time spent, block filtering
   httputil/
     snippet.go           Shared HTTP response body snippet for error messages
   tmpl/

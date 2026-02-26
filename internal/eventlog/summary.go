@@ -2,6 +2,7 @@ package eventlog
 
 import (
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -214,4 +215,33 @@ func ComputeTimeSpent(entries []Entry, targetDate time.Time, loc *time.Location)
 	}
 
 	return td
+}
+
+// FilterBlocksByDays returns only log blocks whose timestamp falls within
+// the last N calendar days. Each block is separated by a blank line.
+func FilterBlocksByDays(content string, days int) string {
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	cutoff := today.AddDate(0, 0, -(days - 1))
+
+	blocks := strings.Split(content, "\n\n")
+	var kept []string
+	for _, block := range blocks {
+		block = strings.TrimSpace(block)
+		if block == "" {
+			continue
+		}
+		firstLine := block
+		if idx := strings.Index(block, "\n"); idx > 0 {
+			firstLine = block[:idx]
+		}
+		ts, ok := ExtractTimestamp(firstLine)
+		if !ok {
+			continue
+		}
+		if !ts.In(now.Location()).Before(cutoff) {
+			kept = append(kept, block)
+		}
+	}
+	return strings.Join(kept, "\n\n")
 }

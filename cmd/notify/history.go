@@ -490,44 +490,38 @@ func historyClean(args []string) {
 		return
 	}
 
-	now := time.Now()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	cutoff := today.AddDate(0, 0, -(days - 1))
-
-	blocks := strings.Split(content, "\n\n")
-	var kept []string
-	for _, block := range blocks {
-		block = strings.TrimSpace(block)
-		if block == "" {
-			continue
-		}
-		firstLine := block
-		if idx := strings.Index(block, "\n"); idx > 0 {
-			firstLine = block[:idx]
-		}
-		ts, ok := eventlog.ExtractTimestamp(firstLine)
-		if !ok {
-			continue
-		}
-		if !ts.In(now.Location()).Before(cutoff) {
-			kept = append(kept, block)
+	// Count original non-empty blocks for the "removed" message.
+	origBlocks := 0
+	for _, b := range strings.Split(content, "\n\n") {
+		if strings.TrimSpace(b) != "" {
+			origBlocks++
 		}
 	}
 
-	removed := len(blocks) - len(kept)
+	filtered := eventlog.FilterBlocksByDays(content, days)
 
-	if len(kept) == 0 {
+	keptBlocks := 0
+	if filtered != "" {
+		for _, b := range strings.Split(filtered, "\n\n") {
+			if strings.TrimSpace(b) != "" {
+				keptBlocks++
+			}
+		}
+	}
+	removed := origBlocks - keptBlocks
+
+	if filtered == "" {
 		_ = os.Remove(path)
 		fmt.Printf("Removed %d entries. Log file cleared.\n", removed)
 		return
 	}
 
-	out := strings.Join(kept, "\n\n") + "\n\n"
+	out := filtered + "\n\n"
 	if err := os.WriteFile(path, []byte(out), 0644); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("Removed %d entries, kept %d (last %d days).\n", removed, len(kept), days)
+	fmt.Printf("Removed %d entries, kept %d (last %d days).\n", removed, keptBlocks, days)
 }
 
 func historyWatch() {

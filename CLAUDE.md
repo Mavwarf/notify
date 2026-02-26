@@ -37,4 +37,4 @@ Follow the established pattern:
 - Commit messages: imperative mood, short first line, body for "why"
 - HISTORY.md features list: one-liner per feature with `*(Mon DD)*` date
 - Config validation catches errors at load time, not at execution
-- Remote steps (discord, slack, telegram) run in parallel; audio steps (sound, say) run sequentially
+- Remote steps (discord, slack, telegram, webhook) run in parallel; audio steps (sound, say) run sequentially

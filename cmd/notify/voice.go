@@ -86,6 +86,9 @@ func voiceGenerate(args []string, configPath string) {
 		model = "tts-1"
 	}
 	speed := cfg.Options.Voice.Speed
+	if speed == 0 {
+		speed = 1.0
+	}
 
 	// Resolve min uses threshold.
 	threshold := defaultMinUses
@@ -487,7 +490,7 @@ func voiceStats(args []string) {
 
 	// Filter to date range if days specified.
 	if days > 0 {
-		content = filterContentByDays(content, days)
+		content = eventlog.FilterBlocksByDays(content, days)
 	}
 
 	lines := eventlog.ParseVoiceLines(content)
@@ -505,34 +508,6 @@ func voiceStats(args []string) {
 	fmt.Print(out.String())
 }
 
-// filterContentByDays returns only log blocks whose timestamp falls within
-// the last N calendar days.
-func filterContentByDays(content string, days int) string {
-	now := time.Now()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	cutoff := today.AddDate(0, 0, -(days - 1))
-
-	blocks := strings.Split(content, "\n\n")
-	var kept []string
-	for _, block := range blocks {
-		block = strings.TrimSpace(block)
-		if block == "" {
-			continue
-		}
-		firstLine := block
-		if idx := strings.Index(block, "\n"); idx > 0 {
-			firstLine = block[:idx]
-		}
-		ts, ok := eventlog.ExtractTimestamp(firstLine)
-		if !ok {
-			continue
-		}
-		if !ts.In(now.Location()).Before(cutoff) {
-			kept = append(kept, block)
-		}
-	}
-	return strings.Join(kept, "\n\n")
-}
 
 // renderVoiceTable writes a formatted table of voice line statistics.
 func renderVoiceTable(w *strings.Builder, lines []eventlog.VoiceLine, days int) {
