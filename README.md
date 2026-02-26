@@ -166,6 +166,7 @@ notify history export [days]           # Export log entries as JSON (default: al
 notify history clean [days]             # Remove old entries, keep last N days
 notify history clear                   # Delete the log file
 notify voice generate [--min-uses N]    # Generate AI voice files for frequent say steps
+notify voice test [--voice V] [--speed S] [--model M] <text>  # Try a voice line
 notify voice play [text]               # Play all cached voices, or one matching text
 notify voice list                      # List cached AI voice files
 notify voice clear                     # Delete all cached voice files
@@ -598,6 +599,11 @@ notify voice generate
 
 # Only generate for texts used 10+ times:
 notify voice generate --min-uses 10
+
+# Try a voice line on the fly (not cached):
+notify voice test "Hello, your build is complete"
+notify voice test --voice echo --speed 1.5 "Task finished"
+notify voice test --model tts-1-hd --voice shimmer "Ready to go"
 
 # Play all cached voices:
 notify voice play

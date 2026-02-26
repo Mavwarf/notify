@@ -767,6 +767,8 @@ Commands:
   history clear          Delete the log file
   voice generate [--min-uses N]  Generate AI voice files for frequently used say steps
                          Only generates for texts used >= N times (default: 3 or config)
+  voice test [--voice V] [--speed S] [--model M] <text>
+                         Generate and play a voice line on the fly
   voice play [text]      Play all cached voices, or one matching text
   voice list             List cached AI voice files
   voice clear            Delete all cached AI voice files

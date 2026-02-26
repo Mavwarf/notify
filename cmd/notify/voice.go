@@ -31,6 +31,9 @@ func voiceCmd(args []string, configPath string) {
 		case "play":
 			voicePlay(args[1:])
 			return
+		case "test":
+			voiceTest(args[1:], configPath)
+			return
 		case "clear":
 			voiceClear()
 			return
@@ -39,7 +42,8 @@ func voiceCmd(args []string, configPath string) {
 	fmt.Fprintln(os.Stderr, `Usage: notify voice <command>
 
 Commands:
-  generate [--config <path>] [--min-uses N]  Generate AI voice files for frequently used say steps
+  generate [--min-uses N]                    Generate AI voice files for frequently used say steps
+  test [--voice V] [--speed S] [--model M] <text>  Generate and play a voice line on the fly
   play [text]                                Play all cached voices, or one matching text
   list                                       List cached voice files
   clear                                      Delete all cached voice files
@@ -262,6 +266,104 @@ func voiceList() {
 			formatSize(e.e.Size),
 			e.e.CreatedAt.Format("2006-01-02 15:04"),
 			dim("\"")+e.e.Text+dim("\""))
+	}
+}
+
+func voiceTest(args []string, configPath string) {
+	// Defaults from config, overridable by flags.
+	cfg, err := loadAndValidate(configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	voiceName := cfg.Options.Voice.Voice
+	if voiceName == "" {
+		voiceName = "nova"
+	}
+	model := cfg.Options.Voice.Model
+	if model == "" {
+		model = "tts-1"
+	}
+	speed := cfg.Options.Voice.Speed
+	if speed == 0 {
+		speed = 1.0
+	}
+
+	apiKey := cfg.Options.Credentials.OpenAIAPIKey
+
+	// Parse flags.
+	var textParts []string
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--voice":
+			if i+1 < len(args) {
+				voiceName = args[i+1]
+				i++
+			}
+		case "--speed":
+			if i+1 < len(args) {
+				v, err := strconv.ParseFloat(args[i+1], 64)
+				if err != nil || v < 0.25 || v > 4.0 {
+					fmt.Fprintf(os.Stderr, "Error: --speed must be 0.25-4.0\n")
+					os.Exit(1)
+				}
+				speed = v
+				i++
+			}
+		case "--model":
+			if i+1 < len(args) {
+				model = args[i+1]
+				i++
+			}
+		default:
+			textParts = append(textParts, args[i])
+		}
+	}
+
+	text := strings.Join(textParts, " ")
+	if text == "" {
+		fmt.Fprintf(os.Stderr, "Usage: notify voice test [--voice V] [--speed S] [--model M] <text>\n")
+		fmt.Fprintf(os.Stderr, "\nVoices: alloy, echo, fable, onyx, nova, shimmer\n")
+		fmt.Fprintf(os.Stderr, "Models: tts-1, tts-1-hd\n")
+		fmt.Fprintf(os.Stderr, "Speed:  0.25-4.0 (default: 1.0)\n")
+		os.Exit(1)
+	}
+
+	if apiKey == "" {
+		fmt.Fprintf(os.Stderr, "Error: openai_api_key not configured\n")
+		os.Exit(1)
+	}
+
+	fmt.Printf("Generating: %q (voice: %s, model: %s, speed: %.1f)...\n", text, voiceName, model, speed)
+
+	wavData, err := voice.Generate(apiKey, model, voiceName, text, speed)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Playing (%d KB)...\n", len(wavData)/1024)
+
+	// Write to temp file and play.
+	tmpFile, err := os.CreateTemp("", "notify-voice-test-*.wav")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	tmpPath := tmpFile.Name()
+	defer os.Remove(tmpPath)
+
+	if _, err := tmpFile.Write(wavData); err != nil {
+		tmpFile.Close()
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	tmpFile.Close()
+
+	if err := audio.Play(tmpPath, 1.0); err != nil {
+		fmt.Fprintf(os.Stderr, "Error playing: %v\n", err)
+		os.Exit(1)
 	}
 }
 
