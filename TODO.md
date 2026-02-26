@@ -1,11 +1,10 @@
 # TODO
 
-### Config Bootstrapper (`notify init`)
+### ~~Config Bootstrapper (`notify init`)~~ — done
 
-Interactive config generator. Asks which platforms you want, generates
-a starter config with credentials. Lowers the barrier for first-time
-setup. Lower priority now that built-in defaults let basic commands
-work without any config file.
+Implemented: `notify init` interactive walk-through with channel selection,
+credential input and validation, options, and named profiles. `--defaults`
+writes built-in config to file for manual editing.
 
 ### MQTT Publish
 

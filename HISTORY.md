@@ -2,6 +2,7 @@
 
 ## Features
 
+- Interactive config generator (`notify init`) — walk-through setup for channels, credentials, and profiles; `--defaults` for quick start *(Feb 26)*
 - Dashboard time-spent fix — total now uses merged timeline so overlapping profiles don't inflate wall-clock time *(Feb 26)*
 - Shell hook (`notify shell-hook`) — automatic notifications for long-running commands via bash/zsh/PowerShell hooks *(Feb 26)*
 - PID watch (`notify watch --pid`) — watch a running process, notify when it exits *(Feb 26)*
@@ -48,6 +49,15 @@
 ---
 
 ## 2026-02-26
+
+### Interactive Config Generator (`notify init`)
+
+Walk-through setup that generates a complete `notify-config.json`. Prompts for
+notification channels (toast, Discord, Slack, Telegram), credentials, options
+(logging, AFK threshold), and additional profiles with match rules. Validates
+Discord webhooks (GET) and Telegram tokens (`getMe` API) during setup. Use
+`notify init --defaults` to write the built-in default config to a file for
+manual editing.
 
 ### Dashboard: Time-Spent Total Fix
 

@@ -162,6 +162,8 @@ func main() {
 		historyCmd(filtered[1:])
 	case "dashboard":
 		dashboardCmd(configPath, port, openFlag)
+	case "init":
+		initCmd(filtered[1:], configPath)
 	case "config":
 		configCmd(filtered[1:], configPath)
 	case "send":
@@ -735,6 +737,7 @@ Options:
   --open, -O             Open dashboard in a browser window (app mode)
 
 Commands:
+  init                   Interactive config generator (or --defaults for quick setup)
   send <type> <message>  Send a one-off notification (e.g. send telegram "hello")
                          Supported: say, toast, discord, discord_voice, slack,
                          telegram, telegram_audio, telegram_voice

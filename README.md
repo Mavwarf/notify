@@ -148,6 +148,8 @@ notify run [options] [profile] -- <command...>
 notify watch --pid <PID> [options] [profile]  # Watch a process, notify on exit
 notify pipe [options] [profile] [--match <pat> <action>...]  # Stream mode
 notify send [--title <title>] <type> <message>  # Send a one-off notification
+notify init                            # Interactive config generator
+notify init --defaults                 # Write built-in defaults to file
 notify shell-hook install               # Auto-notify after long commands
 notify shell-hook uninstall            # Remove shell hook
 notify shell-hook status               # Check if hook is installed
