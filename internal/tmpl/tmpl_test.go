@@ -19,6 +19,39 @@ func TestTitleCase(t *testing.T) {
 	}
 }
 
+func TestHasDynamic(t *testing.T) {
+	tests := []struct {
+		name string
+		text string
+		want bool
+	}{
+		{"static only profile", "{Profile} ready", false},
+		{"static only hostname", "from {hostname}", false},
+		{"no vars", "Build complete", false},
+		{"empty string", "", false},
+		{"dynamic duration", "Took {duration}", true},
+		{"dynamic Duration", "Took {Duration}", true},
+		{"dynamic time", "at {time}", true},
+		{"dynamic Time", "at {Time}", true},
+		{"dynamic date", "on {date}", true},
+		{"dynamic Date", "on {Date}", true},
+		{"dynamic command", "ran {command}", true},
+		{"dynamic output", "result: {output}", true},
+		{"dynamic claude_message", "{claude_message}", true},
+		{"dynamic claude_hook", "{claude_hook}", true},
+		{"dynamic claude_json", "{claude_json}", true},
+		{"mixed static and dynamic", "{Profile} done in {duration}", true},
+		{"profile lowercase", "{profile} ready", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := HasDynamic(tt.text); got != tt.want {
+				t.Errorf("HasDynamic(%q) = %v, want %v", tt.text, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestExpand(t *testing.T) {
 	tests := []struct {
 		name string

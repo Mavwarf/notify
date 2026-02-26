@@ -18,6 +18,7 @@ import (
 	"github.com/Mavwarf/notify/internal/telegram"
 	"github.com/Mavwarf/notify/internal/tmpl"
 	"github.com/Mavwarf/notify/internal/toast"
+	"github.com/Mavwarf/notify/internal/voice"
 	"github.com/Mavwarf/notify/internal/webhook"
 )
 
@@ -26,8 +27,16 @@ import (
 const remoteVolume = 100
 
 // ttsToTempFile renders text to a temporary WAV file via TTS and returns the
-// file path plus a cleanup function that removes the temp file.
+// file path plus a cleanup function that removes the temp file. If a cached
+// AI voice exists for the text, returns the cached path with a no-op cleanup.
 func ttsToTempFile(prefix, text string) (path string, cleanup func(), err error) {
+	// Check voice cache first.
+	if cache, cErr := voice.OpenCache(); cErr == nil {
+		if wavPath, ok := cache.Lookup(text); ok {
+			return wavPath, func() {}, nil
+		}
+	}
+
 	f, err := os.CreateTemp("", prefix)
 	if err != nil {
 		return "", nil, fmt.Errorf("temp file: %w", err)
@@ -202,7 +211,13 @@ func execStep(step config.Step, defaultVolume int, creds config.Credentials, var
 	case "sound":
 		return audio.Play(step.Sound, float64(vol)/100.0)
 	case "say":
-		return speech.Say(tmpl.Expand(step.Text, vars), vol)
+		text := tmpl.Expand(step.Text, vars)
+		if cache, err := voice.OpenCache(); err == nil {
+			if wavPath, ok := cache.Lookup(text); ok {
+				return audio.Play(wavPath, float64(vol)/100.0)
+			}
+		}
+		return speech.Say(text, vol)
 	case "toast":
 		title := step.Title
 		if title == "" {

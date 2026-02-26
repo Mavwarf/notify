@@ -24,6 +24,16 @@ type Credentials struct {
 	SlackWebhook   string `json:"slack_webhook,omitempty"`
 	TelegramToken  string `json:"telegram_token,omitempty"`
 	TelegramChatID string `json:"telegram_chat_id,omitempty"`
+	OpenAIAPIKey   string `json:"openai_api_key,omitempty"`
+}
+
+// VoiceConfig holds settings for AI voice generation.
+type VoiceConfig struct {
+	Provider string  `json:"provider,omitempty"` // "openai" (default, only option)
+	Model    string  `json:"model,omitempty"`    // "tts-1" or "tts-1-hd"
+	Voice    string  `json:"voice,omitempty"`    // alloy|echo|fable|onyx|nova|shimmer
+	Speed    float64 `json:"speed,omitempty"`    // 0.25-4.0, default 1.0
+	MinUses  int     `json:"min_uses,omitempty"` // minimum event log occurrences before generating (default 3)
 }
 
 // Options holds global settings parsed from the "config" key.
@@ -38,6 +48,7 @@ type Options struct {
 	OutputLines         int               `json:"output_lines,omitempty"`
 	HeartbeatSeconds    int               `json:"heartbeat_seconds,omitempty"`
 	ShellHookThreshold  int               `json:"shell_hook_threshold,omitempty"`
+	Voice               VoiceConfig       `json:"openai_voice,omitempty"`
 	Credentials         Credentials       `json:"credentials,omitempty"`
 }
 
@@ -627,6 +638,9 @@ func MergeCredentials(global Credentials, profile *Credentials) Credentials {
 	if profile.TelegramChatID != "" {
 		merged.TelegramChatID = profile.TelegramChatID
 	}
+	if profile.OpenAIAPIKey != "" {
+		merged.OpenAIAPIKey = profile.OpenAIAPIKey
+	}
 	return merged
 }
 
@@ -639,6 +653,7 @@ func expandEnvCredentials(cfg *Config) {
 		c.SlackWebhook = os.ExpandEnv(c.SlackWebhook)
 		c.TelegramToken = os.ExpandEnv(c.TelegramToken)
 		c.TelegramChatID = os.ExpandEnv(c.TelegramChatID)
+		c.OpenAIAPIKey = os.ExpandEnv(c.OpenAIAPIKey)
 	}
 	expandCreds(&cfg.Options.Credentials)
 	for pName, profile := range cfg.Profiles {

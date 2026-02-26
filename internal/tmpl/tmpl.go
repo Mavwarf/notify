@@ -48,6 +48,29 @@ func Expand(s string, v Vars) string {
 	return s
 }
 
+// dynamicVars are template variables that depend on runtime values and
+// cannot be pre-expanded at generation time.
+var dynamicVars = []string{
+	"{duration}", "{Duration}",
+	"{time}", "{Time}",
+	"{date}", "{Date}",
+	"{command}",
+	"{output}",
+	"{claude_message}", "{claude_hook}", "{claude_json}",
+}
+
+// HasDynamic returns true if text contains any runtime-dependent template
+// variables that cannot be pre-expanded at generation time. Static variables
+// like {profile}, {Profile}, and {hostname} are excluded.
+func HasDynamic(text string) bool {
+	for _, v := range dynamicVars {
+		if strings.Contains(text, v) {
+			return true
+		}
+	}
+	return false
+}
+
 // TitleCase uppercases the first byte of s.
 func TitleCase(s string) string {
 	if s == "" {

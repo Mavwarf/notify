@@ -118,6 +118,8 @@ internal/
     wait_unix.go         Wait for PID exit via kill(pid, 0) polling
   webhook/
     webhook.go           Generic HTTP POST webhook integration
+  voice/
+    voice.go             AI voice cache management and OpenAI TTS API client
   runner/
     runner.go            Step executor (dispatches to audio/speech/toast/discord/discord_voice/slack/telegram/telegram_audio/telegram_voice/webhook)
   eventlog/
@@ -163,7 +165,11 @@ notify history watch                   # Live today's summary (refreshes every 2
 notify history export [days]           # Export log entries as JSON (default: all)
 notify history clean [days]             # Remove old entries, keep last N days
 notify history clear                   # Delete the log file
-notify voice stats [days|all]           # Show say step text usage frequency
+notify voice generate [--min-uses N]    # Generate AI voice files for frequent say steps
+notify voice play [text]               # Play all cached voices, or one matching text
+notify voice list                      # List cached AI voice files
+notify voice clear                     # Delete all cached voice files
+notify voice stats [days|all]          # Show say step text usage frequency
 notify silent [duration|off]           # Suppress notifications temporarily
 notify list                            # List all profiles and actions
 notify version                         # Show version and build date
@@ -211,11 +217,18 @@ notify help                            # Show help
     "output_lines": 0,
     "heartbeat_seconds": 0,
     "shell_hook_threshold": 30,
+    "openai_voice": {
+      "model": "tts-1",
+      "voice": "nova",
+      "speed": 1.0,
+      "min_uses": 3
+    },
     "credentials": {
       "discord_webhook": "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN",
       "slack_webhook": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
       "telegram_token": "YOUR_BOT_TOKEN",
-      "telegram_chat_id": "YOUR_CHAT_ID"
+      "telegram_chat_id": "YOUR_CHAT_ID",
+      "openai_api_key": "$OPENAI_API_KEY"
     }
   },
   "profiles": {
@@ -547,6 +560,68 @@ secrets:
 
 The `text` field supports template variables. Webhook steps run in parallel
 (they don't block the audio pipeline). Requires `url` and `text` fields.
+
+### AI voice generation
+
+Replace robotic system TTS with high-quality AI voices. `notify voice generate`
+scans the event log for frequently used `say` step messages and pre-generates
+WAV files via the OpenAI TTS API. When a cached voice exists, the runner plays
+it directly through the audio pipeline; otherwise it falls back to system TTS.
+Everything works without an API key — AI voices are purely additive.
+
+```json
+{
+  "config": {
+    "openai_voice": {
+      "model": "tts-1",
+      "voice": "nova",
+      "speed": 1.0,
+      "min_uses": 3
+    },
+    "credentials": {
+      "openai_api_key": "$OPENAI_API_KEY"
+    }
+  }
+}
+```
+
+| Voice setting | Description |
+|---------------|-------------|
+| `model` | `tts-1` (fast) or `tts-1-hd` (higher quality). Default: `tts-1` |
+| `voice` | `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`. Default: `nova` |
+| `speed` | 0.25–4.0. Default: 1.0 |
+| `min_uses` | Minimum event log occurrences before generating. Default: 3 |
+
+```bash
+# Generate AI voice files for frequently used say steps:
+notify voice generate
+
+# Only generate for texts used 10+ times:
+notify voice generate --min-uses 10
+
+# Play all cached voices:
+notify voice play
+
+# Play a specific cached voice:
+notify voice play "Boss done"
+
+# List cached voice files:
+notify voice list
+
+# Clear all cached voice files:
+notify voice clear
+```
+
+Messages containing dynamic template variables (`{duration}`, `{time}`, `{date}`,
+`{command}`, `{output}`, `{claude_*}`) cannot be pre-generated and always fall
+back to system TTS. Static variables (`{profile}`, `{hostname}`) are fine.
+
+The `notify test` dry-run shows voice source per say step:
+`(ai: nova)` for cached, `(system tts)` for uncached, `(system tts, dynamic)`
+for messages with runtime variables.
+
+Cache location: `~/.config/notify/voice-cache/` (or `%APPDATA%\notify\voice-cache\`
+on Windows). Files are named by SHA-256 hash of the text.
 
 ### AFK detection
 

@@ -16,6 +16,7 @@ import (
 	"github.com/Mavwarf/notify/internal/runner"
 	"github.com/Mavwarf/notify/internal/silent"
 	"github.com/Mavwarf/notify/internal/tmpl"
+	"github.com/Mavwarf/notify/internal/voice"
 )
 
 // sendTypes is the set of step types supported by "notify send".
@@ -275,6 +276,9 @@ func dryRun(args []string, configPath string) {
 	}
 	sort.Strings(actionNames)
 
+	// Open voice cache once for dry-run voice source info.
+	voiceCache, _ := voice.OpenCache()
+
 	fmt.Printf("\nActions:\n")
 	for _, aName := range actionNames {
 		act := p.Actions[aName]
@@ -286,9 +290,34 @@ func dryRun(args []string, configPath string) {
 				marker = "  RUN  "
 			}
 			detail := eventlog.StepSummary(s, nil)
+			voiceSrc := dryRunVoiceSource(s, voiceCache, cfg.Options.Voice.Voice)
+			if voiceSrc != "" {
+				detail += "  " + voiceSrc
+			}
 			fmt.Printf("    %s[%d] %-10s %s\n", marker, i+1, s.Type, detail)
 		}
 	}
+}
+
+// dryRunVoiceSource returns a parenthetical voice source label for say steps.
+// Returns "" for non-say steps.
+func dryRunVoiceSource(s config.Step, cache *voice.Cache, voiceName string) string {
+	if s.Type != "say" {
+		return ""
+	}
+	if tmpl.HasDynamic(s.Text) {
+		return "(system tts, dynamic)"
+	}
+	if cache != nil {
+		if _, ok := cache.Lookup(s.Text); ok {
+			name := voiceName
+			if name == "" {
+				name = "nova"
+			}
+			return fmt.Sprintf("(ai: %s)", name)
+		}
+	}
+	return "(system tts)"
 }
 
 func credStatus(ok bool) string {

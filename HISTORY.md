@@ -2,6 +2,7 @@
 
 ## Features
 
+- AI voice generation (`notify voice generate/list/clear`) — pre-generate high-quality AI voice files via OpenAI TTS for frequently used say steps; cached WAVs play automatically, falls back to system TTS *(Feb 26)*
 - Interactive config generator (`notify init`) — walk-through setup for channels, credentials, and profiles; `--defaults` for quick start *(Feb 26)*
 - Dashboard time-spent fix — total now uses merged timeline so overlapping profiles don't inflate wall-clock time *(Feb 26)*
 - Shell hook (`notify shell-hook`) — automatic notifications for long-running commands via bash/zsh/PowerShell hooks *(Feb 26)*
@@ -49,6 +50,25 @@
 ---
 
 ## 2026-02-26
+
+### AI Voice Generation (`notify voice generate/list/clear`)
+
+Pre-generate high-quality AI voice files for frequently used `say` step messages
+via the OpenAI TTS API. The `generate` command scans the event log, identifies
+messages used at least N times (default 3, configurable via `--min-uses` or
+`"min_uses"` in config), and calls the API to create cached WAV files. Messages
+with dynamic template variables (`{duration}`, `{time}`, etc.) are skipped and
+always fall back to system TTS. When a cached voice exists, the runner plays it
+directly through the audio pipeline instead of using system TTS. Cached voices
+also benefit remote voice steps (`discord_voice`, `telegram_audio`,
+`telegram_voice`). The `list` command shows all cached files, and `clear`
+removes them. The `notify test` dry-run shows voice source per say step.
+
+Config:
+```json
+"openai_voice": { "model": "tts-1", "voice": "nova", "speed": 1.0, "min_uses": 3 },
+"credentials": { "openai_api_key": "$OPENAI_API_KEY" }
+```
 
 ### Interactive Config Generator (`notify init`)
 
