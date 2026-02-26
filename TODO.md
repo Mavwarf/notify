@@ -1,11 +1,5 @@
 # TODO
 
-### ~~Config Bootstrapper (`notify init`)~~ — done
-
-Implemented: `notify init` interactive walk-through with channel selection,
-credential input and validation, options, and named profiles. `--defaults`
-writes built-in config to file for manual editing.
-
 ### MQTT Publish
 
 Publish a message to an MQTT broker topic. Useful for home automation —
@@ -73,12 +67,6 @@ Actions that trigger other actions based on step outcomes. E.g.
 `"on_failure": "escalate"` would run the `escalate` action if any
 step in the current action fails. Enables retry and escalation
 patterns without shell scripting.
-
-### ~~Shell Integration (`notify shell-hook`)~~ — done
-
-Implemented: `notify shell-hook install/uninstall/status` with bash,
-zsh, and PowerShell support. Internal `_hook` command handles dispatch.
-Config option `"shell_hook_threshold"` for default threshold.
 
 ### AI Voice Generation (`notify voice`)
 
@@ -168,23 +156,3 @@ file exists (e.g. `[say] "Build complete" (ai: nova)` vs
 - Cache lookup happens in `internal/speech/` before falling back to
   the platform TTS engine.
 
----
-
-## Tech Debt / Cleanup
-
-### ~~Update wiki~~ — done
-
-Wiki updated for shell hook, PID watch, dashboard time-spent fix,
-and `shell_hook_threshold` config option.
-
-### ~~Test platform-specific packages~~ — done
-
-Tests added for `idle` (integration), `speech` (script construction,
-escaping, volume), and `toast` (script construction, escaping, balloon
-tip arguments). Script-building extracted into testable helpers.
-
-### ~~Missing tests for command functions~~ — done
-
-Tests added for `filterContentByDays()` (recent/old/boundary/empty/
-malformed blocks). Command functions that call `os.Exit()` remain
-untested — would need refactoring to return errors instead.
