@@ -173,11 +173,10 @@ file exists (e.g. `[say] "Build complete" (ai: nova)` vs
 
 ## Tech Debt / Cleanup
 
-### Update wiki
+### ~~Update wiki~~ — done
 
-Wiki pages need updating for recent features: PID watch
-(`notify watch --pid`), built-in default config (zero-config fallback),
-stdin JSON injection, and web dashboard.
+Wiki updated for shell hook, PID watch, dashboard time-spent fix,
+and `shell_hook_threshold` config option.
 
 ### Test platform-specific packages (low)
 
