@@ -501,6 +501,9 @@ tr:hover td { background: var(--bg3); }
   letter-spacing: 0.5px;
   margin-bottom: 8px;
 }
+.watch-table th.sortable { cursor: pointer; user-select: none; }
+.watch-table th.sortable:hover { color: var(--fg); }
+.watch-table th.sortable.active { color: var(--cyan); }
 
 .watch-nav {
   display: flex;
@@ -1608,11 +1611,32 @@ tr:hover td { background: var(--bg3); }
   // ---- Watch tab ----
   let watchBaseline = null;
   let watchDate = null; // null = today, or "YYYY-MM-DD"
+  let summarySortKey = 'total'; // 'name' | 'total'
+  let summarySortAsc = false;
+  let timeSortKey = 'time'; // 'name' | 'time' | 'pct'
+  let timeSortAsc = false;
 
   const watchNavDate = document.getElementById('watch-nav-date');
   const watchPrev = document.getElementById('watch-prev');
   const watchNext = document.getElementById('watch-next');
   const watchToday = document.getElementById('watch-today');
+
+  // Sort button delegation — handles clicks on data-sort buttons inside watch tab.
+  document.getElementById('watch-content').addEventListener('click', function(e) {
+    var btn = e.target.closest('[data-sort]');
+    if (!btn) return;
+    var group = btn.getAttribute('data-sort');
+    var key = btn.getAttribute('data-key');
+    var defaults = { name: true, total: false, time: false, pct: false };
+    if (group === 'summary') {
+      if (summarySortKey === key) { summarySortAsc = !summarySortAsc; }
+      else { summarySortKey = key; summarySortAsc = defaults[key]; }
+    } else if (group === 'time') {
+      if (timeSortKey === key) { timeSortAsc = !timeSortAsc; }
+      else { timeSortKey = key; timeSortAsc = defaults[key]; }
+    }
+    loadWatch();
+  });
 
   function todayStr() {
     const d = new Date();
@@ -1711,13 +1735,20 @@ tr:hover td { background: var(--bg3); }
     html += '<div style="display:flex;gap:32px;align-items:flex-start">';
     html += '<div style="overflow-x:auto">';
     html += '<table class="watch-table watch-summary"><thead><tr>';
-    html += '<th style="min-width:180px"></th><th>Total</th><th>%</th>';
+    html += '<th style="min-width:180px" class="sortable' + (summarySortKey === 'name' ? ' active' : '') + '" data-sort="summary" data-key="name">Profile' + (summarySortKey === 'name' ? (summarySortAsc ? ' \u25b2' : ' \u25bc') : '') + '</th>';
+    html += '<th class="sortable' + (summarySortKey === 'total' ? ' active' : '') + '" data-sort="summary" data-key="total">Total' + (summarySortKey === 'total' ? (summarySortAsc ? ' \u25b2' : ' \u25bc') : '') + '</th>';
+    html += '<th>%</th>';
     if (hasSkipped) html += '<th>Skipped</th>';
     if (showNew) html += '<th>New</th>';
     html += '</tr></thead><tbody>';
 
+    const sortedProfiles = profiles.slice().sort(function(a, b) {
+      if (summarySortKey === 'total') return summarySortAsc ? a.total - b.total : b.total - a.total;
+      return summarySortAsc ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
+    });
+
     let totalNew = 0;
-    for (const p of profiles) {
+    for (const p of sortedProfiles) {
       // Profile subtotal row
       let pNew = 0;
       if (showNew) {
@@ -1823,17 +1854,24 @@ tr:hover td { background: var(--bg3); }
     // Approximate time spent (after hourly)
     if (data.time_spent && data.time_spent.total > 0) {
       html += '<div style="border-top:1px solid var(--border);margin-top:20px;padding-top:12px" class="watch-section-title">Approx. time spent</div>';
-      html += '<div style="font-size:11px;color:var(--fg-dim);margin-top:-4px;margin-bottom:8px">';
+      html += '<div style="font-size:11px;color:var(--fg-dim);margin-bottom:8px">';
       html += 'Rough estimate based on gaps between log entries (&le; 5 min counted as active).';
       html += '</div>';
       html += '<div style="display:flex;gap:32px;align-items:flex-start">';
       html += '<div style="overflow-x:auto">';
       html += '<table class="watch-table"><thead><tr>';
-      html += '<th style="min-width:180px"></th><th>Time</th><th>%</th>';
+      html += '<th style="min-width:180px" class="sortable' + (timeSortKey === 'name' ? ' active' : '') + '" data-sort="time" data-key="name">Profile' + (timeSortKey === 'name' ? (timeSortAsc ? ' \u25b2' : ' \u25bc') : '') + '</th>';
+      html += '<th class="sortable' + (timeSortKey === 'time' ? ' active' : '') + '" data-sort="time" data-key="time">Time' + (timeSortKey === 'time' ? (timeSortAsc ? ' \u25b2' : ' \u25bc') : '') + '</th>';
+      html += '<th class="sortable' + (timeSortKey === 'pct' ? ' active' : '') + '" data-sort="time" data-key="pct">%' + (timeSortKey === 'pct' ? (timeSortAsc ? ' \u25b2' : ' \u25bc') : '') + '</th>';
       html += '</tr></thead><tbody>';
-      for (const tp of data.time_spent.profiles) {
-        if (tp.seconds === 0) continue;
-        const pct = data.time_spent.total > 0 ? Math.round(tp.seconds * 100 / data.time_spent.total) : 0;
+      const timeProfiles = data.time_spent.profiles.filter(function(tp) { return tp.seconds > 0; });
+      const timeTotal = data.time_spent.total;
+      timeProfiles.sort(function(a, b) {
+        if (timeSortKey === 'time' || timeSortKey === 'pct') return timeSortAsc ? a.seconds - b.seconds : b.seconds - a.seconds;
+        return timeSortAsc ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
+      });
+      for (const tp of timeProfiles) {
+        const pct = timeTotal > 0 ? Math.round(tp.seconds * 100 / timeTotal) : 0;
         html += '<tr class="profile-row">';
         html += '<td class="profile-name">' + profileLink(tp.name) + '</td>';
         html += '<td>' + fmtDuration(tp.seconds) + '</td>';
