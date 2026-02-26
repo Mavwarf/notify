@@ -178,14 +178,14 @@ file exists (e.g. `[say] "Build complete" (ai: nova)` vs
 Wiki updated for shell hook, PID watch, dashboard time-spent fix,
 and `shell_hook_threshold` config option.
 
-### Test platform-specific packages (low)
+### ~~Test platform-specific packages~~ — done
 
-`idle`, `speech`, and `toast` have no tests. All three shell out to
-OS commands (`xprintidle`, `espeak`, `notify-send`, `say`, `osascript`,
-PowerShell). Could mock `exec.Command` to verify argument construction
-and error handling without real system calls.
+Tests added for `idle` (integration), `speech` (script construction,
+escaping, volume), and `toast` (script construction, escaping, balloon
+tip arguments). Script-building extracted into testable helpers.
 
-### Missing tests for command functions (low)
+### ~~Missing tests for command functions~~ — done
 
-`historyClean()`, `historyExport()`, and most command functions in
-`commands.go` (`sendCmd`, `silentCmd`, `dryRun`) have no direct unit tests.
+Tests added for `filterContentByDays()` (recent/old/boundary/empty/
+malformed blocks). Command functions that call `os.Exit()` remain
+untested — would need refactoring to return errors instead.

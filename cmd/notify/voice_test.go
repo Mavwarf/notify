@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Mavwarf/notify/internal/eventlog"
 )
@@ -82,5 +84,116 @@ func TestVoiceStatsRenderingWithDays(t *testing.T) {
 
 	if !strings.Contains(result, "last 7 days") {
 		t.Errorf("expected header to contain 'last 7 days', got:\n%s", result)
+	}
+}
+
+// --- filterContentByDays ---
+
+// makeLogBlock creates a log block with a given timestamp for testing.
+func makeLogBlock(t time.Time, profile, action string) string {
+	return fmt.Sprintf("%s  profile=%s action=%s\nsteps: [sound]", t.Format(time.RFC3339), profile, action)
+}
+
+func TestFilterContentByDaysKeepsRecent(t *testing.T) {
+	now := time.Now()
+	today := makeLogBlock(now, "app", "ready")
+	yesterday := makeLogBlock(now.AddDate(0, 0, -1), "app", "done")
+
+	content := today + "\n\n" + yesterday
+	result := filterContentByDays(content, 7)
+
+	if !strings.Contains(result, "ready") {
+		t.Error("should keep today's entry")
+	}
+	if !strings.Contains(result, "done") {
+		t.Error("should keep yesterday's entry")
+	}
+}
+
+func TestFilterContentByDaysRemovesOld(t *testing.T) {
+	now := time.Now()
+	today := makeLogBlock(now, "app", "ready")
+	old := makeLogBlock(now.AddDate(0, 0, -30), "app", "ancient")
+
+	content := today + "\n\n" + old
+	result := filterContentByDays(content, 7)
+
+	if !strings.Contains(result, "ready") {
+		t.Error("should keep today's entry")
+	}
+	if strings.Contains(result, "ancient") {
+		t.Error("should remove 30-day-old entry when filtering to 7 days")
+	}
+}
+
+func TestFilterContentByDaysAllOld(t *testing.T) {
+	now := time.Now()
+	old1 := makeLogBlock(now.AddDate(0, 0, -10), "app", "old1")
+	old2 := makeLogBlock(now.AddDate(0, 0, -20), "app", "old2")
+
+	content := old1 + "\n\n" + old2
+	result := filterContentByDays(content, 3)
+
+	if strings.TrimSpace(result) != "" {
+		t.Errorf("should return empty for all old entries, got: %q", result)
+	}
+}
+
+func TestFilterContentByDaysEdgeCutoff(t *testing.T) {
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	// Entry from exactly N-1 days ago (should be kept with days=N).
+	boundary := makeLogBlock(today.AddDate(0, 0, -6), "app", "boundary")
+	// Entry from exactly N days ago (should be removed with days=N).
+	outside := makeLogBlock(today.AddDate(0, 0, -7), "app", "outside")
+
+	content := boundary + "\n\n" + outside
+	result := filterContentByDays(content, 7)
+
+	if !strings.Contains(result, "boundary") {
+		t.Error("entry at cutoff boundary should be kept")
+	}
+	if strings.Contains(result, "outside") {
+		t.Error("entry beyond cutoff should be removed")
+	}
+}
+
+func TestFilterContentByDaysOneDayKeepsToday(t *testing.T) {
+	now := time.Now()
+	today := makeLogBlock(now, "app", "today")
+	yesterday := makeLogBlock(now.AddDate(0, 0, -1), "app", "yesterday")
+
+	content := today + "\n\n" + yesterday
+	result := filterContentByDays(content, 1)
+
+	if !strings.Contains(result, "today") {
+		t.Error("days=1 should keep today's entry")
+	}
+	if strings.Contains(result, "yesterday") {
+		t.Error("days=1 should remove yesterday's entry")
+	}
+}
+
+func TestFilterContentByDaysEmptyContent(t *testing.T) {
+	result := filterContentByDays("", 7)
+	if strings.TrimSpace(result) != "" {
+		t.Errorf("empty content should return empty, got: %q", result)
+	}
+}
+
+func TestFilterContentByDaysMalformedBlock(t *testing.T) {
+	now := time.Now()
+	good := makeLogBlock(now, "app", "ready")
+	bad := "not-a-timestamp  some data"
+
+	content := good + "\n\n" + bad
+	result := filterContentByDays(content, 7)
+
+	if !strings.Contains(result, "ready") {
+		t.Error("valid block should be kept")
+	}
+	if strings.Contains(result, "not-a-timestamp") {
+		t.Error("malformed block should be dropped")
 	}
 }
