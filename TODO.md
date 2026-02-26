@@ -68,9 +68,3 @@ Actions that trigger other actions based on step outcomes. E.g.
 step in the current action fails. Enables retry and escalation
 patterns without shell scripting.
 
-### ~~AI Voice Generation (`notify voice`)~~ — done
-
-Implemented in v0.2.20: `notify voice generate/list/clear` with OpenAI TTS,
-usage-based generation (min_uses threshold), voice cache, runner integration,
-and dry-run source display.
-
