@@ -688,10 +688,6 @@ func computeBreakdown(entries []eventlog.Entry, start, end time.Time, rangeType 
 			base := int(start.Month()) + idx
 			y := start.Year() + (base-1)/12
 			m := time.Month(((base - 1) % 12) + 1)
-			if base < 1 {
-				y = start.Year() + base/12 - 1
-				m = time.Month(12 + base%12)
-			}
 			return fmt.Sprintf("%s '%02d", m.String()[:3], y%100)
 		case "week":
 			d := start.AddDate(0, 0, idx)

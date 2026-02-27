@@ -270,13 +270,22 @@ func extractQuoted(s string) string {
 	return ""
 }
 
-// VoiceLine holds a unique say-step text and its usage count.
+// VoiceLine holds a unique voice step text and its usage count.
 type VoiceLine struct {
 	Text  string
 	Count int
 }
 
-// ParseVoiceLines scans log content for say step detail lines and returns
+// voiceStepSuffixes lists the log patterns for step types that use TTS.
+// Each is the string after "step[N]" and before the text= field.
+var voiceStepSuffixes = []string{
+	"] say  text=",
+	"] discord_voice  text=",
+	"] telegram_audio  text=",
+	"] telegram_voice  text=",
+}
+
+// ParseVoiceLines scans log content for TTS step detail lines and returns
 // unique texts sorted by frequency (descending), then alphabetically.
 func ParseVoiceLines(content string) []VoiceLine {
 	content = strings.TrimRight(content, "\n\r ")
@@ -286,18 +295,23 @@ func ParseVoiceLines(content string) []VoiceLine {
 
 	counts := map[string]int{}
 	for _, line := range strings.Split(content, "\n") {
-		// Match step detail lines for say steps: "step[N] say  text="..."
-		idx := strings.Index(line, "] say  text=")
-		if idx < 0 {
-			continue
+		// Match step detail lines for any voice-capable step type.
+		var raw string
+		matched := false
+		for _, suffix := range voiceStepSuffixes {
+			idx := strings.Index(line, suffix)
+			if idx >= 0 && strings.Contains(line[:idx], "step[") {
+				raw = line[idx+len(suffix):]
+				matched = true
+				break
+			}
 		}
-		if !strings.Contains(line[:idx], "step[") {
+		if !matched {
 			continue
 		}
 
 		// Extract the quoted text value. The text is %q-encoded and may be
 		// followed by additional fields (e.g. when=afk, volume=80).
-		raw := line[idx+len("] say  text="):]
 		text := extractQuoted(raw)
 		if text != "" {
 			counts[text]++

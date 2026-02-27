@@ -765,14 +765,14 @@ Commands:
   history export [days]  Export log entries as JSON (default: all)
   history clean [days]   Remove old entries, keep last N days (no arg = clear all)
   history clear          Delete the log file
-  voice generate [--min-uses N]  Generate AI voice files for frequently used say steps
+  voice generate [--min-uses N]  Generate AI voice files for frequently used voice steps
                          Only generates for texts used >= N times (default: 3 or config)
   voice test [--voice V] [--speed S] [--model M] <text>
                          Generate and play a voice line on the fly
   voice play [text]      Play all cached voices, or one matching text
   voice list             List cached AI voice files
   voice clear            Delete all cached AI voice files
-  voice stats [days|all]  Show say step text usage frequency (default: all)
+  voice stats [days|all]  Show voice step text usage frequency (default: all)
   silent [duration|off]  Suppress all notifications for a duration (e.g. 1h, 30m)
   list, -l, --list       List all profiles and actions
   version, -V           Show version and build date

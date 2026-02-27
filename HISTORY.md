@@ -4,14 +4,14 @@
 
 - Dashboard time ranges — Day/Week/Month/Year/Total views in the Watch tab with adaptive breakdown buckets and keyboard shortcuts *(Feb 27)*
 - Dashboard voice playback — play button in Voice tab to preview pre-generated AI voice files in the browser *(Feb 26)*
-- AI voice generation (`notify voice generate/list/clear`) — pre-generate high-quality AI voice files via OpenAI TTS for frequently used say steps; cached WAVs play automatically, falls back to system TTS *(Feb 26)*
+- AI voice generation (`notify voice generate/list/clear`) — pre-generate high-quality AI voice files via OpenAI TTS for frequently used voice steps; cached WAVs play automatically, falls back to system TTS *(Feb 26)*
 - Interactive config generator (`notify init`) — walk-through setup for channels, credentials, and profiles; `--defaults` for quick start *(Feb 26)*
 - Dashboard time-spent fix — total now uses merged timeline so overlapping profiles don't inflate wall-clock time *(Feb 26)*
 - Shell hook (`notify shell-hook`) — automatic notifications for long-running commands via bash/zsh/PowerShell hooks *(Feb 26)*
 - PID watch (`notify watch --pid`) — watch a running process, notify when it exits *(Feb 26)*
 - Built-in default config — zero-config fallback with `ready`, `error`, `done`, `attention` actions using local audio *(Feb 26)*
 - Stdin JSON injection — auto-detect piped JSON on stdin for hook integration (`{claude_message}`, `{claude_hook}`, `{claude_json}`) *(Feb 25)*
-- Voice stats (`notify voice stats`) — say step text usage frequency from event log *(Feb 25)*
+- Voice stats (`notify voice stats`) — voice step text usage frequency from event log *(Feb 25)*
 - Tests for `renderHourlyTable` — basic, single-profile, empty, single-hour, and gap-hour scenarios *(Feb 25)*
 - Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, voice stats, silent mode control, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, dark/light theme toggle, history export, clickable profile detail view, approximate time spent per profile, profile donut charts, hourly bar chart, activity timeline, log file stats, screenshot mode, and `--open` flag for chromeless browser window *(Feb 25)*
 - Heartbeat for long tasks (`--heartbeat`) — periodic notifications during `notify run` *(Feb 24)*
@@ -87,7 +87,7 @@ always fall back to system TTS. When a cached voice exists, the runner plays it
 directly through the audio pipeline instead of using system TTS. Cached voices
 also benefit remote voice steps (`discord_voice`, `telegram_audio`,
 `telegram_voice`). The `list` command shows all cached files, and `clear`
-removes them. The `notify test` dry-run shows voice source per say step.
+removes them. The `notify test` dry-run shows voice source per voice step.
 
 Config:
 ```json

@@ -172,12 +172,12 @@ notify history watch                   # Live today's summary (refreshes every 2
 notify history export [days]           # Export log entries as JSON (default: all)
 notify history clean [days]             # Remove old entries, keep last N days
 notify history clear                   # Delete the log file
-notify voice generate [--min-uses N]    # Generate AI voice files for frequent say steps
+notify voice generate [--min-uses N]    # Generate AI voice files for frequent voice steps
 notify voice test [--voice V] [--speed S] [--model M] <text>  # Try a voice line
 notify voice play [text]               # Play all cached voices, or one matching text
 notify voice list                      # List cached AI voice files
 notify voice clear                     # Delete all cached voice files
-notify voice stats [days|all]          # Show say step text usage frequency
+notify voice stats [days|all]          # Show voice step text usage frequency
 notify silent [duration|off]           # Suppress notifications temporarily
 notify list                            # List all profiles and actions
 notify version                         # Show version and build date
@@ -601,7 +601,7 @@ Everything works without an API key — AI voices are purely additive.
 | `min_uses` | Minimum event log occurrences before generating. Default: 3 |
 
 ```bash
-# Generate AI voice files for frequently used say steps:
+# Generate AI voice files for frequently used voice steps:
 notify voice generate
 
 # Only generate for texts used 10+ times:
@@ -629,7 +629,7 @@ Messages containing dynamic template variables (`{duration}`, `{time}`, `{date}`
 `{command}`, `{output}`, `{claude_*}`) cannot be pre-generated and always fall
 back to system TTS. Static variables (`{profile}`, `{hostname}`) are fine.
 
-The `notify test` dry-run shows voice source per say step:
+The `notify test` dry-run shows voice source per voice step:
 `(ai: nova)` for cached, `(system tts)` for uncached, `(system tts, dynamic)`
 for messages with runtime variables.
 

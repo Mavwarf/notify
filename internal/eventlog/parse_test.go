@@ -319,6 +319,30 @@ func TestParseVoiceLinesWithTrailingFields(t *testing.T) {
 	}
 }
 
+func TestParseVoiceLinesRemoteVoiceSteps(t *testing.T) {
+	content := "2026-02-22T10:00:00+01:00  profile=default  action=done  steps=say,discord_voice,telegram_audio,telegram_voice  afk=false\n" +
+		"2026-02-22T10:00:00+01:00    step[1] say  text=\"Project done\"\n" +
+		"2026-02-22T10:00:00+01:00    step[2] discord_voice  text=\"Project done\"\n" +
+		"2026-02-22T10:00:00+01:00    step[3] telegram_audio  text=\"Project done\"\n" +
+		"2026-02-22T10:00:00+01:00    step[4] telegram_voice  text=\"Project done\"\n" +
+		"\n" +
+		"2026-02-22T11:00:00+01:00  profile=boss  action=done  steps=telegram_voice  afk=true\n" +
+		"2026-02-22T11:00:00+01:00    step[1] telegram_voice  text=\"Boss is done\"  when=afk\n"
+
+	lines := ParseVoiceLines(content)
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 voice lines, got %d", len(lines))
+	}
+
+	// "Project done" appears 4 times (say + discord_voice + telegram_audio + telegram_voice).
+	if lines[0].Text != "Project done" || lines[0].Count != 4 {
+		t.Errorf("lines[0] = %+v, want {Text:\"Project done\", Count:4}", lines[0])
+	}
+	if lines[1].Text != "Boss is done" || lines[1].Count != 1 {
+		t.Errorf("lines[1] = %+v, want {Text:\"Boss is done\", Count:1}", lines[1])
+	}
+}
+
 func TestParseVoiceLinesNoSaySteps(t *testing.T) {
 	content := "2026-02-22T10:00:00+01:00  profile=default  action=ready  steps=sound,toast  afk=false\n" +
 		"2026-02-22T10:00:00+01:00    step[1] sound  sound=success\n" +
@@ -326,7 +350,7 @@ func TestParseVoiceLinesNoSaySteps(t *testing.T) {
 
 	lines := ParseVoiceLines(content)
 	if lines != nil {
-		t.Fatalf("expected nil for log without say steps, got %v", lines)
+		t.Fatalf("expected nil for log without voice steps, got %v", lines)
 	}
 }
 

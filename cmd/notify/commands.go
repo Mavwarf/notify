@@ -299,10 +299,14 @@ func dryRun(args []string, configPath string) {
 	}
 }
 
-// dryRunVoiceSource returns a parenthetical voice source label for say steps.
-// Returns "" for non-say steps.
+// dryRunVoiceSource returns a parenthetical voice source label for voice-capable
+// step types (say, discord_voice, telegram_audio, telegram_voice).
+// Returns "" for non-voice steps.
 func dryRunVoiceSource(s config.Step, cache *voice.Cache, voiceName string) string {
-	if s.Type != "say" {
+	switch s.Type {
+	case "say", "discord_voice", "telegram_audio", "telegram_voice":
+		// voice-capable step — continue
+	default:
 		return ""
 	}
 	if tmpl.HasDynamic(s.Text) {

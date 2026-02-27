@@ -42,12 +42,12 @@ func voiceCmd(args []string, configPath string) {
 	fmt.Fprintln(os.Stderr, `Usage: notify voice <command>
 
 Commands:
-  generate [--min-uses N]                    Generate AI voice files for frequently used say steps
+  generate [--min-uses N]                    Generate AI voice files for frequently used voice steps
   test [--voice V] [--speed S] [--model M] <text>  Generate and play a voice line on the fly
   play [text]                                Play all cached voices, or one matching text
   list                                       List cached voice files
   clear                                      Delete all cached voice files
-  stats [days|all]                           Show say step text usage frequency`)
+  stats [days|all]                           Show voice step text usage frequency`)
 	os.Exit(1)
 }
 
@@ -120,7 +120,7 @@ func voiceGenerate(args []string, configPath string) {
 
 	voiceLines := eventlog.ParseVoiceLines(string(logData))
 	if len(voiceLines) == 0 {
-		fmt.Println("No say step usage found in the event log.")
+		fmt.Println("No voice step usage found in the event log.")
 		return
 	}
 
