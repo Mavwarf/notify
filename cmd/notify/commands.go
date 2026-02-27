@@ -304,7 +304,7 @@ func dryRunVoiceSource(s config.Step, cache *voice.Cache, voiceName string) stri
 		if _, ok := cache.Lookup(s.Text); ok {
 			name := voiceName
 			if name == "" {
-				name = "nova"
+				name = config.DefaultVoiceName
 			}
 			return fmt.Sprintf("(ai: %s)", name)
 		}

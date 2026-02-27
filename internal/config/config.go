@@ -18,6 +18,13 @@ const DefaultAFKThreshold = 300
 // DefaultVolume is the default playback volume (0-100).
 const DefaultVolume = 100
 
+// Voice generation defaults.
+const (
+	DefaultVoiceName  = "nova"
+	DefaultVoiceModel = "tts-1"
+	DefaultVoiceSpeed = 1.0
+)
+
 // Credentials holds secret values for remote notification actions.
 type Credentials struct {
 	DiscordWebhook string `json:"discord_webhook,omitempty"`
@@ -236,7 +243,7 @@ func Validate(cfg Config) error {
 		}
 	}
 
-	// Voice config validation.
+	// Voice config.
 	vc := cfg.Options.Voice
 	if vc.Provider != "" && vc.Provider != "openai" {
 		errs = append(errs, fmt.Sprintf("config: openai_voice.provider %q is not supported (use \"openai\" or omit)", vc.Provider))
@@ -255,11 +262,24 @@ func Validate(cfg Config) error {
 		errs = append(errs, fmt.Sprintf("config: openai_voice.min_uses %d must not be negative", vc.MinUses))
 	}
 
-	// Alias validation.
+	errs = append(errs, validateAliases(cfg.Profiles)...)
+	errs = append(errs, validateMatchRules(cfg.Profiles)...)
+	errs = append(errs, validateSteps(cfg)...)
+
+	if len(errs) == 0 {
+		return nil
+	}
+	return fmt.Errorf("config validation:\n  %s", strings.Join(errs, "\n  "))
+}
+
+// validateAliases checks for alias conflicts (shadowing profile names,
+// duplicate aliases across profiles).
+func validateAliases(profiles map[string]Profile) []string {
+	var errs []string
 	aliasOwner := map[string]string{} // alias → profile name
-	for pName, profile := range cfg.Profiles {
+	for pName, profile := range profiles {
 		for _, alias := range profile.Aliases {
-			if _, ok := cfg.Profiles[alias]; ok {
+			if _, ok := profiles[alias]; ok {
 				errs = append(errs, fmt.Sprintf("profiles.%s: alias %q shadows an existing profile name", pName, alias))
 			}
 			if prev, ok := aliasOwner[alias]; ok {
@@ -268,23 +288,34 @@ func Validate(cfg Config) error {
 			aliasOwner[alias] = pName
 		}
 	}
+	return errs
+}
 
-	// Match rule validation.
-	for pName, profile := range cfg.Profiles {
-		if profile.Match != nil {
-			if profile.Match.Dir == "" && profile.Match.Env == "" {
-				errs = append(errs, fmt.Sprintf("profiles.%s: match rule must have at least one condition (dir or env)", pName))
-			}
-			if profile.Match.Env != "" {
-				parts := strings.SplitN(profile.Match.Env, "=", 2)
-				if len(parts) < 2 || parts[0] == "" {
-					errs = append(errs, fmt.Sprintf("profiles.%s: match env must be KEY=VALUE (got %q)", pName, profile.Match.Env))
-				}
+// validateMatchRules checks that match rules have at least one condition
+// and that env rules use KEY=VALUE format.
+func validateMatchRules(profiles map[string]Profile) []string {
+	var errs []string
+	for pName, profile := range profiles {
+		if profile.Match == nil {
+			continue
+		}
+		if profile.Match.Dir == "" && profile.Match.Env == "" {
+			errs = append(errs, fmt.Sprintf("profiles.%s: match rule must have at least one condition (dir or env)", pName))
+		}
+		if profile.Match.Env != "" {
+			parts := strings.SplitN(profile.Match.Env, "=", 2)
+			if len(parts) < 2 || parts[0] == "" {
+				errs = append(errs, fmt.Sprintf("profiles.%s: match env must be KEY=VALUE (got %q)", pName, profile.Match.Env))
 			}
 		}
 	}
+	return errs
+}
 
-	// Profiles and steps.
+// validateSteps checks per-action and per-step constraints: required fields,
+// credential availability, value ranges.
+func validateSteps(cfg Config) []string {
+	var errs []string
 	for pName, profile := range cfg.Profiles {
 		creds := MergeCredentials(cfg.Options.Credentials, profile.Credentials)
 		for aName, action := range profile.Actions {
@@ -306,77 +337,79 @@ func Validate(cfg Config) error {
 				if s.Volume != nil && (*s.Volume < 0 || *s.Volume > 100) {
 					errs = append(errs, fmt.Sprintf("%s: volume %d out of range 0-100", sp, *s.Volume))
 				}
-				// Required fields per type.
-				switch s.Type {
-				case "sound":
-					if s.Sound == "" {
-						errs = append(errs, fmt.Sprintf("%s: sound step requires \"sound\" field", sp))
-					}
-				case "say":
-					if s.Text == "" {
-						errs = append(errs, fmt.Sprintf("%s: say step requires \"text\" field", sp))
-					}
-				case "toast":
-					if s.Message == "" {
-						errs = append(errs, fmt.Sprintf("%s: toast step requires \"message\" field", sp))
-					}
-				case "discord", "discord_voice":
-					if s.Text == "" {
-						errs = append(errs, fmt.Sprintf("%s: %s step requires \"text\" field", sp, s.Type))
-					}
-					if creds.DiscordWebhook == "" {
-						errs = append(errs, fmt.Sprintf("%s: %s step requires credentials.discord_webhook", sp, s.Type))
-					}
-				case "slack":
-					if s.Text == "" {
-						errs = append(errs, fmt.Sprintf("%s: slack step requires \"text\" field", sp))
-					}
-					if creds.SlackWebhook == "" {
-						errs = append(errs, fmt.Sprintf("%s: slack step requires credentials.slack_webhook", sp))
-					}
-				case "telegram", "telegram_audio", "telegram_voice":
-					if s.Text == "" {
-						errs = append(errs, fmt.Sprintf("%s: %s step requires \"text\" field", sp, s.Type))
-					}
-					if creds.TelegramToken == "" || creds.TelegramChatID == "" {
-						errs = append(errs, fmt.Sprintf("%s: %s step requires credentials.telegram_token and telegram_chat_id", sp, s.Type))
-					}
-				case "webhook":
-					if s.URL == "" {
-						errs = append(errs, fmt.Sprintf("%s: webhook step requires \"url\" field", sp))
-					}
-					if s.Text == "" {
-						errs = append(errs, fmt.Sprintf("%s: webhook step requires \"text\" field", sp))
-					}
-				case "plugin":
-					if s.Command == "" {
-						errs = append(errs, fmt.Sprintf("%s: plugin step requires \"command\" field", sp))
-					}
-					if s.Timeout != nil && *s.Timeout < 0 {
-						errs = append(errs, fmt.Sprintf("%s: plugin timeout must not be negative", sp))
-					}
-				case "mqtt":
-					if s.Broker == "" {
-						errs = append(errs, fmt.Sprintf("%s: mqtt step requires \"broker\" field", sp))
-					}
-					if s.Topic == "" {
-						errs = append(errs, fmt.Sprintf("%s: mqtt step requires \"topic\" field", sp))
-					}
-					if s.Text == "" {
-						errs = append(errs, fmt.Sprintf("%s: mqtt step requires \"text\" field", sp))
-					}
-					if s.QoS != nil && (*s.QoS < 0 || *s.QoS > 2) {
-						errs = append(errs, fmt.Sprintf("%s: mqtt qos must be 0, 1, or 2", sp))
-					}
-				}
+				errs = append(errs, validateStepFields(sp, s, creds)...)
 			}
 		}
 	}
+	return errs
+}
 
-	if len(errs) == 0 {
-		return nil
+// validateStepFields checks required fields for a specific step type.
+func validateStepFields(sp string, s Step, creds Credentials) []string {
+	var errs []string
+	switch s.Type {
+	case "sound":
+		if s.Sound == "" {
+			errs = append(errs, fmt.Sprintf("%s: sound step requires \"sound\" field", sp))
+		}
+	case "say":
+		if s.Text == "" {
+			errs = append(errs, fmt.Sprintf("%s: say step requires \"text\" field", sp))
+		}
+	case "toast":
+		if s.Message == "" {
+			errs = append(errs, fmt.Sprintf("%s: toast step requires \"message\" field", sp))
+		}
+	case "discord", "discord_voice":
+		if s.Text == "" {
+			errs = append(errs, fmt.Sprintf("%s: %s step requires \"text\" field", sp, s.Type))
+		}
+		if creds.DiscordWebhook == "" {
+			errs = append(errs, fmt.Sprintf("%s: %s step requires credentials.discord_webhook", sp, s.Type))
+		}
+	case "slack":
+		if s.Text == "" {
+			errs = append(errs, fmt.Sprintf("%s: slack step requires \"text\" field", sp))
+		}
+		if creds.SlackWebhook == "" {
+			errs = append(errs, fmt.Sprintf("%s: slack step requires credentials.slack_webhook", sp))
+		}
+	case "telegram", "telegram_audio", "telegram_voice":
+		if s.Text == "" {
+			errs = append(errs, fmt.Sprintf("%s: %s step requires \"text\" field", sp, s.Type))
+		}
+		if creds.TelegramToken == "" || creds.TelegramChatID == "" {
+			errs = append(errs, fmt.Sprintf("%s: %s step requires credentials.telegram_token and telegram_chat_id", sp, s.Type))
+		}
+	case "webhook":
+		if s.URL == "" {
+			errs = append(errs, fmt.Sprintf("%s: webhook step requires \"url\" field", sp))
+		}
+		if s.Text == "" {
+			errs = append(errs, fmt.Sprintf("%s: webhook step requires \"text\" field", sp))
+		}
+	case "plugin":
+		if s.Command == "" {
+			errs = append(errs, fmt.Sprintf("%s: plugin step requires \"command\" field", sp))
+		}
+		if s.Timeout != nil && *s.Timeout < 0 {
+			errs = append(errs, fmt.Sprintf("%s: plugin timeout must not be negative", sp))
+		}
+	case "mqtt":
+		if s.Broker == "" {
+			errs = append(errs, fmt.Sprintf("%s: mqtt step requires \"broker\" field", sp))
+		}
+		if s.Topic == "" {
+			errs = append(errs, fmt.Sprintf("%s: mqtt step requires \"topic\" field", sp))
+		}
+		if s.Text == "" {
+			errs = append(errs, fmt.Sprintf("%s: mqtt step requires \"text\" field", sp))
+		}
+		if s.QoS != nil && (*s.QoS < 0 || *s.QoS > 2) {
+			errs = append(errs, fmt.Sprintf("%s: mqtt qos must be 0, 1, or 2", sp))
+		}
 	}
-	return fmt.Errorf("config validation:\n  %s", strings.Join(errs, "\n  "))
+	return errs
 }
 
 // validateWhen checks that a when condition string is recognized.
@@ -666,6 +699,21 @@ func resolveSoundPaths(cfg *Config, configDir string) {
 	}
 }
 
+// fields returns pointers to all credential string fields, in a stable order.
+// Used by MergeCredentials and expandEnvCredentials so that adding a new
+// credential only requires updating the struct and this method.
+func (c *Credentials) fields() []*string {
+	return []*string{
+		&c.DiscordWebhook,
+		&c.SlackWebhook,
+		&c.TelegramToken,
+		&c.TelegramChatID,
+		&c.OpenAIAPIKey,
+		&c.MQTTUsername,
+		&c.MQTTPassword,
+	}
+}
+
 // MergeCredentials returns global credentials with any non-empty profile
 // fields overriding. A nil profile returns global unchanged.
 func MergeCredentials(global Credentials, profile *Credentials) Credentials {
@@ -673,26 +721,12 @@ func MergeCredentials(global Credentials, profile *Credentials) Credentials {
 		return global
 	}
 	merged := global
-	if profile.DiscordWebhook != "" {
-		merged.DiscordWebhook = profile.DiscordWebhook
-	}
-	if profile.SlackWebhook != "" {
-		merged.SlackWebhook = profile.SlackWebhook
-	}
-	if profile.TelegramToken != "" {
-		merged.TelegramToken = profile.TelegramToken
-	}
-	if profile.TelegramChatID != "" {
-		merged.TelegramChatID = profile.TelegramChatID
-	}
-	if profile.OpenAIAPIKey != "" {
-		merged.OpenAIAPIKey = profile.OpenAIAPIKey
-	}
-	if profile.MQTTUsername != "" {
-		merged.MQTTUsername = profile.MQTTUsername
-	}
-	if profile.MQTTPassword != "" {
-		merged.MQTTPassword = profile.MQTTPassword
+	mf := merged.fields()
+	pf := profile.fields()
+	for i, p := range pf {
+		if *p != "" {
+			*mf[i] = *p
+		}
 	}
 	return merged
 }
@@ -702,13 +736,9 @@ func MergeCredentials(global Credentials, profile *Credentials) Credentials {
 // hardcoding them in the JSON config.
 func expandEnvCredentials(cfg *Config) {
 	expandCreds := func(c *Credentials) {
-		c.DiscordWebhook = os.ExpandEnv(c.DiscordWebhook)
-		c.SlackWebhook = os.ExpandEnv(c.SlackWebhook)
-		c.TelegramToken = os.ExpandEnv(c.TelegramToken)
-		c.TelegramChatID = os.ExpandEnv(c.TelegramChatID)
-		c.OpenAIAPIKey = os.ExpandEnv(c.OpenAIAPIKey)
-		c.MQTTUsername = os.ExpandEnv(c.MQTTUsername)
-		c.MQTTPassword = os.ExpandEnv(c.MQTTPassword)
+		for _, f := range c.fields() {
+			*f = os.ExpandEnv(*f)
+		}
 	}
 	expandCreds(&cfg.Options.Credentials)
 	for pName, profile := range cfg.Profiles {

@@ -57,36 +57,6 @@ Additional step types beyond `discord`, `slack`, and `telegram`:
 
 ## Tech Debt / Refactoring
 
-### Voice Defaults Constants
-
-The defaults `"nova"`, `"tts-1"`, and `1.0` are hardcoded in 3 places
-(`voice.go` x2, `commands.go`). Extract a `resolveVoiceDefaults(cfg)`
-helper with named constants.
-
-### Credential Field Sync
-
-`MergeCredentials`, `expandEnvCredentials`, and `Validate` each manually
-list every credential field. Adding a new credential requires updating all
-three. Consider a shared field list or reflection-based approach.
-
-**File:** `internal/config/config.go:652-701`
-
-### Monolithic `Validate()` Function
-
-At 150 lines, `Validate()` handles global options, aliases, match rules,
-and per-step validation all in one function. Extract sub-functions
-(`validateAliases`, `validateMatchRules`, `validateSteps`) for testability
-and readability.
-
-### Dashboard Polling Efficiency
-
-5 parallel fetch requests every 2 seconds on top of SSE. `loadHistory` is
-partially redundant with SSE. No `AbortController` for in-flight requests.
-Consider reducing polling frequency or using SSE-driven updates.
-
 ### Missing Tests
 
-- `internal/mqtt` — no tests (newest package)
-- `internal/procwait` — no tests (platform-specific)
 - `cmd/notify/commands.go` — `sendCmd`, `configCmd`, `dryRun` untested
-- `internal/slack` — only 2 tests (vs 5 for discord, 9 for telegram)

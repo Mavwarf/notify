@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Mavwarf/notify/internal/audio"
+	"github.com/Mavwarf/notify/internal/config"
 	"github.com/Mavwarf/notify/internal/eventlog"
 	"github.com/Mavwarf/notify/internal/tmpl"
 	"github.com/Mavwarf/notify/internal/voice"
@@ -77,15 +78,15 @@ func voiceGenerate(args []string, configPath string) {
 	// Resolve voice settings.
 	voiceName := cfg.Options.Voice.Voice
 	if voiceName == "" {
-		voiceName = "nova"
+		voiceName = config.DefaultVoiceName
 	}
 	model := cfg.Options.Voice.Model
 	if model == "" {
-		model = "tts-1"
+		model = config.DefaultVoiceModel
 	}
 	speed := cfg.Options.Voice.Speed
 	if speed == 0 {
-		speed = 1.0
+		speed = config.DefaultVoiceSpeed
 	}
 
 	// Resolve min uses threshold.
@@ -271,15 +272,15 @@ func voiceTest(args []string, configPath string) {
 
 	voiceName := cfg.Options.Voice.Voice
 	if voiceName == "" {
-		voiceName = "nova"
+		voiceName = config.DefaultVoiceName
 	}
 	model := cfg.Options.Voice.Model
 	if model == "" {
-		model = "tts-1"
+		model = config.DefaultVoiceModel
 	}
 	speed := cfg.Options.Voice.Speed
 	if speed == 0 {
-		speed = 1.0
+		speed = config.DefaultVoiceSpeed
 	}
 
 	apiKey := cfg.Options.Credentials.OpenAIAPIKey

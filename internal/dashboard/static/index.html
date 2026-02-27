@@ -1465,13 +1465,16 @@ tr:hover td { background: var(--bg3); }
     source.onmessage = (event) => {
       try {
         const entries = JSON.parse(event.data);
+        let hadVisible = false;
         for (const e of entries) {
           // Skip bookkeeping entries (e.g. cooldown=recorded) — only show
           // execution, cooldown-skipped, and silent-skipped events.
           if (e.kind === 'other') continue;
           appendHistoryRow(e, true);
           showToast(e);
+          hadVisible = true;
         }
+        if (hadVisible) scheduleSSERefresh();
       } catch(e) {
         console.error('SSE parse error:', e);
       }
@@ -2484,15 +2487,24 @@ tr:hover td { background: var(--bg3); }
 
   voiceDays.addEventListener('change', loadVoice);
 
-  // ---- Polling: refresh every 2s ----
-  setInterval(() => {
-    loadHistory();
-    loadSummary();
-    // Only auto-refresh watch when viewing today (live data).
-    if (!watchDate) loadWatch();
-    loadVoice();
-    loadSilent();
-  }, 2000);
+  // ---- SSE-driven refresh (debounced) ----
+  // Summary, watch, and history are updated when SSE delivers new events
+  // instead of polling every 2s. Voice and silent use longer intervals
+  // since they change infrequently.
+  let sseRefreshTimer = null;
+  function scheduleSSERefresh() {
+    if (sseRefreshTimer) return; // already scheduled
+    sseRefreshTimer = setTimeout(() => {
+      sseRefreshTimer = null;
+      loadSummary();
+      if (!watchDate) loadWatch();
+    }, 500);
+  }
+
+  // Voice data rarely changes — poll every 30s.
+  setInterval(loadVoice, 30000);
+  // Silent status needs periodic checks for countdown — poll every 5s.
+  setInterval(loadSilent, 5000);
 
   // ---- Screenshot toggle ----
   function toggleScreenshot() {
