@@ -5,6 +5,7 @@ package toast
 import (
 	"fmt"
 	"os/exec"
+	"strings"
 
 	"github.com/Mavwarf/notify/internal/shell"
 )
@@ -14,9 +15,20 @@ import (
 //
 // When desktop is non-nil, the toast includes a protocol activation URI
 // (notify://switch?desktop=N) so clicking it switches virtual desktops.
+// escapeXML replaces XML-special characters so user content can be
+// safely embedded inside XML text elements.
+func escapeXML(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	s = strings.ReplaceAll(s, "\"", "&quot;")
+	s = strings.ReplaceAll(s, "'", "&apos;")
+	return s
+}
+
 func showScript(title, message string, desktop *int) string {
-	t := shell.EscapePowerShell(title)
-	m := shell.EscapePowerShell(message)
+	t := shell.EscapePowerShell(escapeXML(title))
+	m := shell.EscapePowerShell(escapeXML(message))
 
 	// Build activation attributes for the toast element.
 	activation := ""

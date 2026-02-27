@@ -24,15 +24,15 @@ func TestShowScriptContainsMessage(t *testing.T) {
 
 func TestShowScriptEscapesTitleQuotes(t *testing.T) {
 	s := showScript("it's ready", "done", nil)
-	if !strings.Contains(s, "it''s ready") {
-		t.Errorf("script should escape title quotes:\n%s", s)
+	if !strings.Contains(s, "it&apos;s ready") {
+		t.Errorf("script should XML-escape title quotes:\n%s", s)
 	}
 }
 
 func TestShowScriptEscapesMessageQuotes(t *testing.T) {
 	s := showScript("Alert", "it's done", nil)
-	if !strings.Contains(s, "it''s done") {
-		t.Errorf("script should escape message quotes:\n%s", s)
+	if !strings.Contains(s, "it&apos;s done") {
+		t.Errorf("script should XML-escape message quotes:\n%s", s)
 	}
 }
 
@@ -82,6 +82,19 @@ func TestShowScriptDesktopProtocolActivation(t *testing.T) {
 	}
 	if !strings.Contains(s, `launch="notify://switch?desktop=2"`) {
 		t.Errorf("desktop=2 should set launch URI:\n%s", s)
+	}
+}
+
+func TestShowScriptEscapesXMLChars(t *testing.T) {
+	s := showScript("A & B", "x < y > z", nil)
+	if strings.Contains(s, "A & B") {
+		t.Error("ampersand should be XML-escaped")
+	}
+	if !strings.Contains(s, "A &amp; B") {
+		t.Errorf("title should contain escaped ampersand:\n%s", s)
+	}
+	if !strings.Contains(s, "x &lt; y &gt; z") {
+		t.Errorf("message should contain escaped angle brackets:\n%s", s)
 	}
 }
 
