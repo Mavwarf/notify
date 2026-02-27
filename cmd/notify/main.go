@@ -211,6 +211,8 @@ func main() {
 		historyCmd(filtered[1:])
 	case "dashboard":
 		dashboardCmd(configPath, port, openFlag)
+	case "startup":
+		startupCmd(configPath, port, openFlag)
 	case "init":
 		initCmd(filtered[1:], configPath)
 	case "config":
@@ -879,6 +881,8 @@ Commands:
   test [profile]         Dry-run: show what would happen without sending
   dashboard [--port N]   Local web UI with watch (day/week/month/year/total), history,
            [--open]      config, test, voice, silent tabs. --open for chromeless window
+  startup [--port N]     Register notify:// protocol + start dashboard (combines
+          [--open]       "protocol register" and "dashboard" into one command)
   config validate        Check config file for errors
   history [N]            Show last N log entries (default 10)
   history summary [days|all] Show action counts per day (default 7 days)

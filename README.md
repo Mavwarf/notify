@@ -190,6 +190,7 @@ notify shell-hook status               # Check if hook is installed
 notify play [sound]                    # Preview a built-in sound (or list all)
 notify test [profile]                  # Dry-run: show what would happen
 notify dashboard [--port N] [--open]   # Local web UI (default port 8080)
+notify startup [--port N] [--open]    # Register protocol + start dashboard
 notify config validate                 # Check config file for errors
 notify history [N]                     # Show last N log entries (default 10)
 notify history summary [days|all]      # Show action counts per day (default 7)

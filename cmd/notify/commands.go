@@ -11,6 +11,7 @@ import (
 	"github.com/Mavwarf/notify/internal/audio"
 	"github.com/Mavwarf/notify/internal/config"
 	"github.com/Mavwarf/notify/internal/dashboard"
+	"github.com/Mavwarf/notify/internal/desktop"
 	"github.com/Mavwarf/notify/internal/eventlog"
 	"github.com/Mavwarf/notify/internal/procwait"
 	"github.com/Mavwarf/notify/internal/runner"
@@ -369,6 +370,22 @@ func watchCmd(args []string, configPath string, opts runOpts) {
 			v.Duration = formatDuration(elapsed)
 			v.DurationSay = formatDurationSay(elapsed)
 		})
+}
+
+func startupCmd(configPath string, port int, open bool) {
+	if desktop.IsProtocolRegistered() {
+		fmt.Println("Protocol: already registered")
+	} else {
+		exe, err := os.Executable()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: cannot determine executable path: %v\n", err)
+		} else if err := desktop.RegisterProtocol(exe); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: register protocol: %v\n", err)
+		} else {
+			fmt.Println("Registered notify:// protocol handler")
+		}
+	}
+	dashboardCmd(configPath, port, open)
 }
 
 func dashboardCmd(configPath string, port int, open bool) {

@@ -2,6 +2,7 @@
 
 ## Features
 
+- Startup command (`notify startup`) — register `notify://` protocol handler and launch the web dashboard in one step; passes through `--port` and `--open` flags *(Feb 27)*
 - Duration-based escalation (`when: "long:DURATION"`) — fire steps only when a wrapped command exceeds a time threshold; quick builds stay local, long ones escalate to Discord/Slack *(Feb 27)*
 - SQLite migration fix — fixed data loss where `cooldown=recorded` lines merged with execution blocks; single-connection pool for reliable CASCADE deletes *(Feb 27)*
 - Dashboard storage indicator — Watch tab log stats line shows active backend (SQLite or File) *(Feb 27)*
@@ -65,6 +66,20 @@
 ---
 
 ## 2026-02-27
+
+### Startup Command (`notify startup`)
+
+Combines `notify protocol register` and `notify dashboard` into a single command.
+Registers the `notify://` URI handler (if not already registered), then launches
+the web dashboard. Passes through `--port` and `--open` flags. Non-fatal if
+protocol registration fails (e.g. on non-Windows platforms) — prints a warning
+and continues to the dashboard.
+
+```bash
+notify startup              # Register protocol + start dashboard on port 8080
+notify startup --open       # Same, but open a chromeless browser window
+notify startup --port 3000  # Custom port
+```
 
 ### Duration-Based Escalation (`when: "long:DURATION"`)
 
