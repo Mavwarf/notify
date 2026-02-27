@@ -3,76 +3,94 @@
 package toast
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
 
 func TestShowScriptContainsTitle(t *testing.T) {
-	s := showScript("Build Done", "finished in 5m")
+	s := showScript("Build Done", "finished in 5m", nil)
 	if !strings.Contains(s, "Build Done") {
 		t.Errorf("script should contain title:\n%s", s)
 	}
 }
 
 func TestShowScriptContainsMessage(t *testing.T) {
-	s := showScript("Alert", "deploy complete")
+	s := showScript("Alert", "deploy complete", nil)
 	if !strings.Contains(s, "deploy complete") {
 		t.Errorf("script should contain message:\n%s", s)
 	}
 }
 
 func TestShowScriptEscapesTitleQuotes(t *testing.T) {
-	s := showScript("it's ready", "done")
+	s := showScript("it's ready", "done", nil)
 	if !strings.Contains(s, "it''s ready") {
 		t.Errorf("script should escape title quotes:\n%s", s)
 	}
 }
 
 func TestShowScriptEscapesMessageQuotes(t *testing.T) {
-	s := showScript("Alert", "it's done")
+	s := showScript("Alert", "it's done", nil)
 	if !strings.Contains(s, "it''s done") {
 		t.Errorf("script should escape message quotes:\n%s", s)
 	}
 }
 
-func TestShowScriptLoadsFormsAssembly(t *testing.T) {
-	s := showScript("T", "M")
-	if !strings.Contains(s, "System.Windows.Forms") {
-		t.Error("script should load System.Windows.Forms assembly")
+func TestShowScriptLoadsWinRT(t *testing.T) {
+	s := showScript("T", "M", nil)
+	if !strings.Contains(s, "Windows.UI.Notifications.ToastNotificationManager") {
+		t.Error("script should load ToastNotificationManager WinRT type")
 	}
 }
 
-func TestShowScriptCreatesNotifyIcon(t *testing.T) {
-	s := showScript("T", "M")
-	if !strings.Contains(s, "NotifyIcon") {
-		t.Error("script should create NotifyIcon")
+func TestShowScriptUsesXmlDocument(t *testing.T) {
+	s := showScript("T", "M", nil)
+	if !strings.Contains(s, "Windows.Data.Xml.Dom.XmlDocument") {
+		t.Error("script should use XmlDocument")
 	}
 }
 
-func TestShowScriptSetsBalloonTipTitle(t *testing.T) {
-	s := showScript("My Title", "msg")
-	if !strings.Contains(s, "$n.BalloonTipTitle = 'My Title'") {
-		t.Errorf("script should set BalloonTipTitle:\n%s", s)
+func TestShowScriptContainsToastGenericTemplate(t *testing.T) {
+	s := showScript("T", "M", nil)
+	if !strings.Contains(s, "ToastGeneric") {
+		t.Error("script should use ToastGeneric binding template")
 	}
 }
 
-func TestShowScriptSetsBalloonTipText(t *testing.T) {
-	s := showScript("title", "My Message")
-	if !strings.Contains(s, "$n.BalloonTipText = 'My Message'") {
-		t.Errorf("script should set BalloonTipText:\n%s", s)
+func TestShowScriptCreatesNotifier(t *testing.T) {
+	s := showScript("T", "M", nil)
+	if !strings.Contains(s, "CreateToastNotifier") {
+		t.Error("script should create toast notifier")
 	}
 }
 
-func TestShowScriptDisposesIcon(t *testing.T) {
-	s := showScript("T", "M")
-	if !strings.Contains(s, "$n.Dispose()") {
-		t.Error("script should dispose NotifyIcon")
+func TestShowScriptNilDesktopNoProtocol(t *testing.T) {
+	s := showScript("T", "M", nil)
+	if strings.Contains(s, "activationType") {
+		t.Error("nil desktop should not include activationType")
+	}
+	if strings.Contains(s, "notify://switch") {
+		t.Error("nil desktop should not include protocol URI")
 	}
 }
 
-func TestShowScriptShowsBalloonTip(t *testing.T) {
-	s := showScript("T", "M")
-	if !strings.Contains(s, "ShowBalloonTip(5000)") {
-		t.Error("script should show balloon tip for 5 seconds")
+func TestShowScriptDesktopProtocolActivation(t *testing.T) {
+	d := 2
+	s := showScript("T", "M", &d)
+	if !strings.Contains(s, `activationType="protocol"`) {
+		t.Errorf("desktop should set activationType=protocol:\n%s", s)
+	}
+	if !strings.Contains(s, `launch="notify://switch?desktop=2"`) {
+		t.Errorf("desktop=2 should set launch URI:\n%s", s)
+	}
+}
+
+func TestShowScriptDesktopOtherValues(t *testing.T) {
+	for _, d := range []int{1, 3, 4} {
+		s := showScript("T", "M", &d)
+		expected := fmt.Sprintf(`launch="notify://switch?desktop=%d"`, d)
+		if !strings.Contains(s, expected) {
+			t.Errorf("desktop=%d: expected %s in script:\n%s", d, expected, s)
+		}
 	}
 }

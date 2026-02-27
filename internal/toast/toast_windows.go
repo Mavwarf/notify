@@ -9,25 +9,37 @@ import (
 	"github.com/Mavwarf/notify/internal/shell"
 )
 
-// showScript returns the PowerShell script for displaying a balloon-tip notification.
-func showScript(title, message string) string {
+// showScript returns the PowerShell script for displaying a modern Windows 10+
+// toast notification using the ToastNotificationManager XML API.
+//
+// When desktop is non-nil, the toast includes a protocol activation URI
+// (notify://switch?desktop=N) so clicking it switches virtual desktops.
+func showScript(title, message string, desktop *int) string {
+	t := shell.EscapePowerShell(title)
+	m := shell.EscapePowerShell(message)
+
+	// Build activation attributes for the toast element.
+	activation := ""
+	if desktop != nil {
+		activation = fmt.Sprintf(` activationType="protocol" launch="notify://switch?desktop=%d"`, *desktop)
+	}
+
 	return fmt.Sprintf(`
-Add-Type -AssemblyName System.Windows.Forms
-$n = New-Object System.Windows.Forms.NotifyIcon
-$n.Icon = [System.Drawing.SystemIcons]::Information
-$n.Visible = $true
-$n.BalloonTipTitle = '%s'
-$n.BalloonTipText = '%s'
-$n.ShowBalloonTip(5000)
-Start-Sleep -Seconds 3
-$n.Dispose()
-`, shell.EscapePowerShell(title), shell.EscapePowerShell(message))
+[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
+[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom, ContentType = WindowsRuntime] | Out-Null
+
+$xml = New-Object Windows.Data.Xml.Dom.XmlDocument
+$xml.LoadXml('<toast%s><visual><binding template="ToastGeneric"><text>%s</text><text>%s</text></binding></visual></toast>')
+$toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
+[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('notify').Show($toast)
+`, activation, t, m)
 }
 
-// Show displays a Windows balloon-tip notification using PowerShell and
-// System.Windows.Forms.NotifyIcon.
-func Show(title, message string) error {
-	cmd := exec.Command("powershell", "-NoProfile", "-Command", showScript(title, message))
+// Show displays a Windows toast notification using the modern
+// ToastNotificationManager XML API. When desktop is non-nil, the toast
+// includes a protocol activation URI for virtual desktop switching.
+func Show(title, message string, desktop *int) error {
+	cmd := exec.Command("powershell", "-NoProfile", "-Command", showScript(title, message, desktop))
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("toast failed: %w\n%s", err, out)
 	}

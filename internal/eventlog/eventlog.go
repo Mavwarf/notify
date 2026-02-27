@@ -58,7 +58,7 @@ func LogCooldownRecord(profile, action string, cooldownSeconds int) {
 // Log appends to the log file a summary line followed by one detail line
 // per step. Errors are printed to stderr but never returned — logging is
 // best-effort.
-func Log(action string, steps []config.Step, afk bool, vars tmpl.Vars) {
+func Log(action string, steps []config.Step, afk bool, vars tmpl.Vars, desktop *int) {
 	writeLog(func(f *os.File, ts string) {
 		types := make([]string, len(steps))
 		for i, s := range steps {
@@ -68,6 +68,9 @@ func Log(action string, steps []config.Step, afk bool, vars tmpl.Vars) {
 		// Summary line.
 		summary := fmt.Sprintf("%s  profile=%s  action=%s  steps=%s  afk=%t",
 			ts, vars.Profile, action, strings.Join(types, ","), afk)
+		if desktop != nil {
+			summary += fmt.Sprintf("  desktop=%d", *desktop)
+		}
 		if vars.ClaudeHook != "" {
 			summary += fmt.Sprintf("  claude_hook=%s", vars.ClaudeHook)
 		}

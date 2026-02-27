@@ -10,7 +10,8 @@ import (
 )
 
 // Show displays a macOS notification using osascript.
-func Show(title, message string) error {
+// The desktop parameter is ignored on macOS.
+func Show(title, message string, desktop *int) error {
 	script := fmt.Sprintf(`display notification %q with title %q`,
 		shell.EscapeAppleScript(message), shell.EscapeAppleScript(title))
 	cmd := exec.Command("osascript", "-e", script)

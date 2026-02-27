@@ -14,8 +14,11 @@ import (
 	"sync"
 	"time"
 
+	"net/url"
+
 	"github.com/Mavwarf/notify/internal/config"
 	"github.com/Mavwarf/notify/internal/cooldown"
+	"github.com/Mavwarf/notify/internal/desktop"
 	"github.com/Mavwarf/notify/internal/eventlog"
 	"github.com/Mavwarf/notify/internal/idle"
 	"github.com/Mavwarf/notify/internal/runner"
@@ -94,6 +97,7 @@ func main() {
 	heartbeatSec := 0
 	port := 8080
 	openFlag := false
+	protocolURI := ""
 	var matches []matchPair
 
 	// Parse flags
@@ -133,6 +137,13 @@ func main() {
 			cooldownFlag = true
 		case "--open", "-O":
 			openFlag = true
+		case "--protocol":
+			if i+1 < len(args) {
+				protocolURI = args[i+1]
+				i++
+			} else {
+				fatal("--protocol requires a URI")
+			}
 		case "--port", "-p":
 			if i+1 < len(args) {
 				v, err := strconv.Atoi(args[i+1])
@@ -163,6 +174,12 @@ func main() {
 		}
 	}
 
+	// Handle --protocol activation (from toast click).
+	if protocolURI != "" {
+		handleProtocolURI(protocolURI)
+		return
+	}
+
 	if len(filtered) < 1 {
 		printUsage()
 		os.Exit(1)
@@ -189,6 +206,8 @@ func main() {
 		initCmd(filtered[1:], configPath)
 	case "config":
 		configCmd(filtered[1:], configPath)
+	case "protocol":
+		protocolCmd(filtered[1:])
 	case "send":
 		opts := runOpts{Volume: volume, Log: logFlag, Echo: echoFlag}
 		sendCmd(filtered[1:], configPath, opts)
@@ -485,8 +504,9 @@ func executeAction(cfg config.Config, profile, action string, act *config.Action
 
 	creds := config.MergeCredentials(cfg.Options.Credentials, cfg.Profiles[profile].Credentials)
 
+	desk := cfg.Profiles[profile].Desktop
 	filtered := runner.FilterSteps(act.Steps, afk, opts.RunMode)
-	err := runner.Execute(filtered, opts.Volume, creds, vars)
+	err := runner.Execute(filtered, opts.Volume, creds, vars, desk)
 	if cdEnabled && cdSec > 0 {
 		cooldown.Record(profile, action)
 		if shouldLog(cfg, opts.Log) {
@@ -494,7 +514,7 @@ func executeAction(cfg config.Config, profile, action string, act *config.Action
 		}
 	}
 	if shouldLog(cfg, opts.Log) {
-		eventlog.Log(action, filtered, afk, vars)
+		eventlog.Log(action, filtered, afk, vars, desk)
 	}
 	if shouldEcho(cfg, opts.Echo) {
 		printEcho(filtered)
@@ -727,6 +747,70 @@ func pluralize(n int, singular, plural string) string {
 	return fmt.Sprintf("%d %s", n, plural)
 }
 
+// handleProtocolURI handles a notify:// protocol activation URI.
+// Called when Windows launches the exe via toast click.
+func handleProtocolURI(uri string) {
+	u, err := url.Parse(uri)
+	if err != nil {
+		fatal("invalid protocol URI: %v", err)
+	}
+	if u.Host != "switch" {
+		fatal("unknown protocol action: %s", u.Host)
+	}
+	dStr := u.Query().Get("desktop")
+	if dStr == "" {
+		fatal("missing desktop parameter in URI")
+	}
+	d, err := strconv.Atoi(dStr)
+	if err != nil || d < 1 || d > 4 {
+		fatal("desktop must be 1-4, got %q", dStr)
+	}
+	if err := desktop.SwitchTo(d); err != nil {
+		fatal("switch desktop: %v", err)
+	}
+}
+
+// protocolCmd handles the "protocol" subcommand for managing the
+// notify:// URI handler registration.
+func protocolCmd(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintf(os.Stderr, "Usage: notify protocol <register|unregister|status>\n")
+		os.Exit(1)
+	}
+	switch args[0] {
+	case "register":
+		exe, err := os.Executable()
+		if err != nil {
+			fatal("cannot determine executable path: %v", err)
+		}
+		if err := desktop.RegisterProtocol(exe); err != nil {
+			fatal("register protocol: %v", err)
+		}
+		fmt.Println("Registered notify:// protocol handler")
+	case "unregister":
+		if err := desktop.UnregisterProtocol(); err != nil {
+			fatal("unregister protocol: %v", err)
+		}
+		fmt.Println("Unregistered notify:// protocol handler")
+	case "status":
+		if desktop.IsProtocolRegistered() {
+			fmt.Println("Protocol: registered")
+		} else {
+			fmt.Println("Protocol: not registered")
+		}
+		if desktop.Available() {
+			cur, _ := desktop.Current()
+			count, _ := desktop.Count()
+			fmt.Printf("Virtual desktops: %d (current: %d)\n", count, cur)
+		} else {
+			fmt.Println("Virtual desktops: not available (VirtualDesktopAccessor.dll not found)")
+		}
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown protocol subcommand: %s\n", args[0])
+		os.Exit(1)
+	}
+}
+
 func printVersion() {
 	fmt.Printf("notify %s (%s) %s/%s\n", version, buildDate, runtime.GOOS, runtime.GOARCH)
 }
@@ -754,6 +838,7 @@ Options:
   --heartbeat, -H <dur>  Periodic notification during "run" (e.g. 5m, 2m30s)
   --port, -p <1-65535>   Port for "dashboard" command (default: 8080)
   --open, -O             Open dashboard in a browser window (app mode)
+  --protocol <URI>       Handle a notify:// protocol activation (internal)
 
 Commands:
   init                   Interactive config generator (or --defaults for quick setup)
@@ -793,6 +878,9 @@ Commands:
   voice list             List cached AI voice files
   voice clear            Delete all cached AI voice files
   voice stats [days|all]  Show voice step text usage frequency (default: all)
+  protocol register      Register notify:// URI handler (Windows only)
+  protocol unregister    Remove notify:// URI handler
+  protocol status        Show protocol registration and virtual desktop info
   silent [duration|off]  Suppress all notifications for a duration (e.g. 1h, 30m)
   list, -l, --list       List all profiles and actions
   version, -V           Show version and build date

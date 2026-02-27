@@ -158,7 +158,7 @@ func matchHours(spec string, now time.Time) bool {
 // Steps that don't use the audio pipeline (toast, etc.) are fired in
 // parallel at the start. Audio-pipeline steps (sound, say) run
 // sequentially in order.
-func Execute(steps []config.Step, defaultVolume int, creds config.Credentials, vars tmpl.Vars) error {
+func Execute(steps []config.Step, defaultVolume int, creds config.Credentials, vars tmpl.Vars, desktop *int) error {
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -172,7 +172,7 @@ func Execute(steps []config.Step, defaultVolume int, creds config.Credentials, v
 		wg.Add(1)
 		go func(idx int, s config.Step) {
 			defer wg.Done()
-			if err := stepExec(s, defaultVolume, creds, vars); err != nil {
+			if err := stepExec(s, defaultVolume, creds, vars, desktop); err != nil {
 				mu.Lock()
 				parallelErrs = append(parallelErrs, fmt.Errorf("step %d (%s): %w", idx+1, s.Type, err))
 				mu.Unlock()
@@ -186,7 +186,7 @@ func Execute(steps []config.Step, defaultVolume int, creds config.Credentials, v
 		if !sequential(step.Type) {
 			continue
 		}
-		if err := stepExec(step, defaultVolume, creds, vars); err != nil {
+		if err := stepExec(step, defaultVolume, creds, vars, desktop); err != nil {
 			seqErr = fmt.Errorf("step %d (%s): %w", i+1, step.Type, err)
 			break
 		}
@@ -208,7 +208,7 @@ func Execute(steps []config.Step, defaultVolume int, creds config.Credentials, v
 // replaced in tests to avoid real audio/network calls.
 var stepExec = execStep
 
-func execStep(step config.Step, defaultVolume int, creds config.Credentials, vars tmpl.Vars) error {
+func execStep(step config.Step, defaultVolume int, creds config.Credentials, vars tmpl.Vars, desktop *int) error {
 	vol := defaultVolume
 	if step.Volume != nil {
 		vol = *step.Volume
@@ -230,7 +230,7 @@ func execStep(step config.Step, defaultVolume int, creds config.Credentials, var
 		if title == "" {
 			title = vars.Profile
 		}
-		return toast.Show(tmpl.Expand(title, vars), tmpl.Expand(step.Message, vars))
+		return toast.Show(tmpl.Expand(title, vars), tmpl.Expand(step.Message, vars), desktop)
 	case "discord":
 		msg := tmpl.Expand(step.Text, vars)
 		return retryOnce(func() error { return discord.Send(creds.DiscordWebhook, msg) })

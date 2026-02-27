@@ -51,7 +51,11 @@ go install github.com/Mavwarf/notify/cmd/notify@latest
 - **Text-to-speech** — uses OS-native TTS engines
   (Windows SAPI, macOS `say`, Linux `espeak`).
 - **Toast notifications** — native desktop notifications on all platforms
-  (Windows Toast API, macOS `osascript`, Linux `notify-send`).
+  (Windows 10+ ToastNotificationManager, macOS `osascript`, Linux `notify-send`).
+  On Windows, toasts can switch virtual desktops when clicked.
+- **Virtual desktop switching** *(experimental)* — per-profile `desktop` config (1-4) embeds a
+  protocol URI in Windows toasts; clicking the toast switches to that desktop.
+  Requires `VirtualDesktopAccessor.dll` next to the binary.
 - **Discord webhooks** — post messages to a Discord channel via webhook,
   no external dependencies (just `net/http`).
 - **Discord voice messages** — generate TTS audio and upload as a WAV
@@ -102,6 +106,11 @@ internal/
     static/index.html    Embedded frontend (HTML + inline CSS + JS)
   cooldown/
     cooldown.go          Per-action rate limiting with file-based state
+  desktop/
+    desktop_windows.go   Virtual desktop switching via VirtualDesktopAccessor.dll
+    desktop_other.go     Non-Windows stubs
+    protocol_windows.go  notify:// URI protocol handler (registry)
+    protocol_other.go    Non-Windows stubs
   silent/
     silent.go            Temporary notification suppression with file-based state
   discord/
@@ -148,7 +157,7 @@ internal/
     say_darwin.go        TTS via macOS say command
     say_linux.go         TTS via espeak-ng / espeak
   toast/
-    toast_windows.go     Windows Toast Notification API
+    toast_windows.go     Windows ToastNotificationManager (with protocol activation)
     toast_darwin.go      macOS osascript notifications
     toast_linux.go       Linux notify-send
 ```
@@ -183,6 +192,9 @@ notify voice play [text]               # Play all cached voices, or one matching
 notify voice list                      # List cached AI voice files
 notify voice clear                     # Delete all cached voice files
 notify voice stats [days|all]          # Show voice step text usage frequency
+notify protocol register               # Register notify:// URI handler (Windows)
+notify protocol unregister             # Remove notify:// URI handler
+notify protocol status                 # Show registration and desktop info
 notify silent [duration|off]           # Suppress notifications temporarily
 notify list                            # List all profiles and actions
 notify version                         # Show version and build date
@@ -269,6 +281,7 @@ notify help                            # Show help
     },
     "boss": {
       "aliases": ["b"],
+      "desktop": 2,
       "match": { "dir": "/work/" },
       "ready": {
         "cooldown_seconds": 10,
@@ -322,6 +335,13 @@ notify help                            # Show help
 - **Volume priority:** per-step `volume` > CLI `--volume` > config
   `"default_volume"` > 100.
 - Toast `title` defaults to the profile name if omitted.
+- **Desktop switching (Windows):** add `"desktop": N` (1-4) to a profile to
+  embed a `notify://switch?desktop=N` protocol URI in all toast notifications
+  for that profile. Clicking the toast switches to that virtual desktop.
+  Requires `VirtualDesktopAccessor.dll` next to the binary and
+  `notify protocol register` to set up the URI handler. Without the DLL
+  or protocol registration, toasts still fire normally — they just won't
+  switch desktops on click.
 - **Template variables:** use `{profile}` in `say` text, `toast` title/message,
   `discord`, `discord_voice`, `slack`, `telegram`, `telegram_audio`,
   `telegram_voice`, or `webhook` text to inject the runtime profile name, or `{Profile}` for
@@ -1263,6 +1283,47 @@ Silent state is stored in `silent.json` in the notify data directory
 (`%APPDATA%\notify\` on Windows, `~/.config/notify/` on Linux/macOS).
 If the file is missing, corrupt, or the time has passed, notify treats
 it as not silent (fail-open).
+
+### Virtual desktop switching (Windows, experimental)
+
+Toast notifications can switch virtual desktops when clicked. This uses the
+Windows 10+ `ToastNotificationManager` XML API with a custom protocol URI.
+
+**Setup:**
+
+1. Place `VirtualDesktopAccessor.dll` next to the notify binary. Download it
+   from [Ciantic/VirtualDesktopAccessor](https://github.com/Ciantic/VirtualDesktopAccessor).
+2. Register the protocol handler:
+   ```bash
+   notify protocol register
+   ```
+3. Add `"desktop": N` (1-4) to any profile in your config:
+   ```json
+   "boss": {
+     "extends": "default",
+     "desktop": 2
+   }
+   ```
+
+When a toast fires for that profile, clicking it launches
+`notify --protocol "notify://switch?desktop=2"`, which calls
+`VirtualDesktopAccessor.dll` to switch to desktop 2.
+
+**Management:**
+
+```bash
+notify protocol register     # Register notify:// URI handler
+notify protocol unregister   # Remove URI handler
+notify protocol status       # Show registration status and desktop info
+```
+
+**Graceful degradation:**
+
+- Without `VirtualDesktopAccessor.dll`: toasts still fire, but clicking does
+  nothing (the DLL is needed for switching).
+- Without protocol registration: toasts show a "how do you want to open this?"
+  dialog on click. Use `notify protocol status` to check.
+- On non-Windows: the `desktop` config field is accepted but ignored.
 
 ## Building
 

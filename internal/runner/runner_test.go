@@ -243,7 +243,7 @@ func TestRetryOnceBothFail(t *testing.T) {
 // --- Execute ---
 
 // mockStepExec replaces stepExec for testing and restores it on cleanup.
-func mockStepExec(t *testing.T, fn func(config.Step, int, config.Credentials, tmpl.Vars) error) {
+func mockStepExec(t *testing.T, fn func(config.Step, int, config.Credentials, tmpl.Vars, *int) error) {
 	t.Helper()
 	orig := stepExec
 	t.Cleanup(func() { stepExec = orig })
@@ -251,11 +251,11 @@ func mockStepExec(t *testing.T, fn func(config.Step, int, config.Credentials, tm
 }
 
 func TestExecuteEmpty(t *testing.T) {
-	mockStepExec(t, func(_ config.Step, _ int, _ config.Credentials, _ tmpl.Vars) error {
+	mockStepExec(t, func(_ config.Step, _ int, _ config.Credentials, _ tmpl.Vars, _ *int) error {
 		t.Fatal("should not be called")
 		return nil
 	})
-	if err := Execute(nil, 80, config.Credentials{}, tmpl.Vars{}); err != nil {
+	if err := Execute(nil, 80, config.Credentials{}, tmpl.Vars{}, nil); err != nil {
 		t.Errorf("err = %v, want nil", err)
 	}
 }
@@ -264,7 +264,7 @@ func TestExecuteAllParallel(t *testing.T) {
 	var mu sync.Mutex
 	var ran []string
 
-	mockStepExec(t, func(s config.Step, _ int, _ config.Credentials, _ tmpl.Vars) error {
+	mockStepExec(t, func(s config.Step, _ int, _ config.Credentials, _ tmpl.Vars, _ *int) error {
 		mu.Lock()
 		ran = append(ran, s.Type)
 		mu.Unlock()
@@ -276,7 +276,7 @@ func TestExecuteAllParallel(t *testing.T) {
 		{Type: "telegram", Text: "b"},
 		{Type: "toast", Message: "c"},
 	}
-	if err := Execute(steps, 80, config.Credentials{}, tmpl.Vars{}); err != nil {
+	if err := Execute(steps, 80, config.Credentials{}, tmpl.Vars{}, nil); err != nil {
 		t.Fatalf("err = %v", err)
 	}
 	if len(ran) != 3 {
@@ -287,7 +287,7 @@ func TestExecuteAllParallel(t *testing.T) {
 func TestExecuteAllSequential(t *testing.T) {
 	var order []string
 
-	mockStepExec(t, func(s config.Step, _ int, _ config.Credentials, _ tmpl.Vars) error {
+	mockStepExec(t, func(s config.Step, _ int, _ config.Credentials, _ tmpl.Vars, _ *int) error {
 		order = append(order, s.Type+":"+s.Sound)
 		return nil
 	})
@@ -297,7 +297,7 @@ func TestExecuteAllSequential(t *testing.T) {
 		{Type: "say", Text: "second"},
 		{Type: "sound", Sound: "third"},
 	}
-	if err := Execute(steps, 80, config.Credentials{}, tmpl.Vars{}); err != nil {
+	if err := Execute(steps, 80, config.Credentials{}, tmpl.Vars{}, nil); err != nil {
 		t.Fatalf("err = %v", err)
 	}
 	// Sequential steps must run in order.
@@ -313,7 +313,7 @@ func TestExecuteMixed(t *testing.T) {
 	var mu sync.Mutex
 	var ran []string
 
-	mockStepExec(t, func(s config.Step, _ int, _ config.Credentials, _ tmpl.Vars) error {
+	mockStepExec(t, func(s config.Step, _ int, _ config.Credentials, _ tmpl.Vars, _ *int) error {
 		mu.Lock()
 		ran = append(ran, s.Type)
 		mu.Unlock()
@@ -326,7 +326,7 @@ func TestExecuteMixed(t *testing.T) {
 		{Type: "telegram", Text: "b"},
 		{Type: "say", Text: "hi"},
 	}
-	if err := Execute(steps, 80, config.Credentials{}, tmpl.Vars{}); err != nil {
+	if err := Execute(steps, 80, config.Credentials{}, tmpl.Vars{}, nil); err != nil {
 		t.Fatalf("err = %v", err)
 	}
 	if len(ran) != 4 {
@@ -336,7 +336,7 @@ func TestExecuteMixed(t *testing.T) {
 
 func TestExecuteSequentialStopsOnError(t *testing.T) {
 	calls := 0
-	mockStepExec(t, func(s config.Step, _ int, _ config.Credentials, _ tmpl.Vars) error {
+	mockStepExec(t, func(s config.Step, _ int, _ config.Credentials, _ tmpl.Vars, _ *int) error {
 		calls++
 		if s.Sound == "bad" {
 			return errors.New("boom")
@@ -349,7 +349,7 @@ func TestExecuteSequentialStopsOnError(t *testing.T) {
 		{Type: "sound", Sound: "bad"},
 		{Type: "sound", Sound: "never"},
 	}
-	err := Execute(steps, 80, config.Credentials{}, tmpl.Vars{})
+	err := Execute(steps, 80, config.Credentials{}, tmpl.Vars{}, nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -362,7 +362,7 @@ func TestExecuteSequentialStopsOnError(t *testing.T) {
 }
 
 func TestExecuteParallelJoinsErrors(t *testing.T) {
-	mockStepExec(t, func(s config.Step, _ int, _ config.Credentials, _ tmpl.Vars) error {
+	mockStepExec(t, func(s config.Step, _ int, _ config.Credentials, _ tmpl.Vars, _ *int) error {
 		return errors.New(s.Text)
 	})
 
@@ -370,7 +370,7 @@ func TestExecuteParallelJoinsErrors(t *testing.T) {
 		{Type: "discord", Text: "fail-a"},
 		{Type: "telegram", Text: "fail-b"},
 	}
-	err := Execute(steps, 80, config.Credentials{}, tmpl.Vars{})
+	err := Execute(steps, 80, config.Credentials{}, tmpl.Vars{}, nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -384,7 +384,7 @@ func TestExecuteSeqErrorWaitsForParallel(t *testing.T) {
 	var parallelDone sync.WaitGroup
 	parallelDone.Add(1)
 
-	mockStepExec(t, func(s config.Step, _ int, _ config.Credentials, _ tmpl.Vars) error {
+	mockStepExec(t, func(s config.Step, _ int, _ config.Credentials, _ tmpl.Vars, _ *int) error {
 		if s.Type == "discord" {
 			time.Sleep(50 * time.Millisecond)
 			parallelDone.Done()
@@ -397,7 +397,7 @@ func TestExecuteSeqErrorWaitsForParallel(t *testing.T) {
 		{Type: "discord", Text: "slow"},
 		{Type: "sound", Sound: "bad"},
 	}
-	err := Execute(steps, 80, config.Credentials{}, tmpl.Vars{})
+	err := Execute(steps, 80, config.Credentials{}, tmpl.Vars{}, nil)
 	if err == nil || !strings.Contains(err.Error(), "seq-fail") {
 		t.Fatalf("err = %v, want seq-fail", err)
 	}
@@ -407,13 +407,13 @@ func TestExecuteSeqErrorWaitsForParallel(t *testing.T) {
 
 func TestExecutePassesVolume(t *testing.T) {
 	var gotVol int
-	mockStepExec(t, func(_ config.Step, vol int, _ config.Credentials, _ tmpl.Vars) error {
+	mockStepExec(t, func(_ config.Step, vol int, _ config.Credentials, _ tmpl.Vars, _ *int) error {
 		gotVol = vol
 		return nil
 	})
 
 	steps := []config.Step{{Type: "sound", Sound: "blip"}}
-	Execute(steps, 42, config.Credentials{}, tmpl.Vars{})
+	Execute(steps, 42, config.Credentials{}, tmpl.Vars{}, nil)
 	if gotVol != 42 {
 		t.Errorf("volume = %d, want 42", gotVol)
 	}

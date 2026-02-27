@@ -72,11 +72,11 @@ func sendCmd(args []string, configPath string, opts runOpts) {
 
 	vars := baseVars("send")
 	steps := []config.Step{step}
-	if err := runner.Execute(steps, opts.Volume, cfg.Options.Credentials, vars); err != nil {
+	if err := runner.Execute(steps, opts.Volume, cfg.Options.Credentials, vars, nil); err != nil {
 		fatal("%v", err)
 	}
 	if shouldLog(cfg, opts.Log) {
-		eventlog.Log("send:"+stepType, steps, false, vars)
+		eventlog.Log("send:"+stepType, steps, false, vars, nil)
 	}
 	if shouldEcho(cfg, opts.Echo) {
 		printEcho(steps)

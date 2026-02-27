@@ -96,6 +96,7 @@ type MatchRule struct {
 type Profile struct {
 	Extends     string            `json:"-"`
 	Aliases     []string          `json:"-"`
+	Desktop     *int              `json:"-"` // 1-4, virtual desktop to switch to on toast click
 	Credentials *Credentials      `json:"-"`
 	Match       *MatchRule        `json:"-"`
 	Actions     map[string]Action `json:"-"`
@@ -105,12 +106,15 @@ type Profile struct {
 // UnmarshalJSON. Without this, json.Marshal produces {} because all
 // fields have json:"-" tags.
 func (p Profile) MarshalJSON() ([]byte, error) {
-	m := make(map[string]interface{}, len(p.Actions)+4)
+	m := make(map[string]interface{}, len(p.Actions)+5)
 	if p.Extends != "" {
 		m["extends"] = p.Extends
 	}
 	if len(p.Aliases) > 0 {
 		m["aliases"] = p.Aliases
+	}
+	if p.Desktop != nil {
+		m["desktop"] = *p.Desktop
 	}
 	if p.Credentials != nil {
 		m["credentials"] = p.Credentials
@@ -152,6 +156,14 @@ func (p *Profile) UnmarshalJSON(data []byte) error {
 		}
 		p.Credentials = &creds
 		delete(raw, "credentials")
+	}
+	if d, ok := raw["desktop"]; ok {
+		var desk int
+		if err := json.Unmarshal(d, &desk); err != nil {
+			return fmt.Errorf("desktop: %w", err)
+		}
+		p.Desktop = &desk
+		delete(raw, "desktop")
 	}
 	if m, ok := raw["match"]; ok {
 		var rule MatchRule
@@ -260,6 +272,13 @@ func Validate(cfg Config) error {
 	}
 	if vc.MinUses < 0 {
 		errs = append(errs, fmt.Sprintf("config: openai_voice.min_uses %d must not be negative", vc.MinUses))
+	}
+
+	// Per-profile checks.
+	for pName, profile := range cfg.Profiles {
+		if profile.Desktop != nil && (*profile.Desktop < 1 || *profile.Desktop > 4) {
+			errs = append(errs, fmt.Sprintf("profiles.%s: desktop must be 1-4, got %d", pName, *profile.Desktop))
+		}
 	}
 
 	errs = append(errs, validateAliases(cfg.Profiles)...)
@@ -639,8 +658,11 @@ func resolveInheritance(cfg *Config) error {
 		}
 		delete(resolving, name)
 
-		// Merge parent credentials into child (child wins on conflict).
+		// Merge parent fields into child (child wins on conflict).
 		parentProfile := cfg.Profiles[parent]
+		if profile.Desktop == nil {
+			profile.Desktop = parentProfile.Desktop
+		}
 		if profile.Credentials == nil {
 			profile.Credentials = parentProfile.Credentials
 		} else if parentProfile.Credentials != nil {
