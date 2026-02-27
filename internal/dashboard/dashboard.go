@@ -275,9 +275,10 @@ func handleHistory(w http.ResponseWriter, r *http.Request) {
 	var entries []eventlog.Entry
 	if h := r.URL.Query().Get("hours"); h != "" {
 		if v, err := strconv.Atoi(h); err == nil && v > 0 {
-			entries = loadEntriesByHours(v)
+			cutoff := time.Now().Add(-time.Duration(v) * time.Hour)
+			entries, _ = eventlog.EntriesSince(cutoff)
 		} else {
-			entries = loadEntries(7)
+			entries, _ = eventlog.Entries(7)
 		}
 	} else {
 		days := 7
@@ -286,7 +287,7 @@ func handleHistory(w http.ResponseWriter, r *http.Request) {
 				days = v
 			}
 		}
-		entries = loadEntries(days)
+		entries, _ = eventlog.Entries(days)
 	}
 
 	out := make([]jsonEntry, len(entries))
@@ -302,12 +303,13 @@ func handleSummary(w http.ResponseWriter, r *http.Request) {
 	var entries []eventlog.Entry
 	if h := r.URL.Query().Get("hours"); h != "" {
 		if v, err := strconv.Atoi(h); err == nil && v > 0 {
-			entries = loadEntriesByHours(v)
+			cutoff := time.Now().Add(-time.Duration(v) * time.Hour)
+			entries, _ = eventlog.EntriesSince(cutoff)
 		} else {
-			entries = loadEntries(0)
+			entries, _ = eventlog.Entries(0)
 		}
 	} else {
-		entries = loadEntries(0)
+		entries, _ = eventlog.Entries(0)
 	}
 
 	days := 0 // show all loaded entries
@@ -356,7 +358,7 @@ func handleEvents(w http.ResponseWriter, r *http.Request) {
 	// Flush headers immediately so the browser fires onopen.
 	flusher.Flush()
 
-	logPath := eventlog.LogPath()
+	logPath := eventlog.Default.Path()
 	var offset int64
 
 	// Start from end of file.
@@ -787,7 +789,7 @@ func computeTimeSpentRange(entries []eventlog.Entry, start, end time.Time, loc *
 }
 
 func handleWatch(w http.ResponseWriter, r *http.Request) {
-	entries := loadEntries(0)
+	entries, _ := eventlog.Entries(0)
 
 	now := time.Now()
 	loc := now.Location()
@@ -895,12 +897,11 @@ func handleWatch(w http.ResponseWriter, r *http.Request) {
 func handleStats(w http.ResponseWriter, r *http.Request) {
 	var stats logStats
 
-	logPath := eventlog.LogPath()
-	if info, err := os.Stat(logPath); err == nil {
+	if info, err := os.Stat(eventlog.Default.Path()); err == nil {
 		stats.FileSize = info.Size()
 	}
 
-	entries := loadEntries(0)
+	entries, _ := eventlog.Entries(0)
 	stats.Entries = len(entries)
 	if len(entries) > 0 {
 		stats.OldestEntry = entries[0].Time.Format(time.RFC3339)
@@ -912,23 +913,19 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleVoice(w http.ResponseWriter, r *http.Request) {
-	data, err := os.ReadFile(eventlog.LogPath())
-	if err != nil {
+	days := 0
+	if d := r.URL.Query().Get("days"); d != "" {
+		if v, err := strconv.Atoi(d); err == nil && v > 0 {
+			days = v
+		}
+	}
+
+	lines, _ := eventlog.VoiceLines(days)
+	if len(lines) == 0 {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(voiceResponse{Lines: []voiceLine{}, Total: 0})
 		return
 	}
-
-	content := string(data)
-
-	// Optional ?days=N filter (0 = all time, default).
-	if d := r.URL.Query().Get("days"); d != "" {
-		if v, err := strconv.Atoi(d); err == nil && v > 0 {
-			content = eventlog.FilterBlocksByDays(content, v)
-		}
-	}
-
-	lines := eventlog.ParseVoiceLines(content)
 
 	// Load voice cache to check which texts have pre-generated WAVs.
 	cache, _ := voice.OpenCache()
@@ -1054,48 +1051,6 @@ func handleSilent(w http.ResponseWriter, r *http.Request) {
 }
 
 
-// loadEntriesByHours reads and parses the event log, filtering to entries
-// from the last N hours.
-func loadEntriesByHours(hours int) []eventlog.Entry {
-	data, err := os.ReadFile(eventlog.LogPath())
-	if err != nil {
-		return nil
-	}
-	entries := eventlog.ParseEntries(string(data))
-	cutoff := time.Now().Add(-time.Duration(hours) * time.Hour)
-	var filtered []eventlog.Entry
-	for _, e := range entries {
-		if !e.Time.Before(cutoff) {
-			filtered = append(filtered, e)
-		}
-	}
-	return filtered
-}
-
-// loadEntries reads and parses the event log, filtering to the last N days.
-// Pass days=0 to load all entries.
-func loadEntries(days int) []eventlog.Entry {
-	data, err := os.ReadFile(eventlog.LogPath())
-	if err != nil {
-		return nil
-	}
-	entries := eventlog.ParseEntries(string(data))
-	if days <= 0 {
-		return entries
-	}
-
-	now := time.Now()
-	cutoff := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).
-		AddDate(0, 0, -(days - 1))
-
-	var filtered []eventlog.Entry
-	for _, e := range entries {
-		if !e.Time.Before(cutoff) {
-			filtered = append(filtered, e)
-		}
-	}
-	return filtered
-}
 
 // redactConfig returns a JSON-safe representation of the config with
 // credential values replaced by "***".

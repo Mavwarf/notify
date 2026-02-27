@@ -67,18 +67,19 @@ type runOpts struct {
 	RunMode  bool
 }
 
-// readLog reads the event log file. Returns the content and true on
-// success. If the file doesn't exist, returns ("", false) so the caller
-// can print a context-appropriate message. Fatals on other read errors.
+// readLog reads the event log file via the default Store. Returns the content
+// and true on success. If the file is empty or doesn't exist, returns
+// ("", false) so the caller can print a context-appropriate message.
+// Fatals on other read errors.
 func readLog() (string, bool) {
-	data, err := os.ReadFile(eventlog.LogPath())
+	data, err := eventlog.ReadContent()
 	if err != nil {
-		if os.IsNotExist(err) {
-			return "", false
-		}
 		fatal("%v", err)
 	}
-	return string(data), true
+	if data == "" {
+		return "", false
+	}
+	return data, true
 }
 
 // fatal prints an error message to stderr and exits with code 1.
@@ -88,6 +89,8 @@ func fatal(format string, args ...any) {
 }
 
 func main() {
+	eventlog.OpenDefault()
+
 	args := os.Args[1:]
 	volume := -1
 	configPath := ""

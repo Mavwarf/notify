@@ -157,9 +157,9 @@ func TestHandleHistory(t *testing.T) {
 	}
 
 	// Override LogPath for this test.
-	origPath := eventlog.LogPath
-	eventlog.LogPath = func() string { return logFile }
-	defer func() { eventlog.LogPath = origPath }()
+	origDefault := eventlog.Default
+	eventlog.Default = eventlog.NewFileStore(logFile)
+	defer func() { eventlog.Default = origDefault }()
 
 	req := httptest.NewRequest("GET", "/api/history?days=1", nil)
 	w := httptest.NewRecorder()
@@ -382,9 +382,9 @@ func TestHandleWatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	origPath := eventlog.LogPath
-	eventlog.LogPath = func() string { return logFile }
-	defer func() { eventlog.LogPath = origPath }()
+	origDefault := eventlog.Default
+	eventlog.Default = eventlog.NewFileStore(logFile)
+	defer func() { eventlog.Default = origDefault }()
 
 	req := httptest.NewRequest("GET", "/api/watch", nil)
 	w := httptest.NewRecorder()
@@ -519,9 +519,9 @@ func TestHandleWatchDateParam(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	origPath := eventlog.LogPath
-	eventlog.LogPath = func() string { return logFile }
-	defer func() { eventlog.LogPath = origPath }()
+	origDefault := eventlog.Default
+	eventlog.Default = eventlog.NewFileStore(logFile)
+	defer func() { eventlog.Default = origDefault }()
 
 	// Request yesterday's data.
 	dateStr := yesterday.Format("2006-01-02")
@@ -582,9 +582,9 @@ func TestHandleWatchEmpty(t *testing.T) {
 	dir := t.TempDir()
 	logFile := filepath.Join(dir, "notify.log")
 
-	origPath := eventlog.LogPath
-	eventlog.LogPath = func() string { return logFile }
-	defer func() { eventlog.LogPath = origPath }()
+	origDefault := eventlog.Default
+	eventlog.Default = eventlog.NewFileStore(logFile)
+	defer func() { eventlog.Default = origDefault }()
 
 	req := httptest.NewRequest("GET", "/api/watch", nil)
 	w := httptest.NewRecorder()
@@ -796,9 +796,9 @@ func TestHandleVoice(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	origPath := eventlog.LogPath
-	eventlog.LogPath = func() string { return logFile }
-	defer func() { eventlog.LogPath = origPath }()
+	origDefault := eventlog.Default
+	eventlog.Default = eventlog.NewFileStore(logFile)
+	defer func() { eventlog.Default = origDefault }()
 
 	// Test all time.
 	req := httptest.NewRequest("GET", "/api/voice", nil)
@@ -857,9 +857,9 @@ func TestHandleVoiceEmpty(t *testing.T) {
 	dir := t.TempDir()
 	logFile := filepath.Join(dir, "notify.log")
 
-	origPath := eventlog.LogPath
-	eventlog.LogPath = func() string { return logFile }
-	defer func() { eventlog.LogPath = origPath }()
+	origDefault := eventlog.Default
+	eventlog.Default = eventlog.NewFileStore(logFile)
+	defer func() { eventlog.Default = origDefault }()
 
 	req := httptest.NewRequest("GET", "/api/voice", nil)
 	w := httptest.NewRecorder()
@@ -925,10 +925,10 @@ func TestHandleSilentGet(t *testing.T) {
 func TestHandleSilentPost(t *testing.T) {
 	withTempAppdata(t)
 
-	// Override LogPath so eventlog writes go to temp dir.
-	origPath := eventlog.LogPath
-	eventlog.LogPath = func() string { return filepath.Join(t.TempDir(), "notify.log") }
-	defer func() { eventlog.LogPath = origPath }()
+	// Override Default so eventlog writes go to temp dir.
+	origDefault := eventlog.Default
+	eventlog.Default = eventlog.NewFileStore(filepath.Join(t.TempDir(), "notify.log"))
+	defer func() { eventlog.Default = origDefault }()
 
 	// Enable silent mode for 30 minutes.
 	body := `{"minutes":30}`

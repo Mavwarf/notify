@@ -85,13 +85,15 @@ func historySummary(args []string) {
 		}
 	}
 
-	data, ok := readLog()
-	if !ok {
+	entries, err := eventlog.Entries(0)
+	if err != nil {
+		fatal("%v", err)
+	}
+	if len(entries) == 0 {
 		fmt.Println("No log file found. Enable logging with --log or \"log\": true in config.")
 		return
 	}
 
-	entries := eventlog.ParseEntries(data)
 	groups := eventlog.SummarizeByDay(entries, days)
 
 	if len(groups) == 0 {
@@ -442,9 +444,7 @@ func buildBaseline(groups []eventlog.DayGroup) map[string]int {
 }
 
 func historyClear() {
-	path := eventlog.LogPath()
-	err := os.Remove(path)
-	if err != nil && !os.IsNotExist(err) {
+	if err := eventlog.Default.Clear(); err != nil {
 		fatal("%v", err)
 	}
 	fmt.Println("Log file cleared.")
@@ -462,50 +462,16 @@ func historyClean(args []string) {
 		fatal("days must be a positive integer")
 	}
 
-	data, ok := readLog()
-	if !ok {
-		fmt.Println("Log file is empty.")
-		return
-	}
-	path := eventlog.LogPath()
-
-	content := strings.TrimRight(data, "\n\r ")
-	if content == "" {
-		fmt.Println("Log file is empty.")
-		return
-	}
-
-	// Count original non-empty blocks for the "removed" message.
-	origBlocks := 0
-	for _, b := range strings.Split(content, "\n\n") {
-		if strings.TrimSpace(b) != "" {
-			origBlocks++
-		}
-	}
-
-	filtered := eventlog.FilterBlocksByDays(content, days)
-
-	keptBlocks := 0
-	if filtered != "" {
-		for _, b := range strings.Split(filtered, "\n\n") {
-			if strings.TrimSpace(b) != "" {
-				keptBlocks++
-			}
-		}
-	}
-	removed := origBlocks - keptBlocks
-
-	if filtered == "" {
-		_ = os.Remove(path)
-		fmt.Printf("Removed %d entries. Log file cleared.\n", removed)
-		return
-	}
-
-	out := filtered + "\n\n"
-	if err := os.WriteFile(path, []byte(out), 0644); err != nil {
+	removed, err := eventlog.Default.Clean(days)
+	if err != nil {
 		fatal("%v", err)
 	}
-	fmt.Printf("Removed %d entries, kept %d (last %d days).\n", removed, keptBlocks, days)
+
+	if removed == 0 {
+		fmt.Println("Log file is empty.")
+	} else {
+		fmt.Printf("Removed %d entries (kept last %d days).\n", removed, days)
+	}
 }
 
 func historyRemove(args []string) {
@@ -514,36 +480,15 @@ func historyRemove(args []string) {
 	}
 	profileName := args[0]
 
-	data, ok := readLog()
-	if !ok {
-		fmt.Println("Log file is empty.")
-		return
-	}
-	path := eventlog.LogPath()
-
-	content := strings.TrimRight(data, "\n\r ")
-	if content == "" {
-		fmt.Println("Log file is empty.")
-		return
-	}
-
-	filtered, removed := eventlog.FilterBlocksByProfile(content, profileName)
-	if removed == 0 {
-		fmt.Printf("No entries found for profile %q.\n", profileName)
-		return
-	}
-
-	if filtered == "" {
-		_ = os.Remove(path)
-		fmt.Printf("Removed %d entries for profile %q. Log file cleared.\n", removed, profileName)
-		return
-	}
-
-	out := filtered + "\n\n"
-	if err := os.WriteFile(path, []byte(out), 0644); err != nil {
+	removed, err := eventlog.Default.RemoveProfile(profileName)
+	if err != nil {
 		fatal("%v", err)
 	}
-	fmt.Printf("Removed %d entries for profile %q.\n", removed, profileName)
+	if removed == 0 {
+		fmt.Printf("No entries found for profile %q.\n", profileName)
+	} else {
+		fmt.Printf("Removed %d entries for profile %q.\n", removed, profileName)
+	}
 }
 
 func historyWatch() {
@@ -578,16 +523,13 @@ func historyWatch() {
 			started.Format("15:04:05"), dim(elapsed.String()),
 			dim("press x or Esc to exit"))
 
-		path := eventlog.LogPath()
-		data, err := os.ReadFile(path)
+		data, err := eventlog.ReadContent()
 		if err != nil {
-			if os.IsNotExist(err) {
-				out.WriteString("No log file found.\n")
-			} else {
-				fmt.Fprintf(&out, "Error: %v\n", err)
-			}
+			fmt.Fprintf(&out, "Error: %v\n", err)
+		} else if data == "" {
+			out.WriteString("No log file found.\n")
 		} else {
-			entries := eventlog.ParseEntries(string(data))
+			entries := eventlog.ParseEntries(data)
 			groups := eventlog.SummarizeByDay(entries, 1)
 			if len(groups) == 0 {
 				out.WriteString("No activity today.\n")
@@ -627,23 +569,13 @@ func historyExport(args []string) {
 		days = n
 	}
 
-	data, ok := readLog()
-	if !ok {
+	entries, err := eventlog.Entries(days)
+	if err != nil {
+		fatal("%v", err)
+	}
+	if len(entries) == 0 {
 		fmt.Println("[]")
 		return
-	}
-
-	entries := eventlog.ParseEntries(data)
-
-	if days > 0 {
-		cutoff := eventlog.DayCutoff(days)
-		var filtered []eventlog.Entry
-		for _, e := range entries {
-			if !e.Time.In(time.Now().Location()).Before(cutoff) {
-				filtered = append(filtered, e)
-			}
-		}
-		entries = filtered
 	}
 
 	type exportEntry struct {

@@ -104,14 +104,15 @@ func voiceGenerate(args []string, configPath string) {
 	}
 
 	// Read voice line usage from event log.
-	logData, ok := readLog()
-	if !ok {
+	voiceLines, err := eventlog.VoiceLines(0)
+	if err != nil {
+		fatal("%v", err)
+	}
+	if voiceLines == nil {
 		fmt.Println("No log file found. Enable logging with --log or \"log\": true to track usage.")
 		fmt.Println("Voice generation requires usage data to identify frequently used messages.")
 		return
 	}
-
-	voiceLines := eventlog.ParseVoiceLines(logData)
 	if len(voiceLines) == 0 {
 		fmt.Println("No voice step usage found in the event log.")
 		return
@@ -455,20 +456,10 @@ func voiceStats(args []string) {
 		}
 	}
 
-	data, ok := readLog()
-	if !ok {
-		fmt.Println("No log file found. Enable logging with --log or \"log\": true in config.")
-		return
+	lines, err := eventlog.VoiceLines(days)
+	if err != nil {
+		fatal("%v", err)
 	}
-
-	content := data
-
-	// Filter to date range if days specified.
-	if days > 0 {
-		content = eventlog.FilterBlocksByDays(content, days)
-	}
-
-	lines := eventlog.ParseVoiceLines(content)
 	if len(lines) == 0 {
 		if days > 0 {
 			fmt.Printf("No voice lines found in the last %d days.\n", days)
