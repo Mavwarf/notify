@@ -54,9 +54,3 @@ Additional step types beyond `discord`, `slack`, and `telegram`:
 |------------|--------------------------------------|----------------|
 | `email`    | Send email via SMTP                  | All (net/smtp) |
 | `signal`   | Send via signal-cli                  | Needs signal-cli + Java |
-
-## Tech Debt / Refactoring
-
-### Missing Tests
-
-- `cmd/notify/commands.go` — `sendCmd`, `configCmd`, `dryRun` untested
