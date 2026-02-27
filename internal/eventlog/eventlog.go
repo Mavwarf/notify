@@ -151,6 +151,14 @@ func StepSummary(s config.Step, vars *tmpl.Vars) string {
 	case "webhook":
 		parts = append(parts, fmt.Sprintf("url=%s", s.URL))
 		parts = append(parts, fmt.Sprintf("text=%q", expand(s.Text)))
+	case "plugin":
+		parts = append(parts, fmt.Sprintf("command=%q", s.Command))
+		if s.Text != "" {
+			parts = append(parts, fmt.Sprintf("text=%q", expand(s.Text)))
+		}
+		if s.Timeout != nil {
+			parts = append(parts, fmt.Sprintf("timeout=%d", *s.Timeout))
+		}
 	}
 	if s.When != "" {
 		parts = append(parts, fmt.Sprintf("when=%s", s.When))

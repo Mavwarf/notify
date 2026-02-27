@@ -10,12 +10,6 @@ Home Assistant automation via MQTT. Config would need broker URL, topic,
 and optional auth in credentials. Payload could use template variables
 like other steps.
 
-### Plugin System
-
-External scripts as step types. A `"plugin"` step would run a user
-script with template variables as environment variables, enabling
-integration with any tool without adding it to the binary.
-
 ## Medium Impact
 
 ### Modern Toast Notifications (Windows)

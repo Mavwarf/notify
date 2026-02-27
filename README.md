@@ -114,6 +114,8 @@ internal/
     convert.go           WAV to OGG/OPUS conversion via ffmpeg
   paths/
     paths.go             Shared constants and platform-specific data directory
+  plugin/
+    plugin.go            External command execution with NOTIFY_* env vars
   idle/
     idle_windows.go      User idle time via GetLastInputInfo (Win32)
     idle_darwin.go       User idle time via ioreg HIDIdleTime
@@ -126,7 +128,7 @@ internal/
   voice/
     voice.go             AI voice cache management and OpenAI TTS API client
   runner/
-    runner.go            Step executor (dispatches to audio/speech/toast/discord/discord_voice/slack/telegram/telegram_audio/telegram_voice/webhook)
+    runner.go            Step executor (dispatches to audio/speech/toast/discord/discord_voice/slack/telegram/telegram_audio/telegram_voice/webhook/plugin)
   eventlog/
     eventlog.go          Append-only invocation log (notify.log)
     parse.go             Log entry parsing, day summaries, voice line extraction
@@ -254,7 +256,8 @@ notify help                            # Show help
           { "type": "telegram", "text": "Ready!", "when": "afk" },
           { "type": "telegram_audio", "text": "Ready!", "when": "afk" },
           { "type": "telegram_voice", "text": "Ready!", "when": "afk" },
-          { "type": "webhook", "url": "https://ntfy.sh/mytopic", "text": "Ready!", "when": "afk" }
+          { "type": "webhook", "url": "https://ntfy.sh/mytopic", "text": "Ready!", "when": "afk" },
+          { "type": "plugin", "command": "curl -s -X PUT http://desk-light/on", "text": "Ready!", "timeout": 5 }
         ]
       }
     },
@@ -307,7 +310,8 @@ notify help                            # Show help
   channel via webhook), `telegram` (send to Telegram chat via bot),
   `telegram_audio` (TTS audio uploaded to Telegram as WAV),
   `telegram_voice` (TTS audio converted to OGG/OPUS and uploaded as voice bubble),
-  `webhook` (HTTP POST to any URL with custom headers).
+  `webhook` (HTTP POST to any URL with custom headers),
+  `plugin` (run an external command/script with NOTIFY_* env vars).
 - **Volume priority:** per-step `volume` > CLI `--volume` > config
   `"default_volume"` > 100.
 - Toast `title` defaults to the profile name if omitted.
@@ -340,8 +344,8 @@ notify help                            # Show help
   codes still use the default 0→ready / non-zero→error fallback.
 - `sound` and `say` steps run sequentially (shared audio pipeline).
   All other steps (`toast`, `discord`, `discord_voice`, `slack`,
-  `telegram`, `telegram_audio`, `telegram_voice`, `webhook`) fire in parallel
-  immediately.
+  `telegram`, `telegram_audio`, `telegram_voice`, `webhook`, `plugin`) fire in
+  parallel immediately.
 
 ### Available sounds
 

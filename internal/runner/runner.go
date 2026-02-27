@@ -13,6 +13,7 @@ import (
 	"github.com/Mavwarf/notify/internal/config"
 	"github.com/Mavwarf/notify/internal/discord"
 	"github.com/Mavwarf/notify/internal/ffmpeg"
+	"github.com/Mavwarf/notify/internal/plugin"
 	"github.com/Mavwarf/notify/internal/slack"
 	"github.com/Mavwarf/notify/internal/speech"
 	"github.com/Mavwarf/notify/internal/telegram"
@@ -272,6 +273,12 @@ func execStep(step config.Step, defaultVolume int, creds config.Credentials, var
 	case "webhook":
 		msg := tmpl.Expand(step.Text, vars)
 		return retryOnce(func() error { return webhook.Send(step.URL, msg, step.Headers) })
+	case "plugin":
+		text := ""
+		if step.Text != "" {
+			text = tmpl.Expand(step.Text, vars)
+		}
+		return plugin.Run(step.Command, text, step.Timeout, vars)
 	default:
 		return fmt.Errorf("unknown step type: %q", step.Type)
 	}

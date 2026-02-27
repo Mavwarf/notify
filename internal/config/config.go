@@ -171,20 +171,22 @@ type Action struct {
 
 // Step is a single unit of work within an action.
 type Step struct {
-	Type    string            `json:"type"`              // "sound" | "say" | "toast" | "discord" | "discord_voice" | "slack" | "telegram" | "telegram_audio" | "telegram_voice" | "webhook"
+	Type    string            `json:"type"`              // "sound" | "say" | "toast" | "discord" | "discord_voice" | "slack" | "telegram" | "telegram_audio" | "telegram_voice" | "webhook" | "plugin"
 	Sound   string            `json:"sound,omitempty"`   // type=sound
-	Text    string            `json:"text,omitempty"`    // type=say, discord, discord_voice, slack, telegram, telegram_audio, webhook
+	Text    string            `json:"text,omitempty"`    // type=say, discord, discord_voice, slack, telegram, telegram_audio, webhook, plugin
 	Title   string            `json:"title,omitempty"`   // type=toast
 	Message string            `json:"message,omitempty"` // type=toast
 	URL     string            `json:"url,omitempty"`     // type=webhook
 	Headers map[string]string `json:"headers,omitempty"` // type=webhook
+	Command string            `json:"command,omitempty"` // type=plugin
+	Timeout *int              `json:"timeout,omitempty"` // type=plugin (seconds, default 10)
 	Volume  *int              `json:"volume,omitempty"`  // per-step override, nil = use default
 	When    string            `json:"when,omitempty"`    // "" | "never" | "afk" | "present" | "run" | "direct" | "hours:X-Y"
 }
 
 // validStepTypes is the set of recognized step types.
 var validStepTypes = map[string]bool{
-	"sound": true, "say": true, "toast": true, "discord": true, "discord_voice": true, "slack": true, "telegram": true, "telegram_audio": true, "telegram_voice": true, "webhook": true,
+	"sound": true, "say": true, "toast": true, "discord": true, "discord_voice": true, "slack": true, "telegram": true, "telegram_audio": true, "telegram_voice": true, "webhook": true, "plugin": true,
 }
 
 // builtinSounds is the set of built-in sound names. Kept in sync with
@@ -320,6 +322,13 @@ func Validate(cfg Config) error {
 					}
 					if s.Text == "" {
 						errs = append(errs, fmt.Sprintf("%s: webhook step requires \"text\" field", sp))
+					}
+				case "plugin":
+					if s.Command == "" {
+						errs = append(errs, fmt.Sprintf("%s: plugin step requires \"command\" field", sp))
+					}
+					if s.Timeout != nil && *s.Timeout < 0 {
+						errs = append(errs, fmt.Sprintf("%s: plugin timeout must not be negative", sp))
 					}
 				}
 			}

@@ -2,6 +2,7 @@
 
 ## Features
 
+- Plugin step type — run external commands/scripts as notification steps with NOTIFY_* env vars, configurable timeout, and parallel execution *(Feb 27)*
 - Dashboard time ranges — Day/Week/Month/Year/Total views in the Watch tab with adaptive breakdown buckets and keyboard shortcuts *(Feb 27)*
 - Dashboard voice playback — play button in Voice tab to preview pre-generated AI voice files in the browser *(Feb 26)*
 - AI voice generation (`notify voice generate/list/clear`) — pre-generate high-quality AI voice files via OpenAI TTS for frequently used voice steps; cached WAVs play automatically, falls back to system TTS *(Feb 26)*
@@ -52,6 +53,26 @@
 ---
 
 ## 2026-02-27
+
+### Plugin Step Type
+
+New `"plugin"` step type that runs external commands/scripts as notification
+steps. Enables integration with any tool without adding it to the binary —
+users write a script, drop it in PATH, and wire it into their config.
+
+Config fields: `"command"` (required, shell command string), `"text"` (optional,
+expanded via template variables and passed as NOTIFY_TEXT), and `"timeout"`
+(optional, seconds — default 10, set 0 for no limit). Commands run through the
+system shell (`sh -c` on Unix, `cmd /C` on Windows) with the full process
+environment plus NOTIFY_* variables: NOTIFY_PROFILE, NOTIFY_HOSTNAME,
+NOTIFY_TIME, NOTIFY_DATE, and optional NOTIFY_TEXT, NOTIFY_COMMAND,
+NOTIFY_DURATION, NOTIFY_DURATION_SAY, NOTIFY_OUTPUT, NOTIFY_CLAUDE_MESSAGE,
+NOTIFY_CLAUDE_HOOK, NOTIFY_CLAUDE_JSON.
+
+The command string is NOT expanded through template variables — dynamic data
+passes exclusively via environment variables, preventing shell injection.
+Plugin steps run in parallel with other non-audio steps. All existing features
+(when conditions, cooldown, AFK detection) work automatically.
 
 ### Dashboard: Multi-Duration Time Ranges
 
