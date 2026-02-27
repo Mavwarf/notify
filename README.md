@@ -1145,7 +1145,8 @@ six tabs (linkable via URL hash, e.g. `/#watch`):
   donut charts showing notification share and time distribution per profile,
   approximate time spent per profile (gap-based estimation with 5-minute
   threshold), plus a breakdown table with bar chart and activity timeline
-  heatmap — auto-refreshes every 2 seconds. A compact
+  heatmap — updates in real time via SSE (summary and charts refresh
+  automatically when new events arrive). A compact
   log stats line at the bottom shows total entries, file size, and date range.
   Range selector buttons (Day/Week/Month/Year/Total) switch between time ranges;
   the breakdown adapts automatically (hours for day, days for week/month,
