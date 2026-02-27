@@ -228,6 +228,8 @@ notify help                            # Show help
 | `--echo`, `-E`     | Print summary of steps that ran        |
 | `--cooldown`, `-C` | Enable per-action cooldown (rate limiting) |
 | `--heartbeat`, `-H` | Periodic notification during `run` (e.g. `5m`, `2m30s`) |
+| `--delay`, `-D`    | Sleep before firing (e.g. `5s`, `10m`, `1h`) |
+| `--at`, `-A`       | Fire at a specific time (e.g. `14:30`, `2:30PM`; if past, fires tomorrow) |
 | `--port`, `-p`     | Port for `dashboard` command (default: 8080) |
 | `--open`, `-O`     | Open dashboard in a chromeless browser window |
 
@@ -1005,6 +1007,31 @@ Define the `"heartbeat"` action in your profile (or in `"default"`):
 If the `"heartbeat"` action doesn't exist in the profile, an error is printed
 to stderr but the wrapped command keeps running.
 
+### Scheduled reminders (`--delay`, `--at`)
+
+Fire a notification after a delay or at a specific time. The process sleeps
+in the foreground then runs the normal notification pipeline. Cancel anytime
+with `Ctrl+C`.
+
+```bash
+notify --delay 10m ready           # Remind me in 10 minutes
+notify -D 1h boss attention        # Fire "attention" in 1 hour
+notify --at 14:30 ready            # Fire "ready" at 2:30 PM today
+notify -A 9:00AM boss done         # Fire at 9 AM (tomorrow if already past)
+```
+
+`--delay` accepts any Go duration (`5s`, `10m`, `1h30m`). `--at` accepts
+24-hour (`14:30`) or 12-hour (`2:30PM`) formats. If the specified time has
+already passed today, it schedules for tomorrow.
+
+When the timer starts, a confirmation line is printed:
+
+```
+Reminder: ready in 9m59s (at 14:30)
+```
+
+`--delay` and `--at` cannot be used together.
+
 ### Pipe / stream mode (`notify pipe`)
 
 Read lines from stdin and trigger notifications when patterns match.
@@ -1125,6 +1152,10 @@ notify -c myconfig.json dev done  # Use a specific config file
 notify --log ready                # Log this invocation to notify.log
 notify --echo ready               # Print summary: "notify: sound, say, toast"
 notify --cooldown ready           # Enable cooldown for this invocation
+notify --delay 5m ready           # Remind me in 5 minutes
+notify -D 1h boss attention       # Fire "attention" in 1 hour
+notify --at 14:30 ready           # Fire "ready" at 2:30 PM today
+notify -A 9:00AM boss done        # Fire at 9 AM (tomorrow if already past)
 notify send say "Build finished"  # Speak a one-off message via TTS
 notify send telegram "Deploy done"  # Send directly to Telegram
 notify send toast --title Build "Done"  # Toast with custom title

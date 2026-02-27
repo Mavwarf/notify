@@ -66,6 +66,8 @@ type runOpts struct {
 	Cooldown bool
 	RunMode  bool
 	Elapsed  time.Duration
+	Delay    time.Duration
+	AtTime   string
 }
 
 // readLog reads the event log via the default Store. Returns the content
@@ -99,6 +101,8 @@ func main() {
 	port := 8080
 	openFlag := false
 	protocolURI := ""
+	var delayDur time.Duration
+	var atTime string
 	var matches []matchPair
 
 	// Parse flags
@@ -170,6 +174,24 @@ func main() {
 			} else {
 				fatal("--heartbeat requires a duration (e.g. 5m, 2m30s)")
 			}
+		case "--delay", "-D":
+			if i+1 < len(args) {
+				d, err := time.ParseDuration(args[i+1])
+				if err != nil || d <= 0 {
+					fatal("--delay requires a positive duration (e.g. 5s, 10m, 1h)")
+				}
+				delayDur = d
+				i++
+			} else {
+				fatal("--delay requires a duration (e.g. 5s, 10m, 1h)")
+			}
+		case "--at", "-A":
+			if i+1 < len(args) {
+				atTime = args[i+1]
+				i++
+			} else {
+				fatal("--at requires a time (e.g. 14:30, 2:30PM)")
+			}
 		default:
 			filtered = append(filtered, args[i])
 		}
@@ -239,7 +261,7 @@ func main() {
 		opts := runOpts{Volume: volume, Log: logFlag, Echo: echoFlag, Cooldown: cooldownFlag}
 		runPipe(filtered[1:], configPath, opts, matches)
 	default:
-		opts := runOpts{Volume: volume, Log: logFlag, Echo: echoFlag, Cooldown: cooldownFlag}
+		opts := runOpts{Volume: volume, Log: logFlag, Echo: echoFlag, Cooldown: cooldownFlag, Delay: delayDur, AtTime: atTime}
 		runAction(filtered, configPath, opts)
 	}
 }
@@ -271,6 +293,11 @@ func runAction(args []string, configPath string, opts runOpts) {
 	}
 
 	profile = resolveProfile(cfg, profile, explicit)
+
+	// Handle scheduled reminders (--delay / --at).
+	if opts.Delay > 0 || opts.AtTime != "" {
+		sleepForReminder(opts.Delay, opts.AtTime, actionArg)
+	}
 
 	if err := dispatchActions(cfg, profile, actionArg, opts, stdinVars(stdinData)); err != nil {
 		os.Exit(1)
@@ -635,6 +662,53 @@ func resolveHeartbeat(cfg config.Config, flagSec int) int {
 	return cfg.Options.HeartbeatSeconds
 }
 
+// sleepForReminder computes the sleep duration from --delay or --at and
+// blocks until the target time. Fatals if both are set or --at is unparseable.
+func sleepForReminder(delay time.Duration, atStr string, action string) {
+	if delay > 0 && atStr != "" {
+		fatal("--delay and --at cannot be used together")
+	}
+
+	var d time.Duration
+	var targetStr string
+
+	if delay > 0 {
+		d = delay
+		target := time.Now().Add(d)
+		targetStr = target.Format("15:04")
+	} else {
+		now := time.Now()
+		target, err := parseTimeToday(atStr, now)
+		if err != nil {
+			fatal("--at: %v", err)
+		}
+		d = time.Until(target)
+		if d <= 0 {
+			// Already past today — schedule for tomorrow.
+			target = target.Add(24 * time.Hour)
+			d = time.Until(target)
+		}
+		targetStr = target.Format("15:04")
+	}
+
+	fmt.Printf("Reminder: %s in %s (at %s)\n", action, formatDuration(d), targetStr)
+	time.Sleep(d)
+}
+
+// parseTimeToday parses a time string in 24h ("15:04") or 12h ("3:04PM")
+// format and returns it as a time.Time on the same date as ref.
+func parseTimeToday(s string, ref time.Time) (time.Time, error) {
+	layouts := []string{"15:04", "3:04PM", "3:04pm", "3:04 PM", "3:04 pm", "15:04:05"}
+	for _, layout := range layouts {
+		t, err := time.Parse(layout, s)
+		if err == nil {
+			return time.Date(ref.Year(), ref.Month(), ref.Day(),
+				t.Hour(), t.Minute(), t.Second(), 0, ref.Location()), nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("cannot parse %q (expected 15:04 or 3:04PM)", s)
+}
+
 // resolveExitAction maps an exit code to an action name using the
 // user's exit_codes config. Falls back to "ready" for 0 and "error"
 // for any other unmapped code.
@@ -855,6 +929,8 @@ Options:
   --echo, -E             Print summary of steps that ran
   --cooldown, -C         Enable per-action cooldown (rate limiting)
   --heartbeat, -H <dur>  Periodic notification during "run" (e.g. 5m, 2m30s)
+  --delay, -D <dur>      Sleep before firing (e.g. 5s, 10m, 1h)
+  --at, -A <time>        Fire at a specific time (e.g. 14:30, 2:30PM)
   --port, -p <1-65535>   Port for "dashboard" command (default: 8080)
   --open, -O             Open dashboard in a browser window (app mode)
   --protocol <URI>       Handle a notify:// protocol activation (internal)
@@ -948,6 +1024,10 @@ Examples:
                                    Heartbeat every 2 minutes for boss profile
   notify watch --pid 1234           Watch PID 1234, notify when it exits
   notify watch --pid 1234 boss      Watch PID with a specific profile
+  notify --delay 5m ready           Remind me in 5 minutes
+  notify -D 1h boss attention       Fire "attention" in 1 hour
+  notify --at 14:30 ready           Fire "ready" at 2:30 PM today
+  notify -A 9:00AM boss done        Fire at 9 AM (tomorrow if past)
   notify run -M FAIL error -M passed ready -- pytest
                                    Select action by output pattern
   tail -f build.log | notify pipe boss -M SUCCESS done -M FAIL error

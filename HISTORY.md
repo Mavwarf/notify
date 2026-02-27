@@ -2,6 +2,7 @@
 
 ## Features
 
+- Scheduled reminders (`--delay`, `--at`) — fire a notification after a delay or at a specific time; foreground sleep, cancellable with Ctrl+C *(Feb 27)*
 - REST trigger API (`/api/trigger`) — fire notifications via HTTP request to the dashboard; supports GET and POST, mirrors full CLI execution flow (silent, cooldown, AFK, step filtering, logging) *(Feb 27)*
 - Wails desktop app (`notify-app`) — native desktop window for the dashboard using OS webview (WebView2); no bundled Chromium, proper window chrome, SSE live updates *(Feb 27)*
 - Startup command (`notify startup`) — register `notify://` protocol handler and launch the web dashboard in one step; passes through `--port` and `--open` flags *(Feb 27)*
@@ -68,6 +69,18 @@
 ---
 
 ## 2026-02-27
+
+### Scheduled reminders (`--delay`, `--at`)
+
+Fire a notification after a delay or at a specific time. The process sleeps in
+the foreground, so you can cancel with `Ctrl+C`.
+
+- `--delay 10m` / `-D 1h` — sleep for a duration, then fire
+- `--at 14:30` / `-A 2:30PM` — sleep until a wall-clock time, then fire
+- If the `--at` time has already passed today, it schedules for tomorrow
+- Both flags work with direct actions (`notify --delay 5m ready`)
+- Prints a confirmation: `Reminder: ready in 4m59s (at 14:30)`
+- `--delay` and `--at` cannot be combined (fatal error)
 
 ### REST Trigger API (`/api/trigger`)
 
