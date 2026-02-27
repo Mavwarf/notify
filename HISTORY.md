@@ -2,6 +2,7 @@
 
 ## Features
 
+- Release binaries for `notify-app` — Windows amd64, macOS amd64, macOS arm64 added to GitHub Actions release workflow *(Feb 27)*
 - Log retention (`retention_days`) — automatic cleanup of old event log entries after every write; off by default (0 = keep forever) *(Feb 27)*
 - Scheduled reminders (`--delay`, `--at`) — fire a notification after a delay or at a specific time; foreground sleep, cancellable with Ctrl+C *(Feb 27)*
 - REST trigger API (`/api/trigger`) — fire notifications via HTTP request to the dashboard; supports GET and POST, mirrors full CLI execution flow (silent, cooldown, AFK, step filtering, logging) *(Feb 27)*
