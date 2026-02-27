@@ -2040,7 +2040,8 @@ tr:hover td { background: var(--bg3); }
     // Log file stats
     if (cachedStats && cachedStats.entries > 0) {
       html += '<div style="border-top:1px solid var(--border);margin-top:20px;padding-top:10px;color:var(--fg-dim);font-size:12px">';
-      html += 'Log: ' + fmtNum(cachedStats.entries) + ' entries';
+      var storageLabel = cachedStats.storage === 'sqlite' ? 'SQLite' : 'File';
+      html += storageLabel + ': ' + fmtNum(cachedStats.entries) + ' entries';
       html += ' &middot; ' + fmtFileSize(cachedStats.file_size);
       const oldest = fmtShortDate(cachedStats.oldest_entry);
       const newest = fmtShortDate(cachedStats.newest_entry);

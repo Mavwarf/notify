@@ -80,6 +80,10 @@ go install github.com/Mavwarf/notify/cmd/notify@latest
 - **Shell hook** — `notify shell-hook install` adds a precmd/preexec hook
   to bash, zsh, or PowerShell that automatically notifies after any command
   exceeding a time threshold (default 30s). No `notify run` wrapping needed.
+- **SQLite event log** — notifications are logged to a SQLite database by
+  default, with indexed queries for fast history, summaries, and voice stats.
+  Uses pure-Go `modernc.org/sqlite` (no CGO). Existing `notify.log` files are
+  auto-migrated on first run. Set `"storage": "file"` to keep the flat file.
 - **Cross-platform** — uses [oto](https://github.com/ebitengine/oto) for
   native audio output on Windows (WASAPI), macOS (Core Audio), and
   Linux (ALSA).
@@ -142,7 +146,10 @@ internal/
   runner/
     runner.go            Step executor (dispatches to audio/speech/toast/discord/discord_voice/slack/telegram/telegram_audio/telegram_voice/webhook/plugin/mqtt)
   eventlog/
-    eventlog.go          Append-only invocation log (notify.log)
+    eventlog.go          Storage initialization, convenience wrappers, StepSummary
+    store.go             Store interface (12 methods: write, read, maintenance, metadata)
+    filestore.go         Flat-file Store implementation (notify.log)
+    sqlitestore.go       SQLite Store implementation (notify.db, WAL, auto-migration)
     parse.go             Log entry parsing, day summaries, voice line extraction
     summary.go           Shared aggregation: groups, hourly, time spent, block filtering
   httputil/
@@ -244,6 +251,7 @@ notify help                            # Show help
     "output_lines": 0,
     "heartbeat_seconds": 0,
     "shell_hook_threshold": 30,
+    "storage": "sqlite",
     "openai_voice": {
       "model": "tts-1",
       "voice": "nova",
@@ -358,8 +366,13 @@ notify help                            # Show help
   steps for natural speech output. This is especially useful with the default fallback —
   a single action definition can produce different messages depending on which
   profile name was passed on the CLI.
+- **Storage backend:** set `"storage": "sqlite"` (default) or `"storage": "file"`
+  to choose between SQLite (`notify.db`) and the legacy flat file (`notify.log`).
+  SQLite uses indexed queries for faster history/summary/voice lookups and WAL
+  mode for concurrent dashboard reads. On first SQLite run, existing `notify.log`
+  data is auto-migrated and the file renamed to `notify.log.migrated`.
 - **Event logging:** set `"log": true` to append every invocation to
-  `notify.log` (or use `--log` on the CLI). Off by default.
+  the event log (or use `--log` on the CLI). Off by default.
 - **Echo:** set `"echo": true` (or use `--echo`) to print a one-line
   summary of executed steps after each invocation, e.g.
   `notify: sound, say, toast`. Off by default.
@@ -1123,10 +1136,12 @@ notify silent off                 # Disable silent mode
 
 Event logging is opt-in. Enable it with `--log` (or `-L`) on the command
 line, or set `"log": true` in the config `"config"` block. When enabled,
-each invocation is appended to `notify.log` in the notify data directory
-(`%APPDATA%\notify\` on Windows, `~/.config/notify/` on Linux/macOS).
-Only steps that actually ran are logged (steps filtered out by AFK
-detection are omitted). A blank line separates each invocation:
+each invocation is stored in the event log — by default a SQLite database
+(`notify.db`) in the notify data directory (`%APPDATA%\notify\` on Windows,
+`~/.config/notify/` on Linux/macOS). Set `"storage": "file"` in config to
+use the legacy flat file (`notify.log`) instead. Only steps that actually ran
+are logged (steps filtered out by AFK detection are omitted). The logical
+format of each entry is:
 
 ```
 2026-02-20T14:30:05+01:00  profile=boss  action=ready  steps=sound,say,toast  afk=false
@@ -1169,7 +1184,8 @@ six tabs (linkable via URL hash, e.g. `/#watch`):
   threshold), plus a breakdown table with bar chart and activity timeline
   heatmap — updates in real time via SSE (summary and charts refresh
   automatically when new events arrive). A compact
-  log stats line at the bottom shows total entries, file size, and date range.
+  log stats line at the bottom shows the active storage backend (SQLite or File),
+  total entries, file size, and date range.
   Range selector buttons (Day/Week/Month/Year/Total) switch between time ranges;
   the breakdown adapts automatically (hours for day, days for week/month,
   months for year/total). Arrow buttons navigate by the selected range unit.

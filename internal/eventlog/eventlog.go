@@ -2,6 +2,7 @@ package eventlog
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,9 +17,30 @@ import (
 // Set by OpenDefault() at program startup, or overridden in tests.
 var Default Store
 
-// OpenDefault initializes Default with a FileStore pointing at LogPath().
-func OpenDefault() {
-	Default = NewFileStore(LogPath())
+// OpenDefault initializes Default with the configured storage backend.
+// Pass "file" for the flat-file backend, or "" / "sqlite" for SQLite.
+// If SQLite fails to open, falls back to FileStore with a warning.
+func OpenDefault(storage string) {
+	switch storage {
+	case "file":
+		Default = NewFileStore(LogPath())
+	default: // "" or "sqlite"
+		dbPath := filepath.Join(paths.DataDir(), "notify.db")
+		store, err := NewSQLiteStore(dbPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "eventlog: sqlite: %v, falling back to file\n", err)
+			Default = NewFileStore(LogPath())
+			return
+		}
+		Default = store
+	}
+}
+
+// Close closes the Default store if it implements io.Closer.
+func Close() {
+	if c, ok := Default.(io.Closer); ok {
+		c.Close()
+	}
 }
 
 // --- Write wrappers (best-effort, matching existing behavior) ---

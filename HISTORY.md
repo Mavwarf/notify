@@ -2,6 +2,8 @@
 
 ## Features
 
+- Dashboard storage indicator — Watch tab log stats line shows active backend (SQLite or File) *(Feb 27)*
+- SQLite storage backend — indexed SQL queries replace linear file scans; auto-migrates from `notify.log` on first use; `"storage": "sqlite"` (default) or `"file"` in config *(Feb 27)*
 - Pluggable storage interface — `Store` interface with `FileStore` implementation, enabling future SQLite/webhook backends without caller changes *(Feb 27)*
 - Enhanced toast notifications — app icon, "via notify" attribution text, desktop switching moved from body click to action button *(Feb 27)*
 - Virtual desktop switching *(experimental)* — toast "Desktop N" action button switches virtual desktops via `notify://` protocol URI and VirtualDesktopAccessor.dll; modern Windows 10+ ToastNotificationManager XML API replaces legacy BalloonTip *(Feb 27)*
@@ -61,6 +63,30 @@
 ---
 
 ## 2026-02-27
+
+### Dashboard Storage Indicator
+
+The Watch tab's log stats line at the bottom now displays the active storage
+backend — "SQLite" or "File" — before the entry count and file size. The
+`/api/stats` endpoint includes a `storage` field populated by type-switching on
+`eventlog.Default`. This lets users confirm at a glance which backend is active.
+
+### SQLite Storage Backend (Phase 2 — SQLiteStore)
+
+The event log now defaults to a SQLite database (`notify.db`) instead of a flat
+text file. Uses `modernc.org/sqlite` — a pure-Go SQLite driver requiring no CGO
+or external DLLs. Two tables (`events` + `step_details`) with indexes on
+timestamp, profile/action, and voice text replace full-file scans with indexed
+SQL queries. WAL journal mode enables concurrent reads (dashboard) during writes
+(notifications).
+
+On first run, existing `notify.log` data is automatically migrated into SQLite
+in a single transaction, then renamed to `notify.log.migrated`. The config
+option `"storage": "sqlite"` (default) or `"storage": "file"` selects the
+backend. If SQLite fails to open, falls back to FileStore with a stderr warning.
+
+Trade-off: `modernc.org/sqlite` adds ~15 MB to the binary — the cost of
+zero-dependency pure-Go SQLite.
 
 ### Pluggable Storage Interface (Phase 1 — FileStore)
 

@@ -2,27 +2,14 @@
 
 ## High Impact
 
-### Pluggable Storage Backend — Phase 2 (SQLite)
+### Pluggable Storage Backend — Phase 3 (WebhookStore)
 
-Phase 1 complete: `Store` interface and `FileStore` implementation are
-in place (`internal/eventlog/store.go`, `filestore.go`). All callers
-go through `eventlog.Default`. Next step is a structured backend.
+Phase 1 (Store interface + FileStore) and Phase 2 (SQLiteStore) are complete.
+SQLite is the default backend with indexed queries, WAL mode, and auto-migration.
 
-**Remaining implementations:**
-- `SQLiteStore` — structured local storage with indexed columns
-  (timestamp, profile, action, kind). Uses `modernc.org/sqlite`
-  (pure Go, no CGO) to preserve single-binary zero-dependency builds.
+**Remaining implementation:**
 - `WebhookStore` — forward all events to an HTTP endpoint for
   external systems (Elasticsearch, Grafana Loki, team dashboards)
-
-**Config:** `"storage": "sqlite"` (default) or `"storage": "file"`
-for legacy behavior. Migrate existing log data on first run.
-
-**Benefits:**
-- Dashboard queries go from O(n) log parse to indexed lookups
-- History search becomes a `WHERE` clause
-- ACID transactions for concurrent writes (parallel shell hooks)
-- Aggregation queries are fast without full file scans
 
 ### Duration-Based Escalation (`when: "long:5m"`)
 

@@ -57,6 +57,7 @@ type Options struct {
 	OutputLines         int               `json:"output_lines,omitempty"`
 	HeartbeatSeconds    int               `json:"heartbeat_seconds,omitempty"`
 	ShellHookThreshold  int               `json:"shell_hook_threshold,omitempty"`
+	Storage             string            `json:"storage,omitempty"` // "sqlite" (default) or "file"
 	Voice               VoiceConfig       `json:"openai_voice,omitempty"`
 	Credentials         Credentials       `json:"credentials,omitempty"`
 }
@@ -245,6 +246,9 @@ func Validate(cfg Config) error {
 	}
 	if cfg.Options.ShellHookThreshold < 0 {
 		errs = append(errs, fmt.Sprintf("config: shell_hook_threshold %d must not be negative", cfg.Options.ShellHookThreshold))
+	}
+	if cfg.Options.Storage != "" && cfg.Options.Storage != "sqlite" && cfg.Options.Storage != "file" {
+		errs = append(errs, `config: storage must be "sqlite" or "file"`)
 	}
 	for k, v := range cfg.Options.ExitCodes {
 		if _, err := strconv.Atoi(k); err != nil {

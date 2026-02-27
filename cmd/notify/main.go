@@ -89,8 +89,6 @@ func fatal(format string, args ...any) {
 }
 
 func main() {
-	eventlog.OpenDefault()
-
 	args := os.Args[1:]
 	volume := -1
 	configPath := ""
@@ -176,6 +174,14 @@ func main() {
 			filtered = append(filtered, args[i])
 		}
 	}
+
+	// Initialize storage backend from config.
+	storage := ""
+	if cfg, err := config.Load(configPath); err == nil {
+		storage = cfg.Options.Storage
+	}
+	eventlog.OpenDefault(storage)
+	defer eventlog.Close()
 
 	// Handle --protocol activation (from toast click).
 	if protocolURI != "" {

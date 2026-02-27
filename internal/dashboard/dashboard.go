@@ -136,6 +136,7 @@ type watchResponse struct {
 }
 
 type logStats struct {
+	Storage     string `json:"storage"`
 	FileSize    int64  `json:"file_size"`
 	Entries     int    `json:"entries"`
 	OldestEntry string `json:"oldest_entry"`
@@ -896,6 +897,13 @@ func handleWatch(w http.ResponseWriter, r *http.Request) {
 
 func handleStats(w http.ResponseWriter, r *http.Request) {
 	var stats logStats
+
+	switch eventlog.Default.(type) {
+	case *eventlog.SQLiteStore:
+		stats.Storage = "sqlite"
+	default:
+		stats.Storage = "file"
+	}
 
 	if info, err := os.Stat(eventlog.Default.Path()); err == nil {
 		stats.FileSize = info.Size()
