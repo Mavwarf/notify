@@ -80,8 +80,51 @@ jobs:
           name: ${{ matrix.binary }}
           path: ${{ matrix.binary }}
 
+  build-app:
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - goos: windows
+            goarch: amd64
+            runner: ubuntu-latest
+            cgo: "0"
+            binary: notify-app-windows-amd64.exe
+            extra_ldflags: "-H windowsgui"
+          - goos: darwin
+            goarch: amd64
+            runner: macos-13
+            cgo: "1"
+            binary: notify-app-darwin-amd64
+            extra_ldflags: ""
+          - goos: darwin
+            goarch: arm64
+            runner: macos-latest
+            cgo: "1"
+            binary: notify-app-darwin-arm64
+            extra_ldflags: ""
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: ${{ matrix.cgo }}
+        run: |
+          go build -tags desktop,production \
+            -ldflags "-w -s ${{ matrix.extra_ldflags }}" \
+            -o ${{ matrix.binary }} ./cmd/notify-app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.binary }}
+          path: ${{ matrix.binary }}
+
   release:
-    needs: build
+    needs: [build, build-app]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
