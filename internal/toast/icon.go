@@ -38,7 +38,6 @@ func EnsureIcon() (string, error) {
 	return p, nil
 }
 
-
 // drawIcon creates a size×size image with a green circle and white "N".
 func drawIcon(size int) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, size, size))

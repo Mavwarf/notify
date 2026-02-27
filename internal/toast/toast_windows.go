@@ -21,6 +21,11 @@ func escapeXML(s string) string {
 	return s
 }
 
+// powershellAUMID is the App User Model ID for Windows PowerShell. Using a
+// registered AUMID ensures toast banners display reliably — Windows silently
+// drops toasts from unregistered app IDs.
+const powershellAUMID = `{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\WindowsPowerShell\v1.0\powershell.exe`
+
 // showScript returns the PowerShell script for displaying a modern Windows 10+
 // toast notification using the ToastNotificationManager XML API.
 //
@@ -31,32 +36,33 @@ func showScript(title, message, iconPath string, desktop *int) string {
 	t := shell.EscapePowerShell(escapeXML(title))
 	m := shell.EscapePowerShell(escapeXML(message))
 
-	// Build the icon element if a path is available.
-	iconElem := ""
+	// Build toast XML piece by piece.
+	var xml strings.Builder
+	xml.WriteString(`<toast><visual><binding template="ToastGeneric">`)
 	if iconPath != "" {
-		// Convert backslashes to forward slashes for file:// URI.
 		fileURI := "file:///" + strings.ReplaceAll(iconPath, `\`, "/")
-		iconElem = fmt.Sprintf(`<image placement="appLogoOverride" src="%s"/>`,
+		fmt.Fprintf(&xml, `<image placement="appLogoOverride" src="%s"/>`,
 			shell.EscapePowerShell(escapeXML(fileURI)))
 	}
-
-	// Build actions block for desktop switching button.
-	actions := ""
+	fmt.Fprintf(&xml, `<text>%s</text>`, t)
+	fmt.Fprintf(&xml, `<text>%s</text>`, m)
+	xml.WriteString(`<text placement="attribution">via notify</text>`)
+	xml.WriteString(`</binding></visual>`)
 	if desktop != nil {
-		actions = fmt.Sprintf(
-			`<actions><action content="Desktop %d" arguments="notify://switch?desktop=%d" activationType="protocol"/></actions>`,
+		fmt.Fprintf(&xml, `<actions><action content="Desktop %d" arguments="notify://switch?desktop=%d" activationType="protocol"/></actions>`,
 			*desktop, *desktop)
 	}
+	xml.WriteString(`</toast>`)
 
 	return fmt.Sprintf(`
 [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
 [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom, ContentType = WindowsRuntime] | Out-Null
 
 $xml = New-Object Windows.Data.Xml.Dom.XmlDocument
-$xml.LoadXml('<toast><visual><binding template="ToastGeneric">%s<text>%s</text><text>%s</text><text placement="attribution">via notify</text></binding></visual>%s</toast>')
+$xml.LoadXml('%s')
 $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
-[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\WindowsPowerShell\v1.0\powershell.exe').Show($toast)
-`, iconElem, t, m, actions)
+[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('%s').Show($toast)
+`, xml.String(), powershellAUMID)
 }
 
 // Show displays a Windows toast notification using the modern
