@@ -236,6 +236,25 @@ func Validate(cfg Config) error {
 		}
 	}
 
+	// Voice config validation.
+	vc := cfg.Options.Voice
+	if vc.Provider != "" && vc.Provider != "openai" {
+		errs = append(errs, fmt.Sprintf("config: openai_voice.provider %q is not supported (use \"openai\" or omit)", vc.Provider))
+	}
+	if vc.Model != "" && vc.Model != "tts-1" && vc.Model != "tts-1-hd" {
+		errs = append(errs, fmt.Sprintf("config: openai_voice.model %q is not valid (use \"tts-1\" or \"tts-1-hd\")", vc.Model))
+	}
+	validVoices := map[string]bool{"": true, "alloy": true, "echo": true, "fable": true, "onyx": true, "nova": true, "shimmer": true}
+	if !validVoices[vc.Voice] {
+		errs = append(errs, fmt.Sprintf("config: openai_voice.voice %q is not valid (use alloy, echo, fable, onyx, nova, or shimmer)", vc.Voice))
+	}
+	if vc.Speed != 0 && (vc.Speed < 0.25 || vc.Speed > 4.0) {
+		errs = append(errs, fmt.Sprintf("config: openai_voice.speed %.2f out of range 0.25-4.0", vc.Speed))
+	}
+	if vc.MinUses < 0 {
+		errs = append(errs, fmt.Sprintf("config: openai_voice.min_uses %d must not be negative", vc.MinUses))
+	}
+
 	// Alias validation.
 	aliasOwner := map[string]string{} // alias → profile name
 	for pName, profile := range cfg.Profiles {

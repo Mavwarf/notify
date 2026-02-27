@@ -53,6 +53,17 @@ type matchPair struct {
 	action  string
 }
 
+// runOpts groups the common flags threaded through runAction, runWrapped,
+// runPipe, dispatchActions, and executeAction. Adding a new opt-in flag
+// only requires adding a field here — no function signature changes.
+type runOpts struct {
+	Volume   int
+	Log      bool
+	Echo     bool
+	Cooldown bool
+	RunMode  bool
+}
+
 // readLog reads the event log file. Returns the content and true on
 // success. If the file doesn't exist, returns ("", false) so the caller
 // can print a context-appropriate message. Fatals on other read errors.
@@ -179,21 +190,27 @@ func main() {
 	case "config":
 		configCmd(filtered[1:], configPath)
 	case "send":
-		sendCmd(filtered[1:], configPath, volume, logFlag, echoFlag)
+		opts := runOpts{Volume: volume, Log: logFlag, Echo: echoFlag}
+		sendCmd(filtered[1:], configPath, opts)
 	case "silent":
 		silentCmd(filtered[1:], configPath, logFlag)
 	case "run":
-		runWrapped(filtered[1:], configPath, volume, logFlag, echoFlag, cooldownFlag, matches, heartbeatSec)
+		opts := runOpts{Volume: volume, Log: logFlag, Echo: echoFlag, Cooldown: cooldownFlag}
+		runWrapped(filtered[1:], configPath, opts, matches, heartbeatSec)
 	case "watch":
-		watchCmd(filtered[1:], configPath, volume, logFlag, echoFlag, cooldownFlag)
+		opts := runOpts{Volume: volume, Log: logFlag, Echo: echoFlag, Cooldown: cooldownFlag}
+		watchCmd(filtered[1:], configPath, opts)
 	case "shell-hook":
 		shellHookCmd(filtered[1:], configPath)
 	case "_hook":
-		hookCmd(filtered[1:], configPath, volume, logFlag, echoFlag, cooldownFlag)
+		opts := runOpts{Volume: volume, Log: logFlag, Echo: echoFlag, Cooldown: cooldownFlag}
+		hookCmd(filtered[1:], configPath, opts)
 	case "pipe":
-		runPipe(filtered[1:], configPath, volume, logFlag, echoFlag, cooldownFlag, matches)
+		opts := runOpts{Volume: volume, Log: logFlag, Echo: echoFlag, Cooldown: cooldownFlag}
+		runPipe(filtered[1:], configPath, opts, matches)
 	default:
-		runAction(filtered, configPath, volume, logFlag, echoFlag, cooldownFlag)
+		opts := runOpts{Volume: volume, Log: logFlag, Echo: echoFlag, Cooldown: cooldownFlag}
+		runAction(filtered, configPath, opts)
 	}
 }
 
@@ -203,7 +220,7 @@ func cwd() string {
 	return dir
 }
 
-func runAction(args []string, configPath string, volume int, logFlag bool, echoFlag bool, cooldownFlag bool) {
+func runAction(args []string, configPath string, opts runOpts) {
 	var profile, actionArg string
 	explicit := len(args) == 2
 	switch len(args) {
@@ -225,12 +242,14 @@ func runAction(args []string, configPath string, volume int, logFlag bool, echoF
 
 	profile = resolveProfile(cfg, profile, explicit)
 
-	if err := dispatchActions(cfg, profile, actionArg, volume, logFlag, echoFlag, cooldownFlag, false, stdinVars(stdinData)); err != nil {
+	if err := dispatchActions(cfg, profile, actionArg, opts, stdinVars(stdinData)); err != nil {
 		os.Exit(1)
 	}
 }
 
-func runWrapped(args []string, configPath string, volume int, logFlag bool, echoFlag bool, cooldownFlag bool, matches []matchPair, heartbeatFlag int) {
+func runWrapped(args []string, configPath string, opts runOpts, matches []matchPair, heartbeatFlag int) {
+	opts.RunMode = true
+
 	// Find "--" separator.
 	sepIdx := -1
 	for i, a := range args {
@@ -296,7 +315,7 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 					return
 				case <-ticker.C:
 					elapsed := time.Since(start)
-					dispatchActions(cfg, profile, "heartbeat", volume, logFlag, echoFlag, cooldownFlag, true,
+					dispatchActions(cfg, profile, "heartbeat", opts,
 						func(v *tmpl.Vars) {
 							v.Command = cmdStr
 							v.Duration = formatDuration(elapsed)
@@ -340,7 +359,7 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 
 	// Error deliberately ignored: the wrapped command's exit code takes
 	// priority so the caller can distinguish command failure from notify failure.
-	dispatchActions(cfg, profile, actionArg, volume, logFlag, echoFlag, cooldownFlag, true,
+	dispatchActions(cfg, profile, actionArg, opts,
 		func(v *tmpl.Vars) {
 			v.Command = strings.Join(cmdArgs, " ")
 			v.Duration = formatDuration(elapsed)
@@ -351,7 +370,7 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 	os.Exit(exitCode)
 }
 
-func runPipe(args []string, configPath string, volume int, logFlag bool, echoFlag bool, cooldownFlag bool, matches []matchPair) {
+func runPipe(args []string, configPath string, opts runOpts, matches []matchPair) {
 	// Parse optional profile from args[0], default "default".
 	profile := "default"
 	explicit := len(args) > 0
@@ -380,7 +399,7 @@ func runPipe(args []string, configPath string, volume int, logFlag bool, echoFla
 			actionArg = "ready"
 		}
 
-		dispatchActions(cfg, profile, actionArg, volume, logFlag, echoFlag, cooldownFlag, false,
+		dispatchActions(cfg, profile, actionArg, opts,
 			func(v *tmpl.Vars) {
 				v.Output = line
 			})
@@ -396,16 +415,15 @@ func runPipe(args []string, configPath string, volume int, logFlag bool, echoFla
 // each action, applies optional extraVars, and calls executeAction.
 // Returns a non-nil error if any action failed.
 func dispatchActions(cfg config.Config, profile, actionArg string,
-	volume int, logFlag, echoFlag, cooldownFlag, runMode bool,
-	extraVars func(*tmpl.Vars)) error {
+	opts runOpts, extraVars func(*tmpl.Vars)) error {
 
-	volume = resolveVolume(volume, cfg)
+	opts.Volume = resolveVolume(opts.Volume, cfg)
 	actions := strings.Split(actionArg, ",")
 	var failed bool
 
 	for _, action := range actions {
 		if silent.IsSilent() {
-			if shouldLog(cfg, logFlag) {
+			if shouldLog(cfg, opts.Log) {
 				eventlog.LogSilent(profile, action)
 			}
 			continue
@@ -422,7 +440,7 @@ func dispatchActions(cfg config.Config, profile, actionArg string,
 		if extraVars != nil {
 			extraVars(&vars)
 		}
-		if err := executeAction(cfg, resolved, action, act, volume, logFlag, echoFlag, cooldownFlag, runMode, vars); err != nil {
+		if err := executeAction(cfg, resolved, action, act, opts, vars); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			failed = true
 		}
@@ -453,11 +471,11 @@ func loadAndValidate(configPath string) (config.Config, error) {
 // executeAction runs the common tail of runAction/runWrapped: cooldown check,
 // step filtering, execution, cooldown recording, logging, and echo output.
 func executeAction(cfg config.Config, profile, action string, act *config.Action,
-	volume int, logFlag, echoFlag, cooldownFlag, run bool, vars tmpl.Vars) error {
+	opts runOpts, vars tmpl.Vars) error {
 
-	cdEnabled, cdSec := resolveCooldown(act, cfg, cooldownFlag)
+	cdEnabled, cdSec := resolveCooldown(act, cfg, opts.Cooldown)
 	if cdEnabled && cdSec > 0 && cooldown.Check(profile, action, cdSec) {
-		if shouldLog(cfg, logFlag) {
+		if shouldLog(cfg, opts.Log) {
 			eventlog.LogCooldown(profile, action, cdSec)
 		}
 		return nil
@@ -467,18 +485,18 @@ func executeAction(cfg config.Config, profile, action string, act *config.Action
 
 	creds := config.MergeCredentials(cfg.Options.Credentials, cfg.Profiles[profile].Credentials)
 
-	filtered := runner.FilterSteps(act.Steps, afk, run)
-	err := runner.Execute(filtered, volume, creds, vars)
+	filtered := runner.FilterSteps(act.Steps, afk, opts.RunMode)
+	err := runner.Execute(filtered, opts.Volume, creds, vars)
 	if cdEnabled && cdSec > 0 {
 		cooldown.Record(profile, action)
-		if shouldLog(cfg, logFlag) {
+		if shouldLog(cfg, opts.Log) {
 			eventlog.LogCooldownRecord(profile, action, cdSec)
 		}
 	}
-	if shouldLog(cfg, logFlag) {
+	if shouldLog(cfg, opts.Log) {
 		eventlog.Log(action, filtered, afk, vars)
 	}
-	if shouldEcho(cfg, echoFlag) {
+	if shouldEcho(cfg, opts.Echo) {
 		printEcho(filtered)
 	}
 	return err

@@ -27,7 +27,7 @@ var sendTypes = map[string]bool{
 	"telegram": true, "telegram_audio": true, "telegram_voice": true,
 }
 
-func sendCmd(args []string, configPath string, volume int, logFlag bool, echoFlag bool) {
+func sendCmd(args []string, configPath string, opts runOpts) {
 	// Parse optional --title flag (for toast).
 	var title string
 	rest := make([]string, len(args))
@@ -57,7 +57,7 @@ func sendCmd(args []string, configPath string, volume int, logFlag bool, echoFla
 		fatal("%v", err)
 	}
 
-	volume = resolveVolume(volume, cfg)
+	opts.Volume = resolveVolume(opts.Volume, cfg)
 
 	// Build a single step from the positional args.
 	step := config.Step{Type: stepType}
@@ -72,13 +72,13 @@ func sendCmd(args []string, configPath string, volume int, logFlag bool, echoFla
 
 	vars := baseVars("send")
 	steps := []config.Step{step}
-	if err := runner.Execute(steps, volume, cfg.Options.Credentials, vars); err != nil {
+	if err := runner.Execute(steps, opts.Volume, cfg.Options.Credentials, vars); err != nil {
 		fatal("%v", err)
 	}
-	if shouldLog(cfg, logFlag) {
+	if shouldLog(cfg, opts.Log) {
 		eventlog.Log("send:"+stepType, steps, false, vars)
 	}
-	if shouldEcho(cfg, echoFlag) {
+	if shouldEcho(cfg, opts.Echo) {
 		printEcho(steps)
 	}
 }
@@ -319,7 +319,8 @@ func credStatus(ok bool) string {
 	return " not configured"
 }
 
-func watchCmd(args []string, configPath string, volume int, logFlag bool, echoFlag bool, cooldownFlag bool) {
+func watchCmd(args []string, configPath string, opts runOpts) {
+	opts.RunMode = true
 	// Parse --pid flag from args.
 	pid := -1
 	rest := make([]string, len(args))
@@ -361,7 +362,7 @@ func watchCmd(args []string, configPath string, volume int, logFlag bool, echoFl
 	}
 	elapsed := time.Since(start)
 
-	dispatchActions(cfg, profile, "ready", volume, logFlag, echoFlag, cooldownFlag, true,
+	dispatchActions(cfg, profile, "ready", opts,
 		func(v *tmpl.Vars) {
 			v.Command = fmt.Sprintf("PID %d", pid)
 			v.Duration = formatDuration(elapsed)
@@ -382,7 +383,8 @@ func dashboardCmd(configPath string, port int, open bool) {
 
 // hookCmd handles the internal "_hook" command called by shell hook snippets.
 // Usage: notify _hook --command <cmd> --seconds <N> --exit <code> [profile]
-func hookCmd(args []string, configPath string, volume int, logFlag bool, echoFlag bool, cooldownFlag bool) {
+func hookCmd(args []string, configPath string, opts runOpts) {
+	opts.RunMode = true
 	var command string
 	seconds := 0
 	exitCode := 0
@@ -433,7 +435,7 @@ func hookCmd(args []string, configPath string, volume int, logFlag bool, echoFla
 	actionArg := resolveExitAction(cfg.Options.ExitCodes, exitCode)
 
 	elapsed := time.Duration(seconds) * time.Second
-	dispatchActions(cfg, profile, actionArg, volume, logFlag, echoFlag, cooldownFlag, true,
+	dispatchActions(cfg, profile, actionArg, opts,
 		func(v *tmpl.Vars) {
 			v.Command = command
 			v.Duration = formatDuration(elapsed)

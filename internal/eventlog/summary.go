@@ -6,6 +6,28 @@ import (
 	"time"
 )
 
+// SplitBlocks splits log content on blank lines, trims whitespace from
+// each block, and returns only non-empty blocks.
+func SplitBlocks(content string) []string {
+	raw := strings.Split(content, "\n\n")
+	blocks := make([]string, 0, len(raw))
+	for _, b := range raw {
+		b = strings.TrimSpace(b)
+		if b != "" {
+			blocks = append(blocks, b)
+		}
+	}
+	return blocks
+}
+
+// DayCutoff returns midnight N days ago (inclusive) in the local timezone.
+// For days=1 it returns today at midnight, for days=7 it returns 6 days ago, etc.
+func DayCutoff(days int) time.Time {
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	return today.AddDate(0, 0, -(days - 1))
+}
+
 // ActionKey identifies a profile/action pair for aggregation.
 type ActionKey struct{ Profile, Action string }
 
@@ -220,14 +242,10 @@ func ComputeTimeSpent(entries []Entry, targetDate time.Time, loc *time.Location)
 // FilterBlocksByProfile removes all log blocks belonging to the named profile.
 // Returns the filtered content and the number of removed blocks.
 func FilterBlocksByProfile(content string, profile string) (string, int) {
-	blocks := strings.Split(content, "\n\n")
+	blocks := SplitBlocks(content)
 	var kept []string
 	removed := 0
 	for _, block := range blocks {
-		block = strings.TrimSpace(block)
-		if block == "" {
-			continue
-		}
 		firstLine := block
 		if idx := strings.Index(block, "\n"); idx > 0 {
 			firstLine = block[:idx]
@@ -244,17 +262,10 @@ func FilterBlocksByProfile(content string, profile string) (string, int) {
 // FilterBlocksByDays returns only log blocks whose timestamp falls within
 // the last N calendar days. Each block is separated by a blank line.
 func FilterBlocksByDays(content string, days int) string {
-	now := time.Now()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	cutoff := today.AddDate(0, 0, -(days - 1))
+	cutoff := DayCutoff(days)
 
-	blocks := strings.Split(content, "\n\n")
 	var kept []string
-	for _, block := range blocks {
-		block = strings.TrimSpace(block)
-		if block == "" {
-			continue
-		}
+	for _, block := range SplitBlocks(content) {
 		firstLine := block
 		if idx := strings.Index(block, "\n"); idx > 0 {
 			firstLine = block[:idx]
@@ -263,7 +274,7 @@ func FilterBlocksByDays(content string, days int) string {
 		if !ok {
 			continue
 		}
-		if !ts.In(now.Location()).Before(cutoff) {
+		if !ts.In(cutoff.Location()).Before(cutoff) {
 			kept = append(kept, block)
 		}
 	}

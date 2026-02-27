@@ -636,12 +636,10 @@ func historyExport(args []string) {
 	entries := eventlog.ParseEntries(data)
 
 	if days > 0 {
-		now := time.Now()
-		today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-		cutoff := today.AddDate(0, 0, -(days - 1))
+		cutoff := eventlog.DayCutoff(days)
 		var filtered []eventlog.Entry
 		for _, e := range entries {
-			if !e.Time.In(now.Location()).Before(cutoff) {
+			if !e.Time.In(time.Now().Location()).Before(cutoff) {
 				filtered = append(filtered, e)
 			}
 		}

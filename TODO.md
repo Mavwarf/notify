@@ -57,41 +57,6 @@ Additional step types beyond `discord`, `slack`, and `telegram`:
 
 ## Tech Debt / Refactoring
 
-### Extract `runOpts` Struct
-
-`dispatchActions` takes 9 parameters, `executeAction` takes 10. Every new
-opt-in flag requires updating 7+ function signatures (`runAction`,
-`runWrapped`, `runPipe`, `watchCmd`, `hookCmd`, `dispatchActions`,
-`executeAction`). Group the booleans and volume into a struct:
-
-```go
-type runOpts struct {
-    Volume   int
-    Log      bool
-    Echo     bool
-    Cooldown bool
-    RunMode  bool
-}
-```
-
-**Files:** `cmd/notify/main.go`, `cmd/notify/commands.go`
-
-### Extract Shared Helpers in `eventlog`
-
-- **`splitBlocks(content)`** — `strings.Split(content, "\n\n")` + trim +
-  empty skip is repeated 3 times in `parse.go` and `summary.go`.
-- **`Cutoff(days)`** — days cutoff calculation (`time.Date(...)` +
-  `AddDate`) is duplicated 3 times across `parse.go`, `summary.go`, and
-  `history.go`.
-
-### Validate `VoiceConfig` Fields
-
-`provider`, `model`, `voice`, `speed`, and `min_uses` are never validated
-in `Validate()`. Invalid values pass config loading and only fail at
-OpenAI API runtime. Add range/enum checks.
-
-**File:** `internal/config/config.go`
-
 ### Voice Defaults Constants
 
 The defaults `"nova"`, `"tts-1"`, and `1.0` are hardcoded in 3 places

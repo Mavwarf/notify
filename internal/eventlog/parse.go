@@ -52,14 +52,8 @@ func ParseEntries(content string) []Entry {
 		return nil
 	}
 
-	blocks := strings.Split(content, "\n\n")
 	var entries []Entry
-	for _, block := range blocks {
-		block = strings.TrimSpace(block)
-		if block == "" {
-			continue
-		}
-
+	for _, block := range SplitBlocks(content) {
 		for _, line := range strings.Split(block, "\n") {
 			// Skip step detail lines (indented, contain "step[").
 			if strings.Contains(line, "step[") {
@@ -109,8 +103,7 @@ func SummarizeByDay(entries []Entry, days int) []DayGroup {
 	now := time.Now()
 	var cutoff time.Time
 	if days > 0 {
-		today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-		cutoff = today.AddDate(0, 0, -(days - 1))
+		cutoff = DayCutoff(days)
 	}
 
 	// Group by date string + profile/action key.
