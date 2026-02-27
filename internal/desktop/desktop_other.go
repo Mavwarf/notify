@@ -20,6 +20,9 @@ func Current() (int, error) {
 	return 0, fmt.Errorf("virtual desktop switching is only supported on Windows")
 }
 
+// HideConsole is a no-op on non-Windows platforms.
+func HideConsole() {}
+
 // Count returns the number of virtual desktops.
 // Not supported on non-Windows platforms.
 func Count() (int, error) {

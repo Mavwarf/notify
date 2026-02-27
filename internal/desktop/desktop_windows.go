@@ -57,6 +57,14 @@ func Current() (int, error) {
 	return int(ret) + 1, nil // convert 0-indexed to 1-indexed
 }
 
+// HideConsole detaches this process from its console window so that
+// Windows has no window to refocus when the process exits.
+func HideConsole() {
+	kernel32 := syscall.NewLazyDLL("kernel32.dll")
+	proc := kernel32.NewProc("FreeConsole")
+	proc.Call()
+}
+
 // Count returns the number of virtual desktops.
 func Count() (int, error) {
 	if dll == nil {

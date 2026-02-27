@@ -765,9 +765,14 @@ func handleProtocolURI(uri string) {
 	if err != nil || d < 1 || d > 4 {
 		fatal("desktop must be 1-4, got %q", dStr)
 	}
+	// Detach from the console window before switching. Without this,
+	// Windows refocuses the console when this process exits, snapping
+	// back to the wrong desktop.
+	desktop.HideConsole()
 	if err := desktop.SwitchTo(d); err != nil {
 		fatal("switch desktop: %v", err)
 	}
+	time.Sleep(200 * time.Millisecond)
 }
 
 // protocolCmd handles the "protocol" subcommand for managing the
