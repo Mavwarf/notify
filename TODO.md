@@ -57,6 +57,37 @@ of sending webhooks out — your CI finishes, your desktop chimes.
 Could also accept a simple JSON body with profile/action fields for
 generic use.
 
+### Wails Desktop App
+
+Wrap the dashboard in a native desktop app using [Wails](https://wails.io/).
+The Wails app starts the existing dashboard HTTP server internally and points
+an OS-native webview at it — no bundled Chromium, no Chrome/Edge dependency.
+
+**Benefits over `--open` (Chrome app mode):**
+- Native OS webview (WebView2 on Windows, WebKit on macOS/Linux)
+- Proper window title and icon, no address bar flash
+- System tray with minimize-to-tray
+- Window size/position persistence
+- Native menus (File > Open Config, etc.)
+
+**Repo structure:**
+```
+cmd/notify/          # CLI (unchanged)
+cmd/notify-app/      # Wails desktop app
+  main.go            # Wails bootstrap + start dashboard server
+  app.go             # App struct, lifecycle, system tray
+internal/            # shared packages (unchanged)
+```
+
+**Build:**
+```bash
+go build -o output/notify.exe ./cmd/notify            # CLI
+wails build -o output/notify-app.exe ./cmd/notify-app  # desktop app
+```
+
+Both targets share all `internal/` packages. Requires WebView2 runtime
+(pre-installed on Windows 11, auto-installable on 10).
+
 ## Medium Impact
 
 ### Chained Actions (`on_success` / `on_failure`)
