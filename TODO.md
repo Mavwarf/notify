@@ -1,15 +1,5 @@
 # TODO
 
-## High Impact
-
-### MQTT Publish
-
-Publish a message to an MQTT broker topic. Useful for home automation —
-e.g. flash a desk light when a build finishes, or trigger any
-Home Assistant automation via MQTT. Config would need broker URL, topic,
-and optional auth in credentials. Payload could use template variables
-like other steps.
-
 ## Medium Impact
 
 ### Modern Toast Notifications (Windows)

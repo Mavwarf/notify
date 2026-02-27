@@ -25,6 +25,8 @@ type Credentials struct {
 	TelegramToken  string `json:"telegram_token,omitempty"`
 	TelegramChatID string `json:"telegram_chat_id,omitempty"`
 	OpenAIAPIKey   string `json:"openai_api_key,omitempty"`
+	MQTTUsername   string `json:"mqtt_username,omitempty"`
+	MQTTPassword   string `json:"mqtt_password,omitempty"`
 }
 
 // VoiceConfig holds settings for AI voice generation.
@@ -171,22 +173,26 @@ type Action struct {
 
 // Step is a single unit of work within an action.
 type Step struct {
-	Type    string            `json:"type"`              // "sound" | "say" | "toast" | "discord" | "discord_voice" | "slack" | "telegram" | "telegram_audio" | "telegram_voice" | "webhook" | "plugin"
+	Type    string            `json:"type"`              // "sound" | "say" | "toast" | "discord" | "discord_voice" | "slack" | "telegram" | "telegram_audio" | "telegram_voice" | "webhook" | "plugin" | "mqtt"
 	Sound   string            `json:"sound,omitempty"`   // type=sound
-	Text    string            `json:"text,omitempty"`    // type=say, discord, discord_voice, slack, telegram, telegram_audio, webhook, plugin
+	Text    string            `json:"text,omitempty"`    // type=say, discord, discord_voice, slack, telegram, telegram_audio, webhook, plugin, mqtt
 	Title   string            `json:"title,omitempty"`   // type=toast
 	Message string            `json:"message,omitempty"` // type=toast
 	URL     string            `json:"url,omitempty"`     // type=webhook
 	Headers map[string]string `json:"headers,omitempty"` // type=webhook
 	Command string            `json:"command,omitempty"` // type=plugin
 	Timeout *int              `json:"timeout,omitempty"` // type=plugin (seconds, default 10)
+	Broker  string            `json:"broker,omitempty"`  // type=mqtt
+	Topic   string            `json:"topic,omitempty"`   // type=mqtt
+	Retain  bool              `json:"retain,omitempty"`  // type=mqtt (default false)
+	QoS     *int              `json:"qos,omitempty"`     // type=mqtt (0, 1, or 2; default 0)
 	Volume  *int              `json:"volume,omitempty"`  // per-step override, nil = use default
 	When    string            `json:"when,omitempty"`    // "" | "never" | "afk" | "present" | "run" | "direct" | "hours:X-Y"
 }
 
 // validStepTypes is the set of recognized step types.
 var validStepTypes = map[string]bool{
-	"sound": true, "say": true, "toast": true, "discord": true, "discord_voice": true, "slack": true, "telegram": true, "telegram_audio": true, "telegram_voice": true, "webhook": true, "plugin": true,
+	"sound": true, "say": true, "toast": true, "discord": true, "discord_voice": true, "slack": true, "telegram": true, "telegram_audio": true, "telegram_voice": true, "webhook": true, "plugin": true, "mqtt": true,
 }
 
 // builtinSounds is the set of built-in sound names. Kept in sync with
@@ -329,6 +335,19 @@ func Validate(cfg Config) error {
 					}
 					if s.Timeout != nil && *s.Timeout < 0 {
 						errs = append(errs, fmt.Sprintf("%s: plugin timeout must not be negative", sp))
+					}
+				case "mqtt":
+					if s.Broker == "" {
+						errs = append(errs, fmt.Sprintf("%s: mqtt step requires \"broker\" field", sp))
+					}
+					if s.Topic == "" {
+						errs = append(errs, fmt.Sprintf("%s: mqtt step requires \"topic\" field", sp))
+					}
+					if s.Text == "" {
+						errs = append(errs, fmt.Sprintf("%s: mqtt step requires \"text\" field", sp))
+					}
+					if s.QoS != nil && (*s.QoS < 0 || *s.QoS > 2) {
+						errs = append(errs, fmt.Sprintf("%s: mqtt qos must be 0, 1, or 2", sp))
 					}
 				}
 			}
@@ -650,6 +669,12 @@ func MergeCredentials(global Credentials, profile *Credentials) Credentials {
 	if profile.OpenAIAPIKey != "" {
 		merged.OpenAIAPIKey = profile.OpenAIAPIKey
 	}
+	if profile.MQTTUsername != "" {
+		merged.MQTTUsername = profile.MQTTUsername
+	}
+	if profile.MQTTPassword != "" {
+		merged.MQTTPassword = profile.MQTTPassword
+	}
 	return merged
 }
 
@@ -663,6 +688,8 @@ func expandEnvCredentials(cfg *Config) {
 		c.TelegramToken = os.ExpandEnv(c.TelegramToken)
 		c.TelegramChatID = os.ExpandEnv(c.TelegramChatID)
 		c.OpenAIAPIKey = os.ExpandEnv(c.OpenAIAPIKey)
+		c.MQTTUsername = os.ExpandEnv(c.MQTTUsername)
+		c.MQTTPassword = os.ExpandEnv(c.MQTTPassword)
 	}
 	expandCreds(&cfg.Options.Credentials)
 	for pName, profile := range cfg.Profiles {

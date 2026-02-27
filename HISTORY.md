@@ -2,6 +2,7 @@
 
 ## Features
 
+- MQTT publish step type — publish messages to MQTT broker topics for home automation (flash lights, trigger Home Assistant, etc.) with optional QoS, retain, and auth *(Feb 27)*
 - Dashboard auto-reload on reconnect — page reloads when SSE reconnects after server restart, picking up new frontend changes *(Feb 27)*
 - History remove (`notify history remove <profile>`) — selectively delete all log entries for a specific profile *(Feb 27)*
 - Dashboard project count — donut chart shows number of active projects below the chart *(Feb 27)*
@@ -56,6 +57,21 @@
 ---
 
 ## 2026-02-27
+
+### MQTT Publish Step Type
+
+New `"mqtt"` step type that publishes a message to an MQTT broker topic. Ideal
+for home automation — flash a desk light when a build finishes, trigger
+Home Assistant automations, or update status displays.
+
+```json
+{ "type": "mqtt", "broker": "tcp://localhost:1883", "topic": "notify/builds", "text": "{profile} ready" }
+```
+
+Supports QoS levels 0/1/2, retained messages, and optional username/password
+authentication via credentials. Uses the Eclipse Paho MQTT client library with
+connect-publish-disconnect per invocation (stateless, like webhooks). MQTT steps
+run in parallel and retry once on transient failures.
 
 ### Dashboard Auto-Reload on Reconnect
 

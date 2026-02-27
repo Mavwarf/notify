@@ -159,6 +159,10 @@ func StepSummary(s config.Step, vars *tmpl.Vars) string {
 		if s.Timeout != nil {
 			parts = append(parts, fmt.Sprintf("timeout=%d", *s.Timeout))
 		}
+	case "mqtt":
+		parts = append(parts, fmt.Sprintf("broker=%s", s.Broker))
+		parts = append(parts, fmt.Sprintf("topic=%s", s.Topic))
+		parts = append(parts, fmt.Sprintf("text=%q", expand(s.Text)))
 	}
 	if s.When != "" {
 		parts = append(parts, fmt.Sprintf("when=%s", s.When))

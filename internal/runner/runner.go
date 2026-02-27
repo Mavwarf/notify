@@ -13,6 +13,7 @@ import (
 	"github.com/Mavwarf/notify/internal/config"
 	"github.com/Mavwarf/notify/internal/discord"
 	"github.com/Mavwarf/notify/internal/ffmpeg"
+	"github.com/Mavwarf/notify/internal/mqtt"
 	"github.com/Mavwarf/notify/internal/plugin"
 	"github.com/Mavwarf/notify/internal/slack"
 	"github.com/Mavwarf/notify/internal/speech"
@@ -279,6 +280,15 @@ func execStep(step config.Step, defaultVolume int, creds config.Credentials, var
 			text = tmpl.Expand(step.Text, vars)
 		}
 		return plugin.Run(step.Command, text, step.Timeout, vars)
+	case "mqtt":
+		msg := tmpl.Expand(step.Text, vars)
+		qos := byte(0)
+		if step.QoS != nil {
+			qos = byte(*step.QoS)
+		}
+		return retryOnce(func() error {
+			return mqtt.Publish(step.Broker, "notify", step.Topic, msg, qos, step.Retain, creds.MQTTUsername, creds.MQTTPassword)
+		})
 	default:
 		return fmt.Errorf("unknown step type: %q", step.Type)
 	}

@@ -7,7 +7,7 @@ present, a Discord, Slack, or Telegram ping when you're not.
 A single binary, zero-dependency notification engine for the command line.
 Chain sounds, speech, toast popups, Discord messages, Discord voice messages,
 Slack messages, Telegram messages, Telegram audio messages, Telegram voice
-bubbles, and generic webhooks into pipelines
+bubbles, generic webhooks, and MQTT publishes into pipelines
 — all configured in one JSON file.
 
 ## What is this for?
@@ -114,6 +114,8 @@ internal/
     convert.go           WAV to OGG/OPUS conversion via ffmpeg
   paths/
     paths.go             Shared constants and platform-specific data directory
+  mqtt/
+    mqtt.go              MQTT publish (connect-publish-disconnect per invocation)
   plugin/
     plugin.go            External command execution with NOTIFY_* env vars
   idle/
@@ -128,7 +130,7 @@ internal/
   voice/
     voice.go             AI voice cache management and OpenAI TTS API client
   runner/
-    runner.go            Step executor (dispatches to audio/speech/toast/discord/discord_voice/slack/telegram/telegram_audio/telegram_voice/webhook/plugin)
+    runner.go            Step executor (dispatches to audio/speech/toast/discord/discord_voice/slack/telegram/telegram_audio/telegram_voice/webhook/plugin/mqtt)
   eventlog/
     eventlog.go          Append-only invocation log (notify.log)
     parse.go             Log entry parsing, day summaries, voice line extraction
@@ -239,7 +241,9 @@ notify help                            # Show help
       "slack_webhook": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
       "telegram_token": "YOUR_BOT_TOKEN",
       "telegram_chat_id": "YOUR_CHAT_ID",
-      "openai_api_key": "$OPENAI_API_KEY"
+      "openai_api_key": "$OPENAI_API_KEY",
+      "mqtt_username": "$MQTT_USER",
+      "mqtt_password": "$MQTT_PASS"
     }
   },
   "profiles": {
@@ -258,7 +262,8 @@ notify help                            # Show help
           { "type": "telegram_audio", "text": "Ready!", "when": "afk" },
           { "type": "telegram_voice", "text": "Ready!", "when": "afk" },
           { "type": "webhook", "url": "https://ntfy.sh/mytopic", "text": "Ready!", "when": "afk" },
-          { "type": "plugin", "command": "curl -s -X PUT http://desk-light/on", "text": "Ready!", "timeout": 5 }
+          { "type": "plugin", "command": "curl -s -X PUT http://desk-light/on", "text": "Ready!", "timeout": 5 },
+          { "type": "mqtt", "broker": "tcp://localhost:1883", "topic": "notify/builds", "text": "{profile} ready" }
         ]
       }
     },
@@ -312,7 +317,8 @@ notify help                            # Show help
   `telegram_audio` (TTS audio uploaded to Telegram as WAV),
   `telegram_voice` (TTS audio converted to OGG/OPUS and uploaded as voice bubble),
   `webhook` (HTTP POST to any URL with custom headers),
-  `plugin` (run an external command/script with NOTIFY_* env vars).
+  `plugin` (run an external command/script with NOTIFY_* env vars),
+  `mqtt` (publish a message to an MQTT broker topic).
 - **Volume priority:** per-step `volume` > CLI `--volume` > config
   `"default_volume"` > 100.
 - Toast `title` defaults to the profile name if omitted.
@@ -345,8 +351,8 @@ notify help                            # Show help
   codes still use the default 0→ready / non-zero→error fallback.
 - `sound` and `say` steps run sequentially (shared audio pipeline).
   All other steps (`toast`, `discord`, `discord_voice`, `slack`,
-  `telegram`, `telegram_audio`, `telegram_voice`, `webhook`, `plugin`) fire in
-  parallel immediately.
+  `telegram`, `telegram_audio`, `telegram_voice`, `webhook`, `plugin`, `mqtt`)
+  fire in parallel immediately.
 
 ### Available sounds
 
@@ -381,7 +387,8 @@ are automatically converted to 44100 Hz stereo for playback.
 
 Remote notification steps (`discord`, `discord_voice`, `slack`, `telegram`,
 `telegram_audio`, `telegram_voice`) need credentials stored in
-the `"credentials"` object inside `"config"`:
+the `"credentials"` object inside `"config"`. MQTT credentials are optional
+(many local brokers don't require authentication):
 
 ```json
 {
@@ -390,7 +397,9 @@ the `"credentials"` object inside `"config"`:
       "discord_webhook": "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN",
       "slack_webhook": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
       "telegram_token": "YOUR_BOT_TOKEN",
-      "telegram_chat_id": "YOUR_CHAT_ID"
+      "telegram_chat_id": "YOUR_CHAT_ID",
+      "mqtt_username": "$MQTT_USER",
+      "mqtt_password": "$MQTT_PASS"
     }
   },
   "profiles": { ... }
@@ -573,6 +582,32 @@ secrets:
 
 The `text` field supports template variables. Webhook steps run in parallel
 (they don't block the audio pipeline). Requires `url` and `text` fields.
+
+### MQTT publish
+
+The `mqtt` step type publishes a message to an MQTT broker topic. Ideal for
+home automation — flash a desk light when a build finishes, trigger
+Home Assistant automations, or update status displays:
+
+```json
+{ "type": "mqtt", "broker": "tcp://localhost:1883", "topic": "notify/builds", "text": "{profile} — {command} finished in {duration}" }
+```
+
+The `broker` URL follows the Paho convention: `tcp://host:port` for plain
+MQTT or `ssl://host:port` for TLS. `topic` and `text` are required. Optional
+fields:
+
+- `"qos"` — MQTT QoS level: 0 (at most once, default), 1 (at least once),
+  or 2 (exactly once).
+- `"retain"` — set to `true` to have the broker retain the message for new
+  subscribers (default `false`).
+
+Authentication is optional — set `mqtt_username` and `mqtt_password` in
+`"credentials"` when your broker requires it. Many local brokers (Mosquitto
+defaults, Home Assistant add-on) accept anonymous connections.
+
+MQTT steps run in parallel (they don't block the audio pipeline) and
+automatically retry once on transient failures.
 
 ### AI voice generation
 
