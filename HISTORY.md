@@ -2,6 +2,7 @@
 
 ## Features
 
+- Pluggable storage interface — `Store` interface with `FileStore` implementation, enabling future SQLite/webhook backends without caller changes *(Feb 27)*
 - Enhanced toast notifications — app icon, "via notify" attribution text, desktop switching moved from body click to action button *(Feb 27)*
 - Virtual desktop switching *(experimental)* — toast "Desktop N" action button switches virtual desktops via `notify://` protocol URI and VirtualDesktopAccessor.dll; modern Windows 10+ ToastNotificationManager XML API replaces legacy BalloonTip *(Feb 27)*
 - Dashboard color schemes — cycle through 6 themes: Dark, Light, Nord, Dracula, Solarized Dark, Gruvbox Dark *(Feb 27)*
@@ -60,6 +61,21 @@
 ---
 
 ## 2026-02-27
+
+### Pluggable Storage Interface (Phase 1 — FileStore)
+
+All event log I/O is now behind a `Store` interface (`internal/eventlog/store.go`)
+with 12 methods covering writes, reads, maintenance, and metadata. The existing
+flat-file logic is wrapped in a `FileStore` implementation with zero behavior
+change. All callers (cmd/notify/, internal/dashboard/) go through
+`eventlog.Default` instead of scattered `os.ReadFile`/`os.WriteFile` calls.
+
+This enables swapping in alternative backends (SQLite, webhook forwarding) in
+future phases without touching any caller code. New convenience functions
+(`eventlog.Entries()`, `eventlog.EntriesSince()`, `eventlog.VoiceLines()`,
+`eventlog.ReadContent()`) replace repetitive read-parse-filter patterns across
+the codebase. Tests can override storage with
+`eventlog.Default = eventlog.NewFileStore(tmpPath)`.
 
 ### Enhanced Toast Notifications
 

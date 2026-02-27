@@ -2,24 +2,13 @@
 
 ## High Impact
 
-### Pluggable Storage Backend (SQLite)
+### Pluggable Storage Backend — Phase 2 (SQLite)
 
-All data is currently stored in and parsed from a flat log file — no
-indexing, linear scans for every query, no concurrent write safety,
-and fragile text parsing. Replace with a `Store` interface and
-structured storage.
+Phase 1 complete: `Store` interface and `FileStore` implementation are
+in place (`internal/eventlog/store.go`, `filestore.go`). All callers
+go through `eventlog.Default`. Next step is a structured backend.
 
-**Store interface:**
-```go
-type Store interface {
-    Append(event Event) error
-    Query(filter Filter) ([]Event, error)
-    Aggregate(opts AggregateOpts) (Summary, error)
-}
-```
-
-**Implementations:**
-- `FileStore` — current log file (backward compat, always available)
+**Remaining implementations:**
 - `SQLiteStore` — structured local storage with indexed columns
   (timestamp, profile, action, kind). Uses `modernc.org/sqlite`
   (pure Go, no CGO) to preserve single-binary zero-dependency builds.
