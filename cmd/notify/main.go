@@ -201,6 +201,7 @@ func main() {
 	storage := ""
 	if cfg, err := config.Load(configPath); err == nil {
 		storage = cfg.Options.Storage
+		eventlog.SetRetention(cfg.Options.RetentionDays)
 	}
 	eventlog.OpenDefault(storage)
 	defer eventlog.Close()

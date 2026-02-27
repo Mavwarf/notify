@@ -58,7 +58,8 @@ type Options struct {
 	OutputLines         int               `json:"output_lines,omitempty"`
 	HeartbeatSeconds    int               `json:"heartbeat_seconds,omitempty"`
 	ShellHookThreshold  int               `json:"shell_hook_threshold,omitempty"`
-	Storage             string            `json:"storage,omitempty"` // "sqlite" (default) or "file"
+	Storage             string            `json:"storage,omitempty"`        // "sqlite" (default) or "file"
+	RetentionDays       int               `json:"retention_days,omitempty"` // 0 = keep forever, >0 = auto-prune
 	Voice               VoiceConfig       `json:"openai_voice,omitempty"`
 	Credentials         Credentials       `json:"credentials,omitempty"`
 }
@@ -250,6 +251,9 @@ func Validate(cfg Config) error {
 	}
 	if cfg.Options.Storage != "" && cfg.Options.Storage != "sqlite" && cfg.Options.Storage != "file" {
 		errs = append(errs, `config: storage must be "sqlite" or "file"`)
+	}
+	if cfg.Options.RetentionDays < 0 {
+		errs = append(errs, "config: retention_days must not be negative")
 	}
 	for k, v := range cfg.Options.ExitCodes {
 		if _, err := strconv.Atoi(k); err != nil {

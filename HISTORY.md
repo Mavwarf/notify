@@ -2,6 +2,7 @@
 
 ## Features
 
+- Log retention (`retention_days`) — automatic cleanup of old event log entries after every write; off by default (0 = keep forever) *(Feb 27)*
 - Scheduled reminders (`--delay`, `--at`) — fire a notification after a delay or at a specific time; foreground sleep, cancellable with Ctrl+C *(Feb 27)*
 - REST trigger API (`/api/trigger`) — fire notifications via HTTP request to the dashboard; supports GET and POST, mirrors full CLI execution flow (silent, cooldown, AFK, step filtering, logging) *(Feb 27)*
 - Wails desktop app (`notify-app`) — native desktop window for the dashboard using OS webview (WebView2); no bundled Chromium, proper window chrome, SSE live updates *(Feb 27)*
@@ -69,6 +70,18 @@
 ---
 
 ## 2026-02-27
+
+### Log Retention (`retention_days`)
+
+Automatic cleanup of old event log entries. Set `"retention_days"` in the config
+block to auto-prune entries older than N days after every write operation.
+
+- `0` (default) — keep everything, no auto-cleanup
+- `30` — keep one month of history
+- Works with both SQLite and FileStore backends
+- Cleanup runs after each write (Log, LogCooldown, LogCooldownRecord, LogSilent)
+- SQLite uses indexed DELETE (fast); FileStore rewrites the file (small and infrequent)
+- Manual cleanup via `notify history clean <days>` still works independently
 
 ### Scheduled reminders (`--delay`, `--at`)
 

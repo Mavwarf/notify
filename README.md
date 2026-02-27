@@ -261,6 +261,7 @@ notify help                            # Show help
     "heartbeat_seconds": 0,
     "shell_hook_threshold": 30,
     "storage": "sqlite",
+    "retention_days": 0,
     "openai_voice": {
       "model": "tts-1",
       "voice": "nova",
@@ -381,6 +382,9 @@ notify help                            # Show help
   SQLite uses indexed queries for faster history/summary/voice lookups and WAL
   mode for concurrent dashboard reads. On first SQLite run, existing `notify.log`
   data is auto-migrated and the file renamed to `notify.log.migrated`.
+- **Log retention:** set `"retention_days"` to automatically prune entries older
+  than the specified number of days after every write. `0` (default) keeps
+  everything. E.g. `"retention_days": 30` keeps one month of history.
 - **Event logging:** set `"log": true` to append every invocation to
   the event log (or use `--log` on the CLI). Off by default.
 - **Echo:** set `"echo": true` (or use `--echo`) to print a one-line

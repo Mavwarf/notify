@@ -17,6 +17,22 @@ import (
 // Set by OpenDefault() at program startup, or overridden in tests.
 var Default Store
 
+// retentionDays is the configured log retention period. 0 = keep forever.
+var retentionDays int
+
+// SetRetention configures automatic log cleanup. When days > 0, old entries
+// are pruned after every write operation.
+func SetRetention(days int) {
+	retentionDays = days
+}
+
+// autoClean runs cleanup if retention is configured.
+func autoClean() {
+	if retentionDays > 0 && Default != nil {
+		Default.Clean(retentionDays)
+	}
+}
+
 // OpenDefault initializes Default with the configured storage backend.
 // Pass "file" for the flat-file backend, or "" / "sqlite" for SQLite.
 // If SQLite fails to open, falls back to FileStore with a warning.
@@ -52,6 +68,7 @@ func Log(action string, steps []config.Step, afk bool, vars tmpl.Vars, desktop *
 	if err := Default.Log(action, steps, afk, vars, desktop); err != nil {
 		fmt.Fprintf(os.Stderr, "eventlog: %v\n", err)
 	}
+	autoClean()
 }
 
 // LogCooldown appends a single line noting that an invocation was skipped
@@ -60,6 +77,7 @@ func LogCooldown(profile, action string, cooldownSeconds int) {
 	if err := Default.LogCooldown(profile, action, cooldownSeconds); err != nil {
 		fmt.Fprintf(os.Stderr, "eventlog: %v\n", err)
 	}
+	autoClean()
 }
 
 // LogCooldownRecord appends a single line noting that cooldown state was
@@ -68,6 +86,7 @@ func LogCooldownRecord(profile, action string, cooldownSeconds int) {
 	if err := Default.LogCooldownRecord(profile, action, cooldownSeconds); err != nil {
 		fmt.Fprintf(os.Stderr, "eventlog: %v\n", err)
 	}
+	autoClean()
 }
 
 // LogSilent appends a single line noting that an invocation was skipped
@@ -76,6 +95,7 @@ func LogSilent(profile, action string) {
 	if err := Default.LogSilent(profile, action); err != nil {
 		fmt.Fprintf(os.Stderr, "eventlog: %v\n", err)
 	}
+	autoClean()
 }
 
 // LogSilentEnable appends a single line noting that silent mode was enabled.

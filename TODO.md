@@ -18,23 +18,6 @@ simultaneously. A `"batch": "5s"` profile option could collect
 notifications within a time window and send a single summary
 ("3 builds finished: webapp, api, worker") instead of separate popups.
 
-### Scheduled Reminders (`--delay`, `--at`)
-
-Simple timer that fires a profile action later:
-- `notify --delay 5m ready` — fire in 5 minutes
-- `notify --at 14:30 ready` — fire at a specific time
-
-Useful for "remind me to check this in 10 minutes". The process
-would sleep/wait and then execute the normal notification pipeline.
-
-### Log Rotation / Retention Policy
-
-`"retention": "30d"` in config for automatic cleanup on every write.
-Currently `history clean` is manual; unbounded log growth will become
-a real problem as the log file is the data source for dashboard
-analytics, voice stats, and history queries. Auto-prune entries older
-than the configured threshold.
-
 ### Incoming Webhook Listener
 
 `notify listen --port 9999` receives webhooks from GitHub Actions,
