@@ -3,6 +3,7 @@ output/
 
 # Go
 *.exe
+vendor/
 
 # Claude Code (local permissions + MCP auto-generated files)
 .claude/
