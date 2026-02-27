@@ -2,6 +2,7 @@
 
 ## Features
 
+- Dashboard auto-reload on reconnect — page reloads when SSE reconnects after server restart, picking up new frontend changes *(Feb 27)*
 - History remove (`notify history remove <profile>`) — selectively delete all log entries for a specific profile *(Feb 27)*
 - Dashboard project count — donut chart shows number of active projects below the chart *(Feb 27)*
 - Plugin step type — run external commands/scripts as notification steps with NOTIFY_* env vars, configurable timeout, and parallel execution *(Feb 27)*
@@ -55,6 +56,13 @@
 ---
 
 ## 2026-02-27
+
+### Dashboard Auto-Reload on Reconnect
+
+When the SSE connection drops (e.g., because the server was restarted with a new
+binary) and successfully reconnects, the page now automatically reloads. This
+ensures the browser always runs the latest embedded HTML/JS without requiring a
+manual refresh — useful when upgrading the binary with new dashboard features.
 
 ### History Remove (`notify history remove <profile>`)
 

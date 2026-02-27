@@ -1398,10 +1398,14 @@ tr:hover td { background: var(--bg3); }
   const sseDot = document.getElementById('sse-dot');
   const sseStatus = document.getElementById('sse-status');
 
+  let sseConnectedOnce = false;
+
   function connectSSE() {
     const source = new EventSource('/api/events');
 
     source.onopen = () => {
+      if (sseConnectedOnce) { location.reload(); return; }
+      sseConnectedOnce = true;
       sseDot.style.background = 'var(--green)';
       sseStatus.textContent = 'live';
     };
