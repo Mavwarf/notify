@@ -115,9 +115,12 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: ${{ matrix.cgo }}
         run: |
-          if [ "${{ matrix.goos }}" = "darwin" ] && [ "${{ matrix.goarch }}" = "amd64" ]; then
-            export CGO_CFLAGS="-arch x86_64"
-            export CGO_LDFLAGS="-arch x86_64"
+          if [ "${{ matrix.goos }}" = "darwin" ]; then
+            export CGO_LDFLAGS="-framework UniformTypeIdentifiers"
+            if [ "${{ matrix.goarch }}" = "amd64" ]; then
+              export CGO_CFLAGS="-arch x86_64"
+              export CGO_LDFLAGS="-arch x86_64 -framework UniformTypeIdentifiers"
+            fi
           fi
           go build -tags desktop,production \
             -ldflags "-w -s ${{ matrix.extra_ldflags }}" \
