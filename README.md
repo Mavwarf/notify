@@ -77,6 +77,9 @@ go install github.com/Mavwarf/notify/cmd/notify@latest
   or Telegram message when AFK.
 - **Quiet hours** — time-based `"hours:X-Y"` condition suppresses loud steps
   at night and routes to silent channels instead.
+- **Duration-based escalation** — `"long:5m"` fires a step only when the
+  wrapped command took at least that long. Quick builds stay local, long ones
+  escalate to Discord/Slack.
 - **Shell hook** — `notify shell-hook install` adds a precmd/preexec hook
   to bash, zsh, or PowerShell that automatically notifies after any command
   exceeding a time threshold (default 30s). No `notify run` wrapping needed.
@@ -278,6 +281,7 @@ notify help                            # Show help
           { "type": "toast", "message": "Ready!", "when": "afk" },
           { "type": "toast", "message": "Ready!", "when": "hours:22-8" },
           { "type": "discord", "text": "Ready!", "when": "afk" },
+          { "type": "discord", "text": "{profile} took {duration}", "when": "long:5m" },
           { "type": "discord_voice", "text": "Ready!", "when": "afk" },
           { "type": "slack", "text": "Ready!", "when": "afk" },
           { "type": "telegram", "text": "Ready!", "when": "afk" },
@@ -726,6 +730,7 @@ conditions distinguish `notify run` from direct calls:
 | `"direct"`     | Invoked directly or via `notify pipe` (not `notify run`) |
 | `"never"`      | Never runs (temporarily disable a step) |
 | `"hours:X-Y"`  | Current hour is within range (24h local time) |
+| `"long:DURATION"` | Wrapped command took at least this long (e.g. `"long:5m"`) |
 
 Set the threshold (in seconds) in `"config"`. Default is 300 (5 minutes):
 
@@ -771,6 +776,29 @@ local time). Useful for suppressing loud notifications at night:
 - `hours:8-22` — runs when the hour is >= 8 and < 22
 - `hours:22-8` — cross-midnight: runs when hour >= 22 **or** < 8
 - Invalid specs are skipped (fail-closed) with a stderr warning
+
+### Duration-based escalation
+
+Use `"long:DURATION"` to fire a step only when a wrapped command (`notify run`,
+`watch --pid`, or shell hook) ran for at least the given duration. Quick builds
+get a local chime; long ones also hit Discord/Slack:
+
+```json
+{
+  "steps": [
+    { "type": "sound", "sound": "success" },
+    { "type": "say", "text": "{Profile} done" },
+    { "type": "discord", "text": "{profile} took {duration}", "when": "long:5m" }
+  ]
+}
+```
+
+- `long:5m` — fires when elapsed time >= 5 minutes
+- `long:30s` — fires when elapsed time >= 30 seconds
+- Accepts any Go duration string (`5m`, `30s`, `1h30m`, `2m30s`)
+- Always skipped in direct mode, pipe mode, and dry-run (elapsed = 0)
+- Evaluates in heartbeat ticks, so a `long:5m` step in a heartbeat action
+  fires once the heartbeat occurs after the 5-minute mark
 
 ### Profile auto-selection (match rules)
 

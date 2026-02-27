@@ -73,15 +73,16 @@ func sequential(typ string) bool {
 }
 
 // FilterSteps returns only the steps that should run given the current
-// AFK state and invocation mode. Steps with When="" always run;
-// "afk"/"present" filter on idle state; "run"/"direct" filter on
-// whether the invocation came from `notify run`; "hours:X-Y" filters
-// on the current hour (24h local time).
-func FilterSteps(steps []config.Step, afk, run bool) []config.Step {
+// AFK state, invocation mode, and elapsed time. Steps with When="" always
+// run; "afk"/"present" filter on idle state; "run"/"direct" filter on
+// whether the invocation came from `notify run`; "hours:X-Y" filters on
+// the current hour (24h local time); "long:DURATION" filters on elapsed
+// time (0 = non-run context, always skipped).
+func FilterSteps(steps []config.Step, afk, run bool, elapsed time.Duration) []config.Step {
 	now := time.Now()
 	out := make([]config.Step, 0, len(steps))
 	for _, s := range steps {
-		if matchWhen(s.When, afk, run, now) {
+		if matchWhen(s.When, afk, run, now, elapsed) {
 			out = append(out, s)
 		}
 	}
@@ -90,11 +91,11 @@ func FilterSteps(steps []config.Step, afk, run bool) []config.Step {
 
 // FilteredIndices returns a boolean map indicating which step indices
 // would run. Used by dry-run to mark each step as RUN or SKIP.
-func FilteredIndices(steps []config.Step, afk, run bool) map[int]bool {
+func FilteredIndices(steps []config.Step, afk, run bool, elapsed time.Duration) map[int]bool {
 	now := time.Now()
 	m := make(map[int]bool, len(steps))
 	for i, s := range steps {
-		if matchWhen(s.When, afk, run, now) {
+		if matchWhen(s.When, afk, run, now, elapsed) {
 			m[i] = true
 		}
 	}
@@ -104,7 +105,7 @@ func FilteredIndices(steps []config.Step, afk, run bool) map[int]bool {
 // matchWhen evaluates a single "when" condition string against the
 // current state. Unknown conditions return false (fail-closed) with a
 // warning printed to stderr.
-func matchWhen(when string, afk, run bool, now time.Time) bool {
+func matchWhen(when string, afk, run bool, now time.Time, elapsed time.Duration) bool {
 	switch when {
 	case "":
 		return true
@@ -122,9 +123,27 @@ func matchWhen(when string, afk, run bool, now time.Time) bool {
 		if strings.HasPrefix(when, "hours:") {
 			return matchHours(when[6:], now)
 		}
+		if strings.HasPrefix(when, "long:") {
+			return matchLong(when[5:], elapsed)
+		}
 		fmt.Fprintf(os.Stderr, "warning: unknown when condition %q, skipping step\n", when)
 		return false
 	}
+}
+
+// matchLong returns true when elapsed time meets or exceeds the threshold
+// parsed from spec (e.g. "5m", "30s"). Returns false if elapsed is zero
+// (non-run context like direct invocation or dry-run) or on parse errors.
+func matchLong(spec string, elapsed time.Duration) bool {
+	if elapsed == 0 {
+		return false
+	}
+	threshold, err := time.ParseDuration(spec)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: invalid long spec %q, skipping step\n", spec)
+		return false
+	}
+	return elapsed >= threshold
 }
 
 // matchHours parses a spec like "8-22" and returns true if now's hour

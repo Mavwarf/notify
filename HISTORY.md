@@ -2,6 +2,7 @@
 
 ## Features
 
+- Duration-based escalation (`when: "long:DURATION"`) — fire steps only when a wrapped command exceeds a time threshold; quick builds stay local, long ones escalate to Discord/Slack *(Feb 27)*
 - SQLite migration fix — fixed data loss where `cooldown=recorded` lines merged with execution blocks; single-connection pool for reliable CASCADE deletes *(Feb 27)*
 - Dashboard storage indicator — Watch tab log stats line shows active backend (SQLite or File) *(Feb 27)*
 - SQLite storage backend — indexed SQL queries replace linear file scans; auto-migrates from `notify.log` on first use; `"storage": "sqlite"` (default) or `"file"` in config *(Feb 27)*
@@ -64,6 +65,21 @@
 ---
 
 ## 2026-02-27
+
+### Duration-Based Escalation (`when: "long:DURATION"`)
+
+New `when` condition that fires a step only when the elapsed time of a wrapped
+command meets or exceeds a threshold. Quick builds get a local chime; long ones
+also hit Discord/Slack. Works with `notify run`, `watch --pid`, shell hooks,
+and heartbeat ticks. Always skipped in direct mode, pipe mode, and dry-run
+where no elapsed time is available.
+
+```json
+{ "type": "discord", "text": "{profile} took {duration}", "when": "long:5m" }
+```
+
+Accepts any Go duration string: `30s`, `5m`, `1h30m`, etc. Config validation
+rejects empty or non-positive durations at load time.
 
 ### SQLite Migration Fix & Connection Pool Hardening
 

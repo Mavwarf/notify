@@ -270,7 +270,7 @@ func dryRun(args []string, configPath string) {
 	fmt.Printf("\nActions:\n")
 	for _, aName := range actionNames {
 		act := p.Actions[aName]
-		wouldRun := runner.FilteredIndices(act.Steps, afk, false)
+		wouldRun := runner.FilteredIndices(act.Steps, afk, false, 0)
 		fmt.Printf("\n  %s (%d/%d steps would run):\n", aName, len(wouldRun), len(act.Steps))
 		for i, s := range act.Steps {
 			marker := "  SKIP "
@@ -362,6 +362,7 @@ func watchCmd(args []string, configPath string, opts runOpts) {
 	}
 	elapsed := time.Since(start)
 
+	opts.Elapsed = elapsed
 	dispatchActions(cfg, profile, "ready", opts,
 		func(v *tmpl.Vars) {
 			v.Command = fmt.Sprintf("PID %d", pid)
@@ -435,6 +436,7 @@ func hookCmd(args []string, configPath string, opts runOpts) {
 	actionArg := resolveExitAction(cfg.Options.ExitCodes, exitCode)
 
 	elapsed := time.Duration(seconds) * time.Second
+	opts.Elapsed = elapsed
 	dispatchActions(cfg, profile, actionArg, opts,
 		func(v *tmpl.Vars) {
 			v.Command = command

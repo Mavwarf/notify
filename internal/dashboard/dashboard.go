@@ -473,7 +473,7 @@ func handleTest(cfg config.Config) http.HandlerFunc {
 				continue
 			}
 
-			wouldRun := runner.FilteredIndices(act.Steps, false, false)
+			wouldRun := runner.FilteredIndices(act.Steps, false, false, 0)
 			steps := make([]stepResult, len(act.Steps))
 			run, skip := 0, 0
 			for i, s := range act.Steps {

@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Mavwarf/notify/internal/paths"
 )
@@ -207,7 +208,7 @@ type Step struct {
 	Retain  bool              `json:"retain,omitempty"`  // type=mqtt (default false)
 	QoS     *int              `json:"qos,omitempty"`     // type=mqtt (0, 1, or 2; default 0)
 	Volume  *int              `json:"volume,omitempty"`  // per-step override, nil = use default
-	When    string            `json:"when,omitempty"`    // "" | "never" | "afk" | "present" | "run" | "direct" | "hours:X-Y"
+	When    string            `json:"when,omitempty"`    // "" | "never" | "afk" | "present" | "run" | "direct" | "hours:X-Y" | "long:DURATION"
 }
 
 // validStepTypes is the set of recognized step types.
@@ -444,6 +445,9 @@ func validateWhen(when string) error {
 		if strings.HasPrefix(when, "hours:") {
 			return validateHoursSpec(when[6:])
 		}
+		if strings.HasPrefix(when, "long:") {
+			return validateLongSpec(when[5:])
+		}
 		return fmt.Errorf("unknown when condition %q", when)
 	}
 }
@@ -458,6 +462,18 @@ func validateHoursSpec(spec string) error {
 	end, err2 := strconv.Atoi(parts[1])
 	if err1 != nil || err2 != nil || start < 0 || start > 23 || end < 0 || end > 23 {
 		return fmt.Errorf("invalid hours spec %q (hours must be 0-23)", spec)
+	}
+	return nil
+}
+
+// validateLongSpec checks that a long spec like "5m" is a valid positive duration.
+func validateLongSpec(spec string) error {
+	d, err := time.ParseDuration(spec)
+	if err != nil {
+		return fmt.Errorf("invalid long spec %q: %v", spec, err)
+	}
+	if d <= 0 {
+		return fmt.Errorf("invalid long spec %q: duration must be positive", spec)
 	}
 	return nil
 }

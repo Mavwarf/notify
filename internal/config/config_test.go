@@ -448,6 +448,45 @@ func TestValidateValidHoursSpec(t *testing.T) {
 	}
 }
 
+func TestValidateInvalidLongSpec(t *testing.T) {
+	tests := []struct {
+		when string
+	}{
+		{"long:"},
+		{"long:abc"},
+		{"long:-5m"},
+		{"long:0s"},
+	}
+	for _, tt := range tests {
+		cfg := Config{
+			Profiles: map[string]Profile{
+				"default": p(map[string]Action{
+					"ready": {Steps: []Step{{Type: "sound", Sound: "blip", When: tt.when}}},
+				}),
+			},
+		}
+		if err := Validate(cfg); err == nil {
+			t.Errorf("expected error for when=%q", tt.when)
+		}
+	}
+}
+
+func TestValidateValidLongSpec(t *testing.T) {
+	tests := []string{"long:5m", "long:30s", "long:1h", "long:2m30s"}
+	for _, when := range tests {
+		cfg := Config{
+			Profiles: map[string]Profile{
+				"default": p(map[string]Action{
+					"ready": {Steps: []Step{{Type: "sound", Sound: "blip", When: when}}},
+				}),
+			},
+		}
+		if err := Validate(cfg); err != nil {
+			t.Errorf("expected valid for when=%q, got: %v", when, err)
+		}
+	}
+}
+
 func TestValidateMissingRequiredFields(t *testing.T) {
 	tests := []struct {
 		name string

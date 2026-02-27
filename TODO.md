@@ -11,16 +11,6 @@ SQLite is the default backend with indexed queries, WAL mode, and auto-migration
 - `WebhookStore` — forward all events to an HTTP endpoint for
   external systems (Elasticsearch, Grafana Loki, team dashboards)
 
-### Duration-Based Escalation (`when: "long:5m"`)
-
-New `when` condition that only fires if the wrapped command took longer
-than a threshold. Quick builds get a local chime; long ones also hit
-Discord/Slack. Fits naturally into the existing `when` condition system.
-
-```json
-{ "type": "discord", "text": "{profile} took {duration}", "when": "long:5m" }
-```
-
 ### Notification Batching
 
 When running multiple Claude Code sessions, a flood of toasts arrive

@@ -65,6 +65,7 @@ type runOpts struct {
 	Echo     bool
 	Cooldown bool
 	RunMode  bool
+	Elapsed  time.Duration
 }
 
 // readLog reads the event log via the default Store. Returns the content
@@ -342,7 +343,9 @@ func runWrapped(args []string, configPath string, opts runOpts, matches []matchP
 					return
 				case <-ticker.C:
 					elapsed := time.Since(start)
-					dispatchActions(cfg, profile, "heartbeat", opts,
+					hbOpts := opts
+					hbOpts.Elapsed = elapsed
+					dispatchActions(cfg, profile, "heartbeat", hbOpts,
 						func(v *tmpl.Vars) {
 							v.Command = cmdStr
 							v.Duration = formatDuration(elapsed)
@@ -386,6 +389,7 @@ func runWrapped(args []string, configPath string, opts runOpts, matches []matchP
 
 	// Error deliberately ignored: the wrapped command's exit code takes
 	// priority so the caller can distinguish command failure from notify failure.
+	opts.Elapsed = elapsed
 	dispatchActions(cfg, profile, actionArg, opts,
 		func(v *tmpl.Vars) {
 			v.Command = strings.Join(cmdArgs, " ")
@@ -513,7 +517,7 @@ func executeAction(cfg config.Config, profile, action string, act *config.Action
 	creds := config.MergeCredentials(cfg.Options.Credentials, cfg.Profiles[profile].Credentials)
 
 	desk := cfg.Profiles[profile].Desktop
-	filtered := runner.FilterSteps(act.Steps, afk, opts.RunMode)
+	filtered := runner.FilterSteps(act.Steps, afk, opts.RunMode, opts.Elapsed)
 	err := runner.Execute(filtered, opts.Volume, creds, vars, desk)
 	if cdEnabled && cdSec > 0 {
 		cooldown.Record(profile, action)

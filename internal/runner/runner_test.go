@@ -16,11 +16,11 @@ func TestFilterStepsAllRun(t *testing.T) {
 		{Type: "sound", Sound: "blip"},
 		{Type: "say", Text: "hi"},
 	}
-	got := FilterSteps(steps, false, false)
+	got := FilterSteps(steps, false, false, 0)
 	if len(got) != 2 {
 		t.Errorf("len = %d, want 2", len(got))
 	}
-	got = FilterSteps(steps, true, false)
+	got = FilterSteps(steps, true, false, 0)
 	if len(got) != 2 {
 		t.Errorf("len = %d, want 2 (no when = always run)", len(got))
 	}
@@ -33,7 +33,7 @@ func TestFilterStepsPresent(t *testing.T) {
 		{Type: "toast", Message: "afk msg", When: "afk"},
 	}
 
-	got := FilterSteps(steps, false, false)
+	got := FilterSteps(steps, false, false, 0)
 	if len(got) != 2 {
 		t.Fatalf("present: len = %d, want 2", len(got))
 	}
@@ -52,7 +52,7 @@ func TestFilterStepsAFK(t *testing.T) {
 		{Type: "toast", Message: "afk msg", When: "afk"},
 	}
 
-	got := FilterSteps(steps, true, false)
+	got := FilterSteps(steps, true, false, 0)
 	if len(got) != 2 {
 		t.Fatalf("afk: len = %d, want 2", len(got))
 	}
@@ -65,7 +65,7 @@ func TestFilterStepsAFK(t *testing.T) {
 }
 
 func TestFilterStepsEmpty(t *testing.T) {
-	got := FilterSteps(nil, false, false)
+	got := FilterSteps(nil, false, false, 0)
 	if len(got) != 0 {
 		t.Errorf("len = %d, want 0", len(got))
 	}
@@ -75,7 +75,7 @@ func TestFilterStepsAllFiltered(t *testing.T) {
 	steps := []config.Step{
 		{Type: "say", Text: "hi", When: "present"},
 	}
-	got := FilterSteps(steps, true, false)
+	got := FilterSteps(steps, true, false, 0)
 	if len(got) != 0 {
 		t.Errorf("len = %d, want 0 (all filtered when afk)", len(got))
 	}
@@ -89,7 +89,7 @@ func TestFilterStepsRun(t *testing.T) {
 	}
 
 	// In run mode: sound + "cmd done"
-	got := FilterSteps(steps, false, true)
+	got := FilterSteps(steps, false, true, 0)
 	if len(got) != 2 {
 		t.Fatalf("run mode: len = %d, want 2", len(got))
 	}
@@ -98,7 +98,7 @@ func TestFilterStepsRun(t *testing.T) {
 	}
 
 	// In direct mode: sound + "ready"
-	got = FilterSteps(steps, false, false)
+	got = FilterSteps(steps, false, false, 0)
 	if len(got) != 2 {
 		t.Fatalf("direct mode: len = %d, want 2", len(got))
 	}
@@ -163,33 +163,38 @@ func TestMatchWhen(t *testing.T) {
 	midnight := time.Date(2026, 1, 15, 0, 0, 0, 0, time.Local)
 
 	tests := []struct {
-		name string
-		when string
-		afk  bool
-		run  bool
-		now  time.Time
-		want bool
+		name    string
+		when    string
+		afk     bool
+		run     bool
+		now     time.Time
+		elapsed time.Duration
+		want    bool
 	}{
-		{"empty_always", "", false, false, noon, true},
-		{"afk_when_afk", "afk", true, false, noon, true},
-		{"afk_when_present", "afk", false, false, noon, false},
-		{"present_when_present", "present", false, false, noon, true},
-		{"present_when_afk", "present", true, false, noon, false},
-		{"run_in_run_mode", "run", false, true, noon, true},
-		{"run_in_direct_mode", "run", false, false, noon, false},
-		{"direct_in_direct_mode", "direct", false, false, noon, true},
-		{"direct_in_run_mode", "direct", false, true, noon, false},
-		{"hours_match", "hours:8-22", false, false, noon, true},
-		{"hours_no_match", "hours:8-22", false, false, midnight, false},
-		{"unknown_skipped", "bogus", false, false, noon, false},
+		{"empty_always", "", false, false, noon, 0, true},
+		{"afk_when_afk", "afk", true, false, noon, 0, true},
+		{"afk_when_present", "afk", false, false, noon, 0, false},
+		{"present_when_present", "present", false, false, noon, 0, true},
+		{"present_when_afk", "present", true, false, noon, 0, false},
+		{"run_in_run_mode", "run", false, true, noon, 0, true},
+		{"run_in_direct_mode", "run", false, false, noon, 0, false},
+		{"direct_in_direct_mode", "direct", false, false, noon, 0, true},
+		{"direct_in_run_mode", "direct", false, true, noon, 0, false},
+		{"hours_match", "hours:8-22", false, false, noon, 0, true},
+		{"hours_no_match", "hours:8-22", false, false, midnight, 0, false},
+		{"unknown_skipped", "bogus", false, false, noon, 0, false},
+		{"long_match", "long:5m", false, true, noon, 10 * time.Minute, true},
+		{"long_below", "long:5m", false, true, noon, 2 * time.Minute, false},
+		{"long_exact", "long:5m", false, true, noon, 5 * time.Minute, true},
+		{"long_zero_elapsed", "long:5m", false, false, noon, 0, false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := matchWhen(tt.when, tt.afk, tt.run, tt.now)
+			got := matchWhen(tt.when, tt.afk, tt.run, tt.now, tt.elapsed)
 			if got != tt.want {
-				t.Errorf("matchWhen(%q, afk=%v, run=%v) = %v, want %v",
-					tt.when, tt.afk, tt.run, got, tt.want)
+				t.Errorf("matchWhen(%q, afk=%v, run=%v, elapsed=%v) = %v, want %v",
+					tt.when, tt.afk, tt.run, tt.elapsed, got, tt.want)
 			}
 		})
 	}
@@ -416,5 +421,64 @@ func TestExecutePassesVolume(t *testing.T) {
 	Execute(steps, 42, config.Credentials{}, tmpl.Vars{}, nil)
 	if gotVol != 42 {
 		t.Errorf("volume = %d, want 42", gotVol)
+	}
+}
+
+func TestMatchLong(t *testing.T) {
+	tests := []struct {
+		name    string
+		spec    string
+		elapsed time.Duration
+		want    bool
+	}{
+		{"above_threshold", "5m", 10 * time.Minute, true},
+		{"exact_threshold", "5m", 5 * time.Minute, true},
+		{"below_threshold", "5m", 2 * time.Minute, false},
+		{"zero_elapsed", "5m", 0, false},
+		{"seconds_spec", "30s", 45 * time.Second, true},
+		{"seconds_below", "30s", 10 * time.Second, false},
+		{"complex_spec", "1h30m", 2 * time.Hour, true},
+		{"complex_below", "1h30m", 1 * time.Hour, false},
+		{"invalid_spec", "abc", 10 * time.Minute, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := matchLong(tt.spec, tt.elapsed)
+			if got != tt.want {
+				t.Errorf("matchLong(%q, %v) = %v, want %v", tt.spec, tt.elapsed, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFilterStepsLong(t *testing.T) {
+	steps := []config.Step{
+		{Type: "sound", Sound: "blip"},
+		{Type: "discord", Text: "long build", When: "long:5m"},
+		{Type: "say", Text: "done"},
+	}
+
+	// With 10m elapsed: all 3 steps run.
+	got := FilterSteps(steps, false, true, 10*time.Minute)
+	if len(got) != 3 {
+		t.Errorf("long elapsed: len = %d, want 3", len(got))
+	}
+
+	// With 2m elapsed: only 2 steps run (long:5m is skipped).
+	got = FilterSteps(steps, false, true, 2*time.Minute)
+	if len(got) != 2 {
+		t.Errorf("short elapsed: len = %d, want 2", len(got))
+	}
+	for _, s := range got {
+		if s.When == "long:5m" {
+			t.Error("short elapsed: long:5m step should not run")
+		}
+	}
+
+	// With 0 elapsed (direct mode): only 2 steps run.
+	got = FilterSteps(steps, false, false, 0)
+	if len(got) != 2 {
+		t.Errorf("zero elapsed: len = %d, want 2", len(got))
 	}
 }
