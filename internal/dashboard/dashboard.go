@@ -5,7 +5,6 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -359,13 +358,10 @@ func handleEvents(w http.ResponseWriter, r *http.Request) {
 	// Flush headers immediately so the browser fires onopen.
 	flusher.Flush()
 
-	logPath := eventlog.Default.Path()
-	var offset int64
-
-	// Start from end of file.
-	if info, err := os.Stat(logPath); err == nil {
-		offset = info.Size()
-	}
+	// Snapshot current entry count so we only send new ones.
+	// Works for both FileStore and SQLiteStore via the Store interface.
+	initial, _ := eventlog.Entries(0)
+	seen := len(initial)
 
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
@@ -377,42 +373,23 @@ func handleEvents(w http.ResponseWriter, r *http.Request) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			info, err := os.Stat(logPath)
-			if err != nil {
-				// File removed (history clear), reset offset.
-				offset = 0
+			all, _ := eventlog.Entries(0)
+
+			if len(all) < seen {
+				// History was cleared or cleaned.
+				seen = len(all)
 				continue
 			}
 
-			// File truncated (history clear while running).
-			if info.Size() < offset {
-				offset = 0
-			}
-
-			if info.Size() <= offset {
+			if len(all) == seen {
 				continue
 			}
 
-			f, err := os.Open(logPath)
-			if err != nil {
-				continue
-			}
+			newEntries := all[seen:]
+			seen = len(all)
 
-			f.Seek(offset, io.SeekStart)
-			data, err := io.ReadAll(f)
-			f.Close()
-			if err != nil {
-				continue
-			}
-			offset += int64(len(data))
-
-			entries := eventlog.ParseEntries(string(data))
-			if len(entries) == 0 {
-				continue
-			}
-
-			out := make([]jsonEntry, len(entries))
-			for i, e := range entries {
+			out := make([]jsonEntry, len(newEntries))
+			for i, e := range newEntries {
 				out[i] = entryToJSON(e)
 			}
 

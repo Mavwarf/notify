@@ -67,10 +67,9 @@ type runOpts struct {
 	RunMode  bool
 }
 
-// readLog reads the event log file via the default Store. Returns the content
-// and true on success. If the file is empty or doesn't exist, returns
-// ("", false) so the caller can print a context-appropriate message.
-// Fatals on other read errors.
+// readLog reads the event log via the default Store. Returns the content
+// and true on success. If the log is empty, returns ("", false) so the
+// caller can print a context-appropriate message. Fatals on read errors.
 func readLog() (string, bool) {
 	data, err := eventlog.ReadContent()
 	if err != nil {
@@ -846,7 +845,7 @@ Options:
   --volume, -v <0-100>   Override volume (default: config or 100)
   --config, -c <path>    Path to notify-config.json
   --match, -M <pat> <action>  Select action by output pattern (repeatable, run/pipe mode)
-  --log, -L              Write invocation to notify.log
+  --log, -L              Write invocation to event log
   --echo, -E             Print summary of steps that ran
   --cooldown, -C         Enable per-action cooldown (rate limiting)
   --heartbeat, -H <dur>  Periodic notification during "run" (e.g. 5m, 2m30s)
@@ -883,7 +882,7 @@ Commands:
   history export [days]  Export log entries as JSON (default: all)
   history remove <profile> Remove all entries for a specific profile
   history clean [days]   Remove old entries, keep last N days (no arg = clear all)
-  history clear          Delete the log file
+  history clear          Delete all log data
   voice generate [--min-uses N]  Generate AI voice files for frequently used voice steps
                          Only generates for texts used >= N times (default: 3 or config)
   voice test [--voice V] [--speed S] [--model M] <text>

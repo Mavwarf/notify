@@ -2,6 +2,7 @@
 
 ## Features
 
+- SQLite migration fix — fixed data loss where `cooldown=recorded` lines merged with execution blocks; single-connection pool for reliable CASCADE deletes *(Feb 27)*
 - Dashboard storage indicator — Watch tab log stats line shows active backend (SQLite or File) *(Feb 27)*
 - SQLite storage backend — indexed SQL queries replace linear file scans; auto-migrates from `notify.log` on first use; `"storage": "sqlite"` (default) or `"file"` in config *(Feb 27)*
 - Pluggable storage interface — `Store` interface with `FileStore` implementation, enabling future SQLite/webhook backends without caller changes *(Feb 27)*
@@ -64,6 +65,29 @@
 
 ## 2026-02-27
 
+### SQLite Migration Fix & Connection Pool Hardening
+
+Fixed a critical migration bug that caused ~99% data loss when migrating from
+`notify.log` to SQLite. `FileStore.LogCooldownRecord()` writes a single `\n`
+(not `\n\n`), so `cooldown=recorded` lines merge into the same `SplitBlocks()`
+block as the subsequent execution entry. The original migration only processed
+`firstLine` per block, missing the execution and all its step details (including
+voice text for voice stats).
+
+Fix: `migrateFromFile()` now iterates every line in each block, creating events
+for each summary line and associating step detail lines with the most recent
+execution via `lastExecID` tracking. Re-migration from the `.migrated` backup
+recovers all data.
+
+Also hardened the SQLite connection: `db.SetMaxOpenConns(1)` ensures `PRAGMA
+foreign_keys=ON` stays effective (it's per-connection, and `database/sql` pool
+connections don't inherit PRAGMAs). Without this, CASCADE deletes in `Clean()`,
+`RemoveProfile()`, and `Clear()` could leave orphaned `step_details` rows.
+
+Fixed `Entries()` and `EntriesSince()` SQL filter from `OR` to `AND`
+(`WHERE profile != '' AND action != ''`) to match `ParseEntries` semantics,
+which requires both fields to be non-empty.
+
 ### Dashboard Storage Indicator
 
 The Watch tab's log stats line at the bottom now displays the active storage
@@ -81,9 +105,11 @@ SQL queries. WAL journal mode enables concurrent reads (dashboard) during writes
 (notifications).
 
 On first run, existing `notify.log` data is automatically migrated into SQLite
-in a single transaction, then renamed to `notify.log.migrated`. The config
-option `"storage": "sqlite"` (default) or `"storage": "file"` selects the
-backend. If SQLite fails to open, falls back to FileStore with a stderr warning.
+in a single transaction, then renamed to `notify.log.migrated`. Migration
+handles multi-entry blocks where `cooldown=recorded` lines share a block with
+execution entries (no blank-line separator). The config option
+`"storage": "sqlite"` (default) or `"storage": "file"` selects the backend.
+If SQLite fails to open, falls back to FileStore with a stderr warning.
 
 Trade-off: `modernc.org/sqlite` adds ~15 MB to the binary — the cost of
 zero-dependency pure-Go SQLite.

@@ -34,6 +34,11 @@ func NewSQLiteStore(path string) (*SQLiteStore, error) {
 		return nil, err
 	}
 
+	// Use a single connection so PRAGMAs (especially foreign_keys) remain
+	// effective. SQLite is single-writer anyway; this avoids the pool
+	// creating new connections that miss the per-connection PRAGMAs.
+	db.SetMaxOpenConns(1)
+
 	// Set PRAGMAs before any DDL.
 	for _, pragma := range []string{
 		"PRAGMA journal_mode=WAL",
@@ -207,7 +212,7 @@ func (s *SQLiteStore) LogSilentDisable() error {
 
 func (s *SQLiteStore) Entries(days int) ([]Entry, error) {
 	query := `SELECT timestamp, profile, action, kind, claude_hook, claude_message
-		FROM events WHERE (profile != '' OR action != '')`
+		FROM events WHERE profile != '' AND action != ''`
 	var args []any
 	if days > 0 {
 		cutoff := DayCutoff(days).Format(time.RFC3339)
@@ -221,7 +226,7 @@ func (s *SQLiteStore) Entries(days int) ([]Entry, error) {
 
 func (s *SQLiteStore) EntriesSince(cutoff time.Time) ([]Entry, error) {
 	query := `SELECT timestamp, profile, action, kind, claude_hook, claude_message
-		FROM events WHERE timestamp >= ? AND (profile != '' OR action != '')
+		FROM events WHERE timestamp >= ? AND profile != '' AND action != ''
 		ORDER BY id`
 	return s.queryEntries(query, cutoff.Format(time.RFC3339))
 }
@@ -434,6 +439,11 @@ func (s *SQLiteStore) Path() string {
 
 // migrateFromFile reads an existing notify.log and imports its entries into
 // the SQLite database. On success, renames the log to notify.log.migrated.
+//
+// A single SplitBlocks() block may contain multiple events because
+// LogCooldownRecord writes only "\n" (no blank-line separator), so a
+// cooldown=recorded line merges into the same block as the subsequent
+// execution entry. We iterate every line in each block to handle this.
 func (s *SQLiteStore) migrateFromFile(logPath string) error {
 	data, err := os.ReadFile(logPath)
 	if err != nil {
@@ -459,90 +469,98 @@ func (s *SQLiteStore) migrateFromFile(logPath string) error {
 			continue
 		}
 
-		firstLine := lines[0]
-		ts, ok := ExtractTimestamp(firstLine)
-		if !ok {
-			continue
-		}
-		tsStr := ts.Format(time.RFC3339)
+		// Track the most recent execution event ID so step detail lines
+		// can be associated with it.
+		var lastExecID int64
 
-		profile := extractField(firstLine, "profile")
-		action := extractField(firstLine, "action")
+		for _, line := range lines {
+			// Step detail lines attach to the last execution event.
+			if strings.Contains(line, "step[") {
+				if lastExecID > 0 {
+					stepNum, stepType, detail, voiceText := parseStepLine(line)
+					if stepType != "" {
+						if _, err := tx.Exec(
+							`INSERT INTO step_details (event_id, step_num, step_type, detail, voice_text)
+							 VALUES (?, ?, ?, ?, ?)`,
+							lastExecID, stepNum, stepType, detail, voiceText,
+						); err != nil {
+							return fmt.Errorf("migrate step: %w", err)
+						}
+					}
+				}
+				continue
+			}
 
-		// Classify the block.
-		kind := KindOther
-		extra := ""
-		stepsCSV := ""
-		afk := false
-		var desktop *int
-		claudeHook := ""
-		claudeMessage := ""
+			// Summary line — parse and insert as a new event.
+			ts, ok := ExtractTimestamp(line)
+			if !ok {
+				continue
+			}
+			tsStr := ts.Format(time.RFC3339)
 
-		if hasField(firstLine, "steps") {
-			kind = KindExecution
-			stepsCSV = extractField(firstLine, "steps")
-			afk = extractField(firstLine, "afk") == "true"
-			if d := extractField(firstLine, "desktop"); d != "" {
-				var dv int
-				if _, err := fmt.Sscanf(d, "%d", &dv); err == nil {
-					desktop = &dv
+			profile := extractField(line, "profile")
+			action := extractField(line, "action")
+
+			kind := KindOther
+			extra := ""
+			stepsCSV := ""
+			afk := false
+			var desktop *int
+			claudeHook := ""
+			claudeMessage := ""
+
+			if hasField(line, "steps") {
+				kind = KindExecution
+				stepsCSV = extractField(line, "steps")
+				afk = extractField(line, "afk") == "true"
+				if d := extractField(line, "desktop"); d != "" {
+					var dv int
+					if _, err := fmt.Sscanf(d, "%d", &dv); err == nil {
+						desktop = &dv
+					}
+				}
+				claudeHook = extractField(line, "claude_hook")
+				claudeMessage = extractQuotedField(line, "claude_message")
+			} else if cooldownVal := extractField(line, "cooldown"); cooldownVal != "" {
+				if strings.HasPrefix(cooldownVal, "skipped") {
+					kind = KindCooldown
+				}
+				extra = cooldownVal
+			} else if silentVal := extractField(line, "silent"); silentVal != "" {
+				if silentVal == "skipped" {
+					kind = KindSilent
+				} else {
+					kind = KindOther
+					extra = silentVal
 				}
 			}
-			claudeHook = extractField(firstLine, "claude_hook")
-			claudeMessage = extractQuotedField(firstLine, "claude_message")
-		} else if cooldownVal := extractField(firstLine, "cooldown"); cooldownVal != "" {
-			if strings.HasPrefix(cooldownVal, "skipped") {
-				kind = KindCooldown
+
+			afkInt := 0
+			if afk {
+				afkInt = 1
 			}
-			extra = cooldownVal
-		} else if silentVal := extractField(firstLine, "silent"); silentVal != "" {
-			if silentVal == "skipped" {
-				kind = KindSilent
-			} else {
-				kind = KindOther
-				extra = silentVal
+			var desktopVal any
+			if desktop != nil {
+				desktopVal = *desktop
 			}
-		}
 
-		afkInt := 0
-		if afk {
-			afkInt = 1
-		}
-		var desktopVal any
-		if desktop != nil {
-			desktopVal = *desktop
-		}
-
-		res, err := tx.Exec(
-			`INSERT INTO events (timestamp, profile, action, kind, afk, desktop, claude_hook, claude_message, steps_csv, extra)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			tsStr, profile, action, int(kind), afkInt, desktopVal,
-			claudeHook, claudeMessage, stepsCSV, extra,
-		)
-		if err != nil {
-			return fmt.Errorf("migrate event: %w", err)
-		}
-
-		eventID, _ := res.LastInsertId()
-
-		// Parse step detail lines for execution blocks.
-		if kind == KindExecution {
-			for _, line := range lines[1:] {
-				stepNum, stepType, detail, voiceText := parseStepLine(line)
-				if stepType == "" {
-					continue
-				}
-				if _, err := tx.Exec(
-					`INSERT INTO step_details (event_id, step_num, step_type, detail, voice_text)
-					 VALUES (?, ?, ?, ?, ?)`,
-					eventID, stepNum, stepType, detail, voiceText,
-				); err != nil {
-					return fmt.Errorf("migrate step: %w", err)
-				}
+			res, err := tx.Exec(
+				`INSERT INTO events (timestamp, profile, action, kind, afk, desktop, claude_hook, claude_message, steps_csv, extra)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				tsStr, profile, action, int(kind), afkInt, desktopVal,
+				claudeHook, claudeMessage, stepsCSV, extra,
+			)
+			if err != nil {
+				return fmt.Errorf("migrate event: %w", err)
 			}
-		}
 
-		migrated++
+			eventID, _ := res.LastInsertId()
+			if kind == KindExecution {
+				lastExecID = eventID
+			}
+
+			migrated++
+		}
 	}
 
 	if err := tx.Commit(); err != nil {

@@ -48,13 +48,13 @@ func historyCmd(args []string) {
 
 	data, ok := readLog()
 	if !ok {
-		fmt.Println("No log file found. Enable logging with --log or \"log\": true in config.")
+		fmt.Println("No log data found. Enable logging with --log or \"log\": true in config.")
 		return
 	}
 
 	content := strings.TrimRight(data, "\n\r ")
 	if content == "" {
-		fmt.Println("Log file is empty.")
+		fmt.Println("Log is empty.")
 		return
 	}
 
@@ -90,7 +90,7 @@ func historySummary(args []string) {
 		fatal("%v", err)
 	}
 	if len(entries) == 0 {
-		fmt.Println("No log file found. Enable logging with --log or \"log\": true in config.")
+		fmt.Println("No log data found. Enable logging with --log or \"log\": true in config.")
 		return
 	}
 
@@ -447,7 +447,7 @@ func historyClear() {
 	if err := eventlog.Default.Clear(); err != nil {
 		fatal("%v", err)
 	}
-	fmt.Println("Log file cleared.")
+	fmt.Println("Log cleared.")
 }
 
 func historyClean(args []string) {
@@ -468,7 +468,7 @@ func historyClean(args []string) {
 	}
 
 	if removed == 0 {
-		fmt.Println("Log file is empty.")
+		fmt.Println("Log is empty.")
 	} else {
 		fmt.Printf("Removed %d entries (kept last %d days).\n", removed, days)
 	}
@@ -523,13 +523,12 @@ func historyWatch() {
 			started.Format("15:04:05"), dim(elapsed.String()),
 			dim("press x or Esc to exit"))
 
-		data, err := eventlog.ReadContent()
+		entries, err := eventlog.Entries(1)
 		if err != nil {
 			fmt.Fprintf(&out, "Error: %v\n", err)
-		} else if data == "" {
-			out.WriteString("No log file found.\n")
+		} else if len(entries) == 0 {
+			out.WriteString("No activity today.\n")
 		} else {
-			entries := eventlog.ParseEntries(data)
 			groups := eventlog.SummarizeByDay(entries, 1)
 			if len(groups) == 0 {
 				out.WriteString("No activity today.\n")

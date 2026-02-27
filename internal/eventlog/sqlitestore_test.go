@@ -475,6 +475,62 @@ func TestSQLiteStoreMigration(t *testing.T) {
 	}
 }
 
+// TestSQLiteStoreMigrationMultiEntryBlock verifies that a block containing
+// a cooldown=recorded line merged with an execution (no blank-line separator)
+// correctly produces two events with step_details on the execution.
+func TestSQLiteStoreMigrationMultiEntryBlock(t *testing.T) {
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "notify.log")
+
+	ts := time.Now().Format(time.RFC3339)
+
+	// cooldown=recorded uses single \n (no blank line), merging with execution block.
+	content := ts + "  profile=boss  action=done  cooldown=recorded (10s)\n" +
+		ts + "  profile=boss  action=done  steps=sound,say,toast  afk=false\n" +
+		ts + "    step[1] sound  sound=blip\n" +
+		ts + `    step[2] say  text="Boss done"` + "\n" +
+		ts + `    step[3] toast  title="Boss" message="Boss is done"` + "\n\n" +
+		// A standalone execution (no cooldown=recorded prefix).
+		ts + "  profile=other  action=ready  steps=sound  afk=false\n" +
+		ts + "    step[1] sound  sound=blip\n\n"
+	os.WriteFile(logPath, []byte(content), 0644)
+
+	dbPath := filepath.Join(dir, "notify.db")
+	s, err := NewSQLiteStore(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+
+	// Should have 3 entries: cooldown=recorded, execution (boss/done), execution (other/ready).
+	entries, _ := s.Entries(0)
+	if len(entries) != 3 {
+		t.Fatalf("expected 3 migrated entries, got %d", len(entries))
+	}
+	if entries[0].Kind != KindOther {
+		t.Fatalf("expected KindOther for cooldown=recorded, got %d", entries[0].Kind)
+	}
+	if entries[1].Kind != KindExecution {
+		t.Fatalf("expected KindExecution for boss/done, got %d", entries[1].Kind)
+	}
+	if entries[2].Kind != KindExecution {
+		t.Fatalf("expected KindExecution for other/ready, got %d", entries[2].Kind)
+	}
+
+	// Verify voice lines from the execution's say step.
+	lines, _ := s.VoiceLines(0)
+	if len(lines) != 1 || lines[0].Text != "Boss done" {
+		t.Fatalf("expected voice line 'Boss done', got %v", lines)
+	}
+
+	// Verify step_details count: 3 steps for boss/done + 1 step for other/ready = 4.
+	var stepCount int
+	s.db.QueryRow(`SELECT COUNT(*) FROM step_details`).Scan(&stepCount)
+	if stepCount != 4 {
+		t.Fatalf("expected 4 step_details, got %d", stepCount)
+	}
+}
+
 func TestSQLiteStoreMigrationSkipsWhenNoLog(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "notify.db")

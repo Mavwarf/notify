@@ -109,7 +109,7 @@ func voiceGenerate(args []string, configPath string) {
 		fatal("%v", err)
 	}
 	if voiceLines == nil {
-		fmt.Println("No log file found. Enable logging with --log or \"log\": true to track usage.")
+		fmt.Println("No log data found. Enable logging with --log or \"log\": true to track usage.")
 		fmt.Println("Voice generation requires usage data to identify frequently used messages.")
 		return
 	}

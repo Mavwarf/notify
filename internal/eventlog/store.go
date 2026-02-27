@@ -7,8 +7,8 @@ import (
 	"github.com/Mavwarf/notify/internal/tmpl"
 )
 
-// Store abstracts event log storage. Phase 1 provides FileStore (flat log file);
-// future phases may add SQLiteStore, webhook forwarding, etc.
+// Store abstracts event log storage. Implementations: FileStore (flat log file)
+// and SQLiteStore (indexed SQL queries). Selected via config "storage" option.
 type Store interface {
 	// Write — returns error for correctness; FileStore prints to stderr (best-effort).
 	Log(action string, steps []config.Step, afk bool, vars tmpl.Vars, desktop *int) error
