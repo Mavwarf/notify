@@ -7,10 +7,11 @@ import (
 )
 
 func TestWaitNonexistentPID(t *testing.T) {
-	// PID 0 is never a valid user process; should return an error.
-	err := Wait(0)
+	// Use a very high PID that won't exist on any platform.
+	// PID 0 is not safe — on Linux, kill(0, 0) signals the process group.
+	err := Wait(4999999)
 	if err == nil {
-		t.Fatal("expected error for PID 0")
+		t.Fatal("expected error for nonexistent PID")
 	}
 }
 
