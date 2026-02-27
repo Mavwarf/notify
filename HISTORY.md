@@ -2,7 +2,8 @@
 
 ## Features
 
-- Virtual desktop switching *(experimental)* — toast notifications switch virtual desktops on click via `notify://` protocol URI and VirtualDesktopAccessor.dll; modern Windows 10+ ToastNotificationManager XML API replaces legacy BalloonTip *(Feb 27)*
+- Enhanced toast notifications — app icon, "via notify" attribution text, desktop switching moved from body click to action button *(Feb 27)*
+- Virtual desktop switching *(experimental)* — toast "Desktop N" action button switches virtual desktops via `notify://` protocol URI and VirtualDesktopAccessor.dll; modern Windows 10+ ToastNotificationManager XML API replaces legacy BalloonTip *(Feb 27)*
 - Dashboard color schemes — cycle through 6 themes: Dark, Light, Nord, Dracula, Solarized Dark, Gruvbox Dark *(Feb 27)*
 - MQTT publish step type — publish messages to MQTT broker topics for home automation (flash lights, trigger Home Assistant, etc.) with optional QoS, retain, and auth *(Feb 27)*
 - Dashboard auto-reload on reconnect — page reloads when SSE reconnects after server restart, picking up new frontend changes *(Feb 27)*
@@ -60,17 +61,35 @@
 
 ## 2026-02-27
 
+### Enhanced Toast Notifications
+
+Windows toast notifications now include a programmatically generated app icon
+(green circle with white "N") and "via notify" attribution text for visual
+distinction in the notification center.
+
+Desktop switching is moved from a toast-body click to an explicit "Desktop N"
+action button, so accidental clicks no longer trigger a desktop switch. The
+button uses the same `notify://switch?desktop=N` protocol activation URI. Toasts
+without a desktop config remain simple with no action buttons.
+
+The icon is generated once on first use (64×64 PNG via Go's `image` package,
+zero external dependencies) and cached at `DataDir()/icon.png`.
+
+The toast notifier now uses PowerShell's registered App User Model ID instead
+of a plain `notify` string. Windows silently drops toast banners from
+unregistered AUMIDs, which caused toasts to stop appearing after extended use.
+
 ### Virtual Desktop Switching via Toast Notifications (experimental)
 
 Toast notifications now use the modern Windows 10+ `ToastNotificationManager`
 XML API, replacing the legacy `NotifyIcon.BalloonTip` approach. This enables
 click-to-action toasts via protocol activation.
 
-Per-profile `"desktop"` config field (1-4) embeds a `notify://switch?desktop=N`
-protocol URI in all toasts for that profile. Clicking the notification launches
-notify with `--protocol`, which calls `VirtualDesktopAccessor.dll` to switch
-desktops. Profiles that extend a parent inherit its desktop value unless they
-override it.
+Per-profile `"desktop"` config field (1-4) adds a "Desktop N" action button to
+toasts for that profile. Clicking the button triggers the
+`notify://switch?desktop=N` protocol URI, which launches notify with
+`--protocol` and calls `VirtualDesktopAccessor.dll` to switch desktops.
+Profiles that extend a parent inherit its desktop value unless they override it.
 
 New `notify protocol` subcommand manages the `notify://` URI handler:
 - `register` — writes to `HKCU\Software\Classes\notify` (Windows only)

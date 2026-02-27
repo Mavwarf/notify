@@ -52,9 +52,10 @@ go install github.com/Mavwarf/notify/cmd/notify@latest
   (Windows SAPI, macOS `say`, Linux `espeak`).
 - **Toast notifications** — native desktop notifications on all platforms
   (Windows 10+ ToastNotificationManager, macOS `osascript`, Linux `notify-send`).
-  On Windows, toasts can switch virtual desktops when clicked.
-- **Virtual desktop switching** *(experimental)* — per-profile `desktop` config (1-4) embeds a
-  protocol URI in Windows toasts; clicking the toast switches to that desktop.
+  On Windows, toasts display an app icon and "via notify" attribution, with an
+  optional button to switch virtual desktops.
+- **Virtual desktop switching** *(experimental)* — per-profile `desktop` config (1-4) adds a
+  "Desktop N" button to Windows toasts; clicking it switches virtual desktops.
   Requires `VirtualDesktopAccessor.dll` next to the binary.
 - **Discord webhooks** — post messages to a Discord channel via webhook,
   no external dependencies (just `net/http`).
@@ -157,7 +158,8 @@ internal/
     say_darwin.go        TTS via macOS say command
     say_linux.go         TTS via espeak-ng / espeak
   toast/
-    toast_windows.go     Windows ToastNotificationManager (with protocol activation)
+    toast_windows.go     Windows ToastNotificationManager (app icon, attribution, desktop button)
+    icon.go              Programmatic 64×64 PNG icon generator (Windows)
     toast_darwin.go      macOS osascript notifications
     toast_linux.go       Linux notify-send
 ```
@@ -336,10 +338,10 @@ notify help                            # Show help
   `"default_volume"` > 100.
 - Toast `title` defaults to the profile name if omitted.
 - **Desktop switching (Windows):** add `"desktop": N` (1-4) to a profile to
-  embed a `notify://switch?desktop=N` protocol URI in all toast notifications
-  for that profile. Clicking the toast switches to that virtual desktop.
-  Requires `VirtualDesktopAccessor.dll` next to the binary and
-  `notify protocol register` to set up the URI handler. Without the DLL
+  show a "Desktop N" button on toast notifications for that profile. Clicking
+  the button triggers the `notify://switch?desktop=N` protocol URI to switch
+  virtual desktops. Requires `VirtualDesktopAccessor.dll` next to the binary
+  and `notify protocol register` to set up the URI handler. Without the DLL
   or protocol registration, toasts still fire normally — they just won't
   switch desktops on click.
 - **Template variables:** use `{profile}` in `say` text, `toast` title/message,
@@ -1305,9 +1307,9 @@ Windows 10+ `ToastNotificationManager` XML API with a custom protocol URI.
    }
    ```
 
-When a toast fires for that profile, clicking it launches
-`notify --protocol "notify://switch?desktop=2"`, which calls
-`VirtualDesktopAccessor.dll` to switch to desktop 2.
+When a toast fires for that profile, it shows a "Desktop 2" action button.
+Clicking the button launches `notify --protocol "notify://switch?desktop=2"`,
+which calls `VirtualDesktopAccessor.dll` to switch to desktop 2.
 
 **Management:**
 
@@ -1319,10 +1321,10 @@ notify protocol status       # Show registration status and desktop info
 
 **Graceful degradation:**
 
-- Without `VirtualDesktopAccessor.dll`: toasts still fire, but clicking does
-  nothing (the DLL is needed for switching).
-- Without protocol registration: toasts show a "how do you want to open this?"
-  dialog on click. Use `notify protocol status` to check.
+- Without `VirtualDesktopAccessor.dll`: toasts still fire with the button, but
+  clicking it does nothing (the DLL is needed for switching).
+- Without protocol registration: clicking the button shows a "how do you want
+  to open this?" dialog. Use `notify protocol status` to check.
 - On non-Windows: the `desktop` config field is accepted but ignored.
 
 ## Building

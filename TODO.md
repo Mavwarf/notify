@@ -11,12 +11,6 @@ patterns without shell scripting.
 
 ## Low Impact
 
-### `notify watch` — File Watching
-
-PID watching is done (`notify watch --pid <PID>`). File watching
-(`notify watch --file build.log`) remains a possibility — trigger when
-a file is modified. Would need `fsnotify` or polling with `os.Stat`.
-
 ### Inline Sound Effects in Voice Messages
 
 Mix TTS speech with sound effects in a single audio message using
