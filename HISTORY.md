@@ -2,6 +2,7 @@
 
 ## Features
 
+- Dashboard project count — donut chart shows number of active projects below the chart *(Feb 27)*
 - Plugin step type — run external commands/scripts as notification steps with NOTIFY_* env vars, configurable timeout, and parallel execution *(Feb 27)*
 - Dashboard time ranges — Day/Week/Month/Year/Total views in the Watch tab with adaptive breakdown buckets and keyboard shortcuts *(Feb 27)*
 - Dashboard voice playback — play button in Voice tab to preview pre-generated AI voice files in the browser *(Feb 26)*
@@ -14,7 +15,7 @@
 - Stdin JSON injection — auto-detect piped JSON on stdin for hook integration (`{claude_message}`, `{claude_hook}`, `{claude_json}`) *(Feb 25)*
 - Voice stats (`notify voice stats`) — voice step text usage frequency from event log *(Feb 25)*
 - Tests for `renderHourlyTable` — basic, single-profile, empty, single-hour, and gap-hour scenarios *(Feb 25)*
-- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, voice stats, silent mode control, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, dark/light theme toggle, history export, clickable profile detail view, approximate time spent per profile, profile donut charts, hourly bar chart, activity timeline, log file stats, screenshot mode, and `--open` flag for chromeless browser window *(Feb 25)*
+- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, voice stats, silent mode control, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, dark/light theme toggle, history export, clickable profile detail view, approximate time spent per profile, profile donut charts with project count, hourly bar chart, activity timeline, log file stats, screenshot mode, and `--open` flag for chromeless browser window *(Feb 25)*
 - Heartbeat for long tasks (`--heartbeat`) — periodic notifications during `notify run` *(Feb 24)*
 - Pipe / stream mode (`notify pipe`) — trigger notifications from stdin patterns *(Feb 24)*
 - Output capture (`{output}`) and pattern matching (`--match`) for `notify run` *(Feb 24)*
@@ -53,6 +54,12 @@
 ---
 
 ## 2026-02-27
+
+### Dashboard Project Count
+
+The "Notifications per project" donut chart in the Watch tab now displays the
+number of active projects below the chart. Only projects with at least one
+notification are counted.
 
 ### Plugin Step Type
 

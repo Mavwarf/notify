@@ -2189,10 +2189,12 @@ tr:hover td { background: var(--bg3); }
     svg += '<text x="' + cx + '" y="' + (cy + 13) + '" text-anchor="middle" fill="' +
       cs.getPropertyValue('--fg-dim').trim() + '" font-size="8" font-family="inherit">total</text>';
     svg += '</svg>';
+    var projectCount = profiles.filter(function(p){ return p.total > 0; }).length;
     return '<div style="flex-shrink:0;text-align:center;padding-top:5px">' +
       '<div class="watch-section-title" style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)">Notifications per project</div>' +
       '<div style="position:relative;display:inline-block">' + svg +
-      '<div class="chart-tooltip donut-tooltip"></div></div></div>';
+      '<div class="chart-tooltip donut-tooltip"></div></div>' +
+      '<div style="margin-top:6px;font-size:11px;color:var(--fg-dim)">' + projectCount + ' projects</div></div>';
   }
 
   function renderTimeDonutChart(timeSpent) {
