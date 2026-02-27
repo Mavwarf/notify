@@ -93,7 +93,7 @@ jobs:
             extra_ldflags: "-H windowsgui"
           - goos: darwin
             goarch: amd64
-            runner: macos-13
+            runner: macos-latest
             cgo: "1"
             binary: notify-app-darwin-amd64
             extra_ldflags: ""
@@ -115,6 +115,10 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: ${{ matrix.cgo }}
         run: |
+          if [ "${{ matrix.goos }}" = "darwin" ] && [ "${{ matrix.goarch }}" = "amd64" ]; then
+            export CGO_CFLAGS="-arch x86_64"
+            export CGO_LDFLAGS="-arch x86_64"
+          fi
           go build -tags desktop,production \
             -ldflags "-w -s ${{ matrix.extra_ldflags }}" \
             -o ${{ matrix.binary }} ./cmd/notify-app
