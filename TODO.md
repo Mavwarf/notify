@@ -54,3 +54,95 @@ Additional step types beyond `discord`, `slack`, and `telegram`:
 |------------|--------------------------------------|----------------|
 | `email`    | Send email via SMTP                  | All (net/smtp) |
 | `signal`   | Send via signal-cli                  | Needs signal-cli + Java |
+
+## Tech Debt / Refactoring
+
+### Bug: Goroutine Leak in `runner.Execute()`
+
+If a sequential step fails, `Execute()` returns before `wg.Wait()`, leaking
+parallel goroutines that may still be running. `wg.Wait()` must always be
+called before returning.
+
+**File:** `internal/runner/runner.go:161-200`
+
+### Extract `runOpts` Struct
+
+`dispatchActions` takes 9 parameters, `executeAction` takes 10. Every new
+opt-in flag requires updating 7+ function signatures (`runAction`,
+`runWrapped`, `runPipe`, `watchCmd`, `hookCmd`, `dispatchActions`,
+`executeAction`). Group the booleans and volume into a struct:
+
+```go
+type runOpts struct {
+    Volume   int
+    Log      bool
+    Echo     bool
+    Cooldown bool
+    RunMode  bool
+}
+```
+
+**Files:** `cmd/notify/main.go`, `cmd/notify/commands.go`
+
+### Extract `fatal()` Helper
+
+`fmt.Fprintf(os.Stderr, "Error: %v\n", err)` + `os.Exit(1)` appears 18+
+times across `main.go` and `commands.go`. A single `fatal(format, args...)`
+helper would eliminate ~36 lines of boilerplate.
+
+### Extract `readLogContent()` Helper
+
+The pattern of `os.ReadFile(logPath)` + `IsNotExist` check + empty-content
+guard is repeated 8 times across `history.go` and `voice.go`. A shared
+helper would normalize the error messaging (currently inconsistent) and
+remove ~15 lines per call site.
+
+### Extract Shared Helpers in `eventlog`
+
+- **`splitBlocks(content)`** — `strings.Split(content, "\n\n")` + trim +
+  empty skip is repeated 3 times in `parse.go` and `summary.go`.
+- **`Cutoff(days)`** — days cutoff calculation (`time.Date(...)` +
+  `AddDate`) is duplicated 3 times across `parse.go`, `summary.go`, and
+  `history.go`.
+
+### Validate `VoiceConfig` Fields
+
+`provider`, `model`, `voice`, `speed`, and `min_uses` are never validated
+in `Validate()`. Invalid values pass config loading and only fail at
+OpenAI API runtime. Add range/enum checks.
+
+**File:** `internal/config/config.go`
+
+### Voice Defaults Constants
+
+The defaults `"nova"`, `"tts-1"`, and `1.0` are hardcoded in 3 places
+(`voice.go` x2, `commands.go`). Extract a `resolveVoiceDefaults(cfg)`
+helper with named constants.
+
+### Credential Field Sync
+
+`MergeCredentials`, `expandEnvCredentials`, and `Validate` each manually
+list every credential field. Adding a new credential requires updating all
+three. Consider a shared field list or reflection-based approach.
+
+**File:** `internal/config/config.go:652-701`
+
+### Monolithic `Validate()` Function
+
+At 150 lines, `Validate()` handles global options, aliases, match rules,
+and per-step validation all in one function. Extract sub-functions
+(`validateAliases`, `validateMatchRules`, `validateSteps`) for testability
+and readability.
+
+### Dashboard Polling Efficiency
+
+5 parallel fetch requests every 2 seconds on top of SSE. `loadHistory` is
+partially redundant with SSE. No `AbortController` for in-flight requests.
+Consider reducing polling frequency or using SSE-driven updates.
+
+### Missing Tests
+
+- `internal/mqtt` — no tests (newest package)
+- `internal/procwait` — no tests (platform-specific)
+- `cmd/notify/commands.go` — `sendCmd`, `configCmd`, `dryRun` untested
+- `internal/slack` — only 2 tests (vs 5 for discord, 9 for telegram)
