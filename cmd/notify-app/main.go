@@ -73,6 +73,10 @@ func main() {
 		w.Write([]byte(`<!DOCTYPE html><html><body style="background:#1a1b26"></body></html>`))
 	})
 
+	// Window icon comes from the embedded .syso resource (green circle
+	// with white "N", same as toast icon). Regenerate with:
+	//   go run ./cmd/mkicon cmd/notify-app/appicon.png
+	//   cd cmd/notify-app && go-winres make
 	err = wails.Run(&options.App{
 		Title:     "notify dashboard",
 		Width:     1200,
