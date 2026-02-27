@@ -57,41 +57,6 @@ of sending webhooks out — your CI finishes, your desktop chimes.
 Could also accept a simple JSON body with profile/action fields for
 generic use.
 
-### REST Trigger API for `notify-app`
-
-When `notify-app` is running, expose a `/api/trigger` endpoint on the dashboard
-server so external tools (Claude hooks, scripts, CI) can fire notifications via
-HTTP instead of spawning a new `notify.exe` process.
-
-```
-GET  http://127.0.0.1:8811/api/trigger?profile=default&action=ready
-POST http://127.0.0.1:8811/api/trigger  {"profile":"default","action":"ready"}
-```
-
-**Benefits over CLI invocation:**
-- Zero startup latency — config already loaded, eventlog already open
-- No process spawn overhead per hook call
-- Claude hooks become a simple `curl` one-liner
-- Works from any language/tool that can make HTTP requests
-
-**Implementation:**
-- Add `handleTrigger` in `internal/dashboard/dashboard.go`
-- Reuse `runner.Execute()` with the already-loaded config
-- Return JSON response with step results (or errors)
-- Optional: accept `volume`, `log`, `echo` params to mirror CLI flags
-
-**Claude hook example:**
-```json
-{
-  "hooks": {
-    "PostToolUse": [{
-      "matcher": { "tool_name": "Bash" },
-      "command": "curl -s http://127.0.0.1:8811/api/trigger?profile=default&action=ready"
-    }]
-  }
-}
-```
-
 ## Medium Impact
 
 ### Chained Actions (`on_success` / `on_failure`)

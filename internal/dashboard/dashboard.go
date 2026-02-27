@@ -16,7 +16,9 @@ import (
 	"time"
 
 	"github.com/Mavwarf/notify/internal/config"
+	"github.com/Mavwarf/notify/internal/cooldown"
 	"github.com/Mavwarf/notify/internal/eventlog"
+	"github.com/Mavwarf/notify/internal/idle"
 	"github.com/Mavwarf/notify/internal/runner"
 	"github.com/Mavwarf/notify/internal/silent"
 	"github.com/Mavwarf/notify/internal/tmpl"
@@ -185,6 +187,7 @@ func Serve(cfg config.Config, configPath string, port int, open bool) error {
 	mux.HandleFunc("/api/voice", handleVoice)
 	mux.HandleFunc("/api/voice/play/", handleVoicePlay)
 	mux.HandleFunc("/api/silent", handleSilent)
+	mux.HandleFunc("/api/trigger", handleTrigger(cfg))
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	srv := &http.Server{Addr: addr, Handler: mux}
@@ -1036,6 +1039,160 @@ func handleSilent(w http.ResponseWriter, r *http.Request) {
 }
 
 
+
+type triggerRequest struct {
+	Profile string `json:"profile"`
+	Action  string `json:"action"`
+	Volume  *int   `json:"volume"`
+	Log     *bool  `json:"log"`
+}
+
+type triggerResponse struct {
+	OK        bool   `json:"ok"`
+	Profile   string `json:"profile,omitempty"`
+	Action    string `json:"action,omitempty"`
+	StepsRun  int    `json:"steps_run,omitempty"`
+	StepsTotal int   `json:"steps_total,omitempty"`
+	Error     string `json:"error,omitempty"`
+}
+
+func handleTrigger(cfg config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		var req triggerRequest
+		if r.Method == http.MethodPost {
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(triggerResponse{Error: "invalid JSON"})
+				return
+			}
+		} else {
+			// GET: read from query params.
+			req.Profile = r.URL.Query().Get("profile")
+			req.Action = r.URL.Query().Get("action")
+			if v := r.URL.Query().Get("volume"); v != "" {
+				if n, err := strconv.Atoi(v); err == nil && n >= 0 && n <= 100 {
+					req.Volume = &n
+				}
+			}
+			if v := r.URL.Query().Get("log"); v == "false" {
+				b := false
+				req.Log = &b
+			}
+		}
+
+		if req.Profile == "" {
+			req.Profile = "default"
+		}
+		if req.Action == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(triggerResponse{Error: "action is required"})
+			return
+		}
+
+		// Silent mode check.
+		if silent.IsSilent() {
+			if req.Log == nil || *req.Log {
+				eventlog.LogSilent(req.Profile, req.Action)
+			}
+			json.NewEncoder(w).Encode(triggerResponse{
+				OK:      true,
+				Profile: req.Profile,
+				Action:  req.Action,
+			})
+			return
+		}
+
+		// Resolve profile + action.
+		resolved, act, err := config.Resolve(cfg, req.Profile, req.Action)
+		if err != nil {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(triggerResponse{Error: err.Error()})
+			return
+		}
+
+		// Cooldown check.
+		cdSec := act.CooldownSeconds
+		if cdSec == 0 {
+			cdSec = cfg.Options.CooldownSeconds
+		}
+		cdEnabled := cfg.Options.Cooldown
+		if cdEnabled && cdSec > 0 && cooldown.Check(resolved, req.Action, cdSec) {
+			if req.Log == nil || *req.Log {
+				eventlog.LogCooldown(resolved, req.Action, cdSec)
+			}
+			json.NewEncoder(w).Encode(triggerResponse{
+				OK:      true,
+				Profile: resolved,
+				Action:  req.Action,
+			})
+			return
+		}
+
+		// AFK detection.
+		afk := false
+		if cfg.Options.AFKThresholdSeconds > 0 {
+			if idleSec, err := idle.IdleSeconds(); err == nil {
+				afk = idleSec >= float64(cfg.Options.AFKThresholdSeconds)
+			}
+		}
+
+		// Merge credentials.
+		creds := config.MergeCredentials(cfg.Options.Credentials, cfg.Profiles[resolved].Credentials)
+
+		// Volume: request override → config default.
+		vol := cfg.Options.DefaultVolume
+		if req.Volume != nil {
+			vol = *req.Volume
+		}
+
+		// Build template vars.
+		host, _ := os.Hostname()
+		now := time.Now()
+		vars := tmpl.Vars{
+			Profile:  resolved,
+			Time:     now.Format("15:04"),
+			TimeSay:  now.Format("3:04 PM"),
+			Date:     now.Format("2006-01-02"),
+			DateSay:  now.Format("January 2, 2006"),
+			Hostname: host,
+		}
+
+		// Filter and execute steps.
+		desk := cfg.Profiles[resolved].Desktop
+		totalSteps := len(act.Steps)
+		filtered := runner.FilterSteps(act.Steps, afk, false, 0)
+		execErr := runner.Execute(filtered, vol, creds, vars, desk)
+
+		// Record cooldown.
+		if cdEnabled && cdSec > 0 {
+			cooldown.Record(resolved, req.Action)
+			if req.Log == nil || *req.Log {
+				eventlog.LogCooldownRecord(resolved, req.Action, cdSec)
+			}
+		}
+
+		// Log execution.
+		if req.Log == nil || *req.Log {
+			eventlog.Log(req.Action, filtered, afk, vars, desk)
+		}
+
+		if execErr != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(triggerResponse{Error: execErr.Error()})
+			return
+		}
+
+		json.NewEncoder(w).Encode(triggerResponse{
+			OK:         true,
+			Profile:    resolved,
+			Action:     req.Action,
+			StepsRun:   len(filtered),
+			StepsTotal: totalSteps,
+		})
+	}
+}
 
 // redactConfig returns a JSON-safe representation of the config with
 // credential values replaced by "***".

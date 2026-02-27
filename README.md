@@ -1267,6 +1267,39 @@ if neither is available.
 The dashboard binds to `127.0.0.1` only (not exposed to the network). Config
 is loaded once at startup. Press `Ctrl+C` to stop.
 
+#### REST trigger API (`/api/trigger`)
+
+The dashboard exposes a `/api/trigger` endpoint that fires notifications via
+HTTP — no need to spawn a new `notify.exe` process. This is ideal for Claude
+Code hooks, scripts, or any tool that can make HTTP requests.
+
+Accepts both GET (query params) and POST (JSON body):
+
+| Parameter  | Type   | Default     | Description                    |
+|------------|--------|-------------|--------------------------------|
+| `action`   | string | *(required)* | Action name to fire           |
+| `profile`  | string | `"default"` | Profile name                   |
+| `volume`   | int    | config      | Volume override (0-100)        |
+| `log`      | bool   | `true`      | Write to event log             |
+
+```bash
+# GET
+curl "http://127.0.0.1:8080/api/trigger?action=ready"
+curl "http://127.0.0.1:8080/api/trigger?profile=boss&action=done&volume=50"
+
+# POST
+curl -X POST http://127.0.0.1:8080/api/trigger -d '{"action":"ready"}'
+curl -X POST http://127.0.0.1:8080/api/trigger -d '{"profile":"boss","action":"done","volume":80}'
+```
+
+Response:
+```json
+{"ok":true,"profile":"default","action":"ready","steps_run":3,"steps_total":5}
+```
+
+The handler mirrors the CLI's execution flow: silent mode check, cooldown,
+AFK detection, step filtering, execution, and event logging.
+
 #### Desktop app (`notify-app`)
 
 A native desktop window for the dashboard using Wails v2 and the OS webview

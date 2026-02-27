@@ -2,6 +2,7 @@
 
 ## Features
 
+- REST trigger API (`/api/trigger`) — fire notifications via HTTP request to the dashboard; supports GET and POST, mirrors full CLI execution flow (silent, cooldown, AFK, step filtering, logging) *(Feb 27)*
 - Wails desktop app (`notify-app`) — native desktop window for the dashboard using OS webview (WebView2); no bundled Chromium, proper window chrome, SSE live updates *(Feb 27)*
 - Startup command (`notify startup`) — register `notify://` protocol handler and launch the web dashboard in one step; passes through `--port` and `--open` flags *(Feb 27)*
 - Duration-based escalation (`when: "long:DURATION"`) — fire steps only when a wrapped command exceeds a time threshold; quick builds stay local, long ones escalate to Discord/Slack *(Feb 27)*
@@ -67,6 +68,20 @@
 ---
 
 ## 2026-02-27
+
+### REST Trigger API (`/api/trigger`)
+
+The dashboard now exposes a `/api/trigger` endpoint that fires notifications via
+HTTP request. When `notify-app` or `notify dashboard` is already running with
+config loaded and eventlog open, external tools can trigger notifications with
+zero startup overhead — no spawning a new `notify.exe` process.
+
+Accepts both GET (query params) and POST (JSON body) with parameters: `action`
+(required), `profile` (default: `"default"`), `volume` (0-100 override), and
+`log` (default: true). The handler mirrors the full CLI execution flow: silent
+mode check, cooldown, AFK detection, credential merging, step filtering, and
+event logging. Returns a JSON response with step counts on success or an error
+message on failure.
 
 ### Wails Desktop App (`notify-app`)
 

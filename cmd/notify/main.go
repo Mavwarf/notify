@@ -881,6 +881,7 @@ Commands:
   test [profile]         Dry-run: show what would happen without sending
   dashboard [--port N]   Local web UI with watch (day/week/month/year/total), history,
            [--open]      config, test, voice, silent tabs. --open for chromeless window
+                         Includes /api/trigger REST endpoint for HTTP-based notifications
   startup [--port N]     Register notify:// protocol + start dashboard (combines
           [--open]       "protocol register" and "dashboard" into one command)
   config validate        Check config file for errors
