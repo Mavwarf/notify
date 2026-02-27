@@ -2,6 +2,7 @@
 
 ## Features
 
+- Dashboard color schemes — cycle through 6 themes: Dark, Light, Nord, Dracula, Solarized Dark, Gruvbox Dark *(Feb 27)*
 - MQTT publish step type — publish messages to MQTT broker topics for home automation (flash lights, trigger Home Assistant, etc.) with optional QoS, retain, and auth *(Feb 27)*
 - Dashboard auto-reload on reconnect — page reloads when SSE reconnects after server restart, picking up new frontend changes *(Feb 27)*
 - History remove (`notify history remove <profile>`) — selectively delete all log entries for a specific profile *(Feb 27)*
@@ -18,7 +19,7 @@
 - Stdin JSON injection — auto-detect piped JSON on stdin for hook integration (`{claude_message}`, `{claude_hook}`, `{claude_json}`) *(Feb 25)*
 - Voice stats (`notify voice stats`) — voice step text usage frequency from event log *(Feb 25)*
 - Tests for `renderHourlyTable` — basic, single-profile, empty, single-hour, and gap-hour scenarios *(Feb 25)*
-- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, voice stats, silent mode control, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, dark/light theme toggle, history export, clickable profile detail view, approximate time spent per profile, profile donut charts with project count, hourly bar chart, activity timeline, log file stats, screenshot mode, and `--open` flag for chromeless browser window *(Feb 25)*
+- Web dashboard (`notify dashboard`) — local web UI with watch, history, config viewer, dry-run testing, voice stats, silent mode control, day navigation, log-extracted profiles, credential health check, history filtering, keyboard shortcuts, activity chart, color scheme selector (6 themes), history export, clickable profile detail view, approximate time spent per profile, profile donut charts with project count, hourly bar chart, activity timeline, log file stats, screenshot mode, and `--open` flag for chromeless browser window *(Feb 25)*
 - Heartbeat for long tasks (`--heartbeat`) — periodic notifications during `notify run` *(Feb 24)*
 - Pipe / stream mode (`notify pipe`) — trigger notifications from stdin patterns *(Feb 24)*
 - Output capture (`{output}`) and pattern matching (`--match`) for `notify run` *(Feb 24)*
@@ -57,6 +58,15 @@
 ---
 
 ## 2026-02-27
+
+### Dashboard Color Schemes
+
+The dashboard theme toggle now cycles through 6 color schemes: Dark (default),
+Light, Nord, Dracula, Solarized Dark, and Gruvbox Dark. Each theme defines all
+11 CSS variables so the entire UI adapts consistently — charts, badges, borders,
+and backgrounds all respond automatically. Badge and animation colors now use
+`color-mix()` with theme variables instead of hardcoded RGBA values, eliminating
+the need for per-theme overrides. Preference is saved to `localStorage`.
 
 ### MQTT Publish Step Type
 

@@ -1179,8 +1179,9 @@ showing its full step pipeline (dry-run) and credential health status.
 Keyboard shortcuts: `1`–`6` switch tabs, left/right arrows navigate Watch
 periods, `t` jumps to today, `d`/`w`/`m`/`y`/`a` switch range
 (day/week/month/year/all), `s` toggles screenshot mode (replaces profile names
-with fake ones for privacy-safe screenshots). A dark/light theme toggle in the
-header persists your preference via `localStorage`.
+with fake ones for privacy-safe screenshots). A theme button in the header
+cycles through 6 color schemes (Dark, Light, Nord, Dracula, Solarized Dark,
+Gruvbox Dark) and persists your preference via `localStorage`.
 
 ```bash
 notify dashboard              # default port 8080
