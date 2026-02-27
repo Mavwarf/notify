@@ -53,6 +53,26 @@ type matchPair struct {
 	action  string
 }
 
+// readLog reads the event log file. Returns the content and true on
+// success. If the file doesn't exist, returns ("", false) so the caller
+// can print a context-appropriate message. Fatals on other read errors.
+func readLog() (string, bool) {
+	data, err := os.ReadFile(eventlog.LogPath())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", false
+		}
+		fatal("%v", err)
+	}
+	return string(data), true
+}
+
+// fatal prints an error message to stderr and exits with code 1.
+func fatal(format string, args ...any) {
+	fmt.Fprintf(os.Stderr, "Error: "+format+"\n", args...)
+	os.Exit(1)
+}
+
 func main() {
 	args := os.Args[1:]
 	volume := -1
@@ -73,30 +93,26 @@ func main() {
 			if i+1 < len(args) {
 				v, err := strconv.Atoi(args[i+1])
 				if err != nil || v < 0 || v > 100 {
-					fmt.Fprintf(os.Stderr, "Error: volume must be a number between 0 and 100\n")
-					os.Exit(1)
+					fatal("volume must be a number between 0 and 100")
 				}
 				volume = v
 				i++
 			} else {
-				fmt.Fprintf(os.Stderr, "Error: --volume requires a value (0-100)\n")
-				os.Exit(1)
+				fatal("--volume requires a value (0-100)")
 			}
 		case "--config", "-c":
 			if i+1 < len(args) {
 				configPath = args[i+1]
 				i++
 			} else {
-				fmt.Fprintf(os.Stderr, "Error: --config requires a file path\n")
-				os.Exit(1)
+				fatal("--config requires a file path")
 			}
 		case "--match", "-M":
 			if i+2 < len(args) {
 				matches = append(matches, matchPair{pattern: args[i+1], action: args[i+2]})
 				i += 2
 			} else {
-				fmt.Fprintf(os.Stderr, "Error: --match requires <pattern> <action>\n")
-				os.Exit(1)
+				fatal("--match requires <pattern> <action>")
 			}
 		case "--log", "-L":
 			logFlag = true
@@ -110,21 +126,18 @@ func main() {
 			if i+1 < len(args) {
 				v, err := strconv.Atoi(args[i+1])
 				if err != nil || v < 1 || v > 65535 {
-					fmt.Fprintf(os.Stderr, "Error: port must be a number between 1 and 65535\n")
-					os.Exit(1)
+					fatal("port must be a number between 1 and 65535")
 				}
 				port = v
 				i++
 			} else {
-				fmt.Fprintf(os.Stderr, "Error: --port requires a value (1-65535)\n")
-				os.Exit(1)
+				fatal("--port requires a value (1-65535)")
 			}
 		case "--heartbeat", "-H":
 			if i+1 < len(args) {
 				d, err := time.ParseDuration(args[i+1])
 				if err != nil || d <= 0 {
-					fmt.Fprintf(os.Stderr, "Error: --heartbeat requires a positive duration (e.g. 5m, 2m30s)\n")
-					os.Exit(1)
+					fatal("--heartbeat requires a positive duration (e.g. 5m, 2m30s)")
 				}
 				heartbeatSec = int(d.Seconds())
 				if heartbeatSec == 0 {
@@ -132,8 +145,7 @@ func main() {
 				}
 				i++
 			} else {
-				fmt.Fprintf(os.Stderr, "Error: --heartbeat requires a duration (e.g. 5m, 2m30s)\n")
-				os.Exit(1)
+				fatal("--heartbeat requires a duration (e.g. 5m, 2m30s)")
 			}
 		default:
 			filtered = append(filtered, args[i])
@@ -200,9 +212,7 @@ func runAction(args []string, configPath string, volume int, logFlag bool, echoF
 	case 2:
 		profile, actionArg = args[0], args[1]
 	default:
-		fmt.Fprintf(os.Stderr, "Error: expected [profile] <action>\n")
-		fmt.Fprintf(os.Stderr, "Run 'notify help' for usage.\n")
-		os.Exit(1)
+		fatal("expected [profile] <action>\nRun 'notify help' for usage.")
 	}
 
 	// Read piped JSON from stdin (e.g. from Claude Code hooks).
@@ -210,8 +220,7 @@ func runAction(args []string, configPath string, volume int, logFlag bool, echoF
 
 	cfg, err := loadAndValidate(configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 
 	profile = resolveProfile(cfg, profile, explicit)
@@ -232,16 +241,12 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 	}
 
 	if sepIdx < 0 {
-		fmt.Fprintf(os.Stderr, "Error: 'notify run' requires '--' before the command\n")
-		fmt.Fprintf(os.Stderr, "Usage: notify run [profile] -- <command...>\n")
-		os.Exit(1)
+		fatal("'notify run' requires '--' before the command\nUsage: notify run [profile] -- <command...>")
 	}
 
 	cmdArgs := args[sepIdx+1:]
 	if len(cmdArgs) == 0 {
-		fmt.Fprintf(os.Stderr, "Error: no command specified after '--'\n")
-		fmt.Fprintf(os.Stderr, "Usage: notify run [profile] -- <command...>\n")
-		os.Exit(1)
+		fatal("no command specified after '--'\nUsage: notify run [profile] -- <command...>")
 	}
 
 	// Everything before "--" is the optional profile.
@@ -254,8 +259,7 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 	// Load config early so we can auto-select profile before running command.
 	cfg, err := loadAndValidate(configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 
 	profile = resolveProfile(cfg, profile, explicit)
@@ -313,8 +317,7 @@ func runWrapped(args []string, configPath string, volume int, logFlag bool, echo
 		if exitErr, ok := cmdErr.(*exec.ExitError); ok {
 			exitCode = exitErr.ExitCode()
 		} else {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", cmdErr)
-			os.Exit(1)
+			fatal("%v", cmdErr)
 		}
 	}
 
@@ -358,8 +361,7 @@ func runPipe(args []string, configPath string, volume int, logFlag bool, echoFla
 
 	cfg, err := loadAndValidate(configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 
 	profile = resolveProfile(cfg, profile, explicit)
@@ -385,8 +387,7 @@ func runPipe(args []string, configPath string, volume int, logFlag bool, echoFla
 	}
 
 	if err := scanner.Err(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading stdin: %v\n", err)
-		os.Exit(1)
+		fatal("reading stdin: %v", err)
 	}
 }
 

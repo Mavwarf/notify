@@ -26,21 +26,18 @@ func shellHookCmd(args []string, configPath string) {
 				shellOverride = args[i+1]
 				i++
 			} else {
-				fmt.Fprintf(os.Stderr, "Error: --shell requires a value (bash, zsh, powershell)\n")
-				os.Exit(1)
+				fatal("--shell requires a value (bash, zsh, powershell)")
 			}
 		case "--threshold":
 			if i+1 < len(args) {
 				v, err := strconv.Atoi(args[i+1])
 				if err != nil || v < 0 {
-					fmt.Fprintf(os.Stderr, "Error: --threshold must be a non-negative integer (seconds)\n")
-					os.Exit(1)
+					fatal("--threshold must be a non-negative integer (seconds)")
 				}
 				thresholdOverride = v
 				i++
 			} else {
-				fmt.Fprintf(os.Stderr, "Error: --threshold requires a value (seconds)\n")
-				os.Exit(1)
+				fatal("--threshold requires a value (seconds)")
 			}
 		default:
 			rest = append(rest, args[i])
@@ -91,15 +88,13 @@ func shellHookInstall(configPath, shellOverride string, thresholdOverride int) {
 	// Resolve notify binary path.
 	notifyPath, err := os.Executable()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: cannot determine notify binary path: %v\n", err)
-		os.Exit(1)
+		fatal("cannot determine notify binary path: %v", err)
 	}
 	notifyPath, _ = filepath.Abs(notifyPath)
 
 	configFile, err := shell.Install(sh, threshold, notifyPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 
 	fmt.Printf("notify: shell hook installed in %s (threshold: %ds)\n", configFile, threshold)
@@ -119,8 +114,7 @@ func shellHookUninstall(shellOverride string) {
 
 	configFile, err := shell.Uninstall(sh)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 
 	fmt.Printf("notify: shell hook removed from %s\n", configFile)
@@ -131,8 +125,7 @@ func shellHookStatus(shellOverride string) {
 
 	configFile, installed, err := shell.IsInstalled(sh)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 
 	if installed {

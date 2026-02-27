@@ -34,8 +34,7 @@ func initDefaults(configPath string) {
 	cfg.Builtin = false
 
 	if err := writeConfig(path, cfg); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 	fmt.Printf("Wrote default config to %s\n", path)
 	fmt.Println("Edit it to add channels, credentials, and profiles.")
@@ -119,8 +118,7 @@ func initInteractive(configPath string) {
 		creds, enableLog, afkSec, extraProfiles)
 
 	if err := writeConfig(path, cfg); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 
 	// --- Summary ---

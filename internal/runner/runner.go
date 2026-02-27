@@ -181,18 +181,23 @@ func Execute(steps []config.Step, defaultVolume int, creds config.Credentials, v
 	}
 
 	// Run sequential (audio-pipeline) steps in order.
+	var seqErr error
 	for i, step := range steps {
 		if !sequential(step.Type) {
 			continue
 		}
 		if err := stepExec(step, defaultVolume, creds, vars); err != nil {
-			return fmt.Errorf("step %d (%s): %w", i+1, step.Type, err)
+			seqErr = fmt.Errorf("step %d (%s): %w", i+1, step.Type, err)
+			break
 		}
 	}
 
-	// Wait for parallel steps to finish.
+	// Always wait for parallel goroutines to finish before returning.
 	wg.Wait()
 
+	if seqErr != nil {
+		return seqErr
+	}
 	if len(parallelErrs) > 0 {
 		return errors.Join(parallelErrs...)
 	}

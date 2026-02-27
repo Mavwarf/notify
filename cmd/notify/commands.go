@@ -49,15 +49,12 @@ func sendCmd(args []string, configPath string, volume int, logFlag bool, echoFla
 	message := rest[1]
 
 	if !sendTypes[stepType] {
-		fmt.Fprintf(os.Stderr, "Error: unsupported send type %q\n", stepType)
-		fmt.Fprintf(os.Stderr, "Supported: say, toast, discord, discord_voice, slack, telegram, telegram_audio, telegram_voice\n")
-		os.Exit(1)
+		fatal("unsupported send type %q\nSupported: say, toast, discord, discord_voice, slack, telegram, telegram_audio, telegram_voice", stepType)
 	}
 
 	cfg, err := loadAndValidate(configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 
 	volume = resolveVolume(volume, cfg)
@@ -76,8 +73,7 @@ func sendCmd(args []string, configPath string, volume int, logFlag bool, echoFla
 	vars := baseVars("send")
 	steps := []config.Step{step}
 	if err := runner.Execute(steps, volume, cfg.Options.Credentials, vars); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 	if shouldLog(cfg, logFlag) {
 		eventlog.Log("send:"+stepType, steps, false, vars)
@@ -109,12 +105,10 @@ func silentCmd(args []string, configPath string, logFlag bool) {
 
 	d, err := time.ParseDuration(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: invalid duration %q (examples: 30s, 5m, 1h, 2h30m)\n", args[0])
-		os.Exit(1)
+		fatal("invalid duration %q (examples: 30s, 5m, 1h, 2h30m)", args[0])
 	}
 	if d <= 0 {
-		fmt.Fprintf(os.Stderr, "Error: duration must be positive\n")
-		os.Exit(1)
+		fatal("duration must be positive")
 	}
 
 	silent.Enable(d)
@@ -136,12 +130,10 @@ func configCmd(args []string, configPath string) {
 func configValidate(configPath string) {
 	p, err := config.FindPath(configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 	if _, err := loadAndValidate(configPath); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 	fmt.Printf("Config OK: %s\n", p)
 }
@@ -168,16 +160,14 @@ func playCmd(args []string, volume int) {
 		vol = float64(volume) / 100.0
 	}
 	if err := audio.Play(name, vol); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 }
 
 func listProfiles(configPath string) {
 	cfg, err := loadAndValidate(configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 
 	profiles := make([]string, 0, len(cfg.Profiles))
@@ -234,8 +224,7 @@ func dryRun(args []string, configPath string) {
 
 	cfg, err := loadAndValidate(configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 
 	if len(args) == 0 {
@@ -266,8 +255,7 @@ func dryRun(args []string, configPath string) {
 
 	p, ok := cfg.Profiles[profile]
 	if !ok {
-		fmt.Fprintf(os.Stderr, "Error: profile %q not found\n", profile)
-		os.Exit(1)
+		fatal("profile %q not found", profile)
 	}
 
 	actionNames := make([]string, 0, len(p.Actions))
@@ -340,8 +328,7 @@ func watchCmd(args []string, configPath string, volume int, logFlag bool, echoFl
 		if rest[i] == "--pid" && i+1 < len(rest) {
 			v, err := strconv.Atoi(rest[i+1])
 			if err != nil || v <= 0 {
-				fmt.Fprintf(os.Stderr, "Error: --pid requires a positive integer\n")
-				os.Exit(1)
+				fatal("--pid requires a positive integer")
 			}
 			pid = v
 			rest = append(rest[:i], rest[i+2:]...)
@@ -350,15 +337,12 @@ func watchCmd(args []string, configPath string, volume int, logFlag bool, echoFl
 	}
 
 	if pid < 0 {
-		fmt.Fprintf(os.Stderr, "Error: --pid is required\n")
-		fmt.Fprintf(os.Stderr, "Usage: notify watch --pid <PID> [profile]\n")
-		os.Exit(1)
+		fatal("--pid is required\nUsage: notify watch --pid <PID> [profile]")
 	}
 
 	cfg, err := loadAndValidate(configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 
 	// Remaining args are optional [profile].
@@ -373,8 +357,7 @@ func watchCmd(args []string, configPath string, volume int, logFlag bool, echoFl
 
 	start := time.Now()
 	if err := procwait.Wait(pid); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 	elapsed := time.Since(start)
 
@@ -389,13 +372,11 @@ func watchCmd(args []string, configPath string, volume int, logFlag bool, echoFl
 func dashboardCmd(configPath string, port int, open bool) {
 	cfg, err := loadAndValidate(configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 	p, _ := config.FindPath(configPath)
 	if err := dashboard.Serve(cfg, p, port, open); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 }
 

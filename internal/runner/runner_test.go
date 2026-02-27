@@ -380,6 +380,31 @@ func TestExecuteParallelJoinsErrors(t *testing.T) {
 	}
 }
 
+func TestExecuteSeqErrorWaitsForParallel(t *testing.T) {
+	var parallelDone sync.WaitGroup
+	parallelDone.Add(1)
+
+	mockStepExec(t, func(s config.Step, _ int, _ config.Credentials, _ tmpl.Vars) error {
+		if s.Type == "discord" {
+			time.Sleep(50 * time.Millisecond)
+			parallelDone.Done()
+			return nil
+		}
+		return errors.New("seq-fail")
+	})
+
+	steps := []config.Step{
+		{Type: "discord", Text: "slow"},
+		{Type: "sound", Sound: "bad"},
+	}
+	err := Execute(steps, 80, config.Credentials{}, tmpl.Vars{})
+	if err == nil || !strings.Contains(err.Error(), "seq-fail") {
+		t.Fatalf("err = %v, want seq-fail", err)
+	}
+	// If Execute returned before wg.Wait(), this would hang or race.
+	parallelDone.Wait()
+}
+
 func TestExecutePassesVolume(t *testing.T) {
 	var gotVol int
 	mockStepExec(t, func(_ config.Step, vol int, _ config.Credentials, _ tmpl.Vars) error {

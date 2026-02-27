@@ -41,24 +41,18 @@ func historyCmd(args []string) {
 	if len(args) > 0 {
 		n, err := strconv.Atoi(args[0])
 		if err != nil || n <= 0 {
-			fmt.Fprintf(os.Stderr, "Error: count must be a positive integer\n")
-			os.Exit(1)
+			fatal("count must be a positive integer")
 		}
 		count = n
 	}
 
-	path := eventlog.LogPath()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Println("No log file found. Enable logging with --log or \"log\": true in config.")
-			return
-		}
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+	data, ok := readLog()
+	if !ok {
+		fmt.Println("No log file found. Enable logging with --log or \"log\": true in config.")
+		return
 	}
 
-	content := strings.TrimRight(string(data), "\n\r ")
+	content := strings.TrimRight(data, "\n\r ")
 	if content == "" {
 		fmt.Println("Log file is empty.")
 		return
@@ -85,25 +79,19 @@ func historySummary(args []string) {
 		} else {
 			n, err := strconv.Atoi(args[0])
 			if err != nil || n <= 0 {
-				fmt.Fprintf(os.Stderr, "Error: days must be a positive integer or \"all\"\n")
-				os.Exit(1)
+				fatal("days must be a positive integer or \"all\"")
 			}
 			days = n
 		}
 	}
 
-	path := eventlog.LogPath()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Println("No log file found. Enable logging with --log or \"log\": true in config.")
-			return
-		}
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+	data, ok := readLog()
+	if !ok {
+		fmt.Println("No log file found. Enable logging with --log or \"log\": true in config.")
+		return
 	}
 
-	entries := eventlog.ParseEntries(string(data))
+	entries := eventlog.ParseEntries(data)
 	groups := eventlog.SummarizeByDay(entries, days)
 
 	if len(groups) == 0 {
@@ -457,8 +445,7 @@ func historyClear() {
 	path := eventlog.LogPath()
 	err := os.Remove(path)
 	if err != nil && !os.IsNotExist(err) {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 	fmt.Println("Log file cleared.")
 }
@@ -472,22 +459,17 @@ func historyClean(args []string) {
 
 	days, err := strconv.Atoi(args[0])
 	if err != nil || days <= 0 {
-		fmt.Fprintf(os.Stderr, "Error: days must be a positive integer\n")
-		os.Exit(1)
+		fatal("days must be a positive integer")
 	}
 
+	data, ok := readLog()
+	if !ok {
+		fmt.Println("Log file is empty.")
+		return
+	}
 	path := eventlog.LogPath()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Println("Log file is empty.")
-			return
-		}
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
 
-	content := strings.TrimRight(string(data), "\n\r ")
+	content := strings.TrimRight(data, "\n\r ")
 	if content == "" {
 		fmt.Println("Log file is empty.")
 		return
@@ -521,31 +503,25 @@ func historyClean(args []string) {
 
 	out := filtered + "\n\n"
 	if err := os.WriteFile(path, []byte(out), 0644); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 	fmt.Printf("Removed %d entries, kept %d (last %d days).\n", removed, keptBlocks, days)
 }
 
 func historyRemove(args []string) {
 	if len(args) == 0 {
-		fmt.Fprintf(os.Stderr, "Usage: notify history remove <profile>\n")
-		os.Exit(1)
+		fatal("Usage: notify history remove <profile>")
 	}
 	profileName := args[0]
 
-	path := eventlog.LogPath()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Println("Log file is empty.")
-			return
-		}
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+	data, ok := readLog()
+	if !ok {
+		fmt.Println("Log file is empty.")
+		return
 	}
+	path := eventlog.LogPath()
 
-	content := strings.TrimRight(string(data), "\n\r ")
+	content := strings.TrimRight(data, "\n\r ")
 	if content == "" {
 		fmt.Println("Log file is empty.")
 		return
@@ -565,8 +541,7 @@ func historyRemove(args []string) {
 
 	out := filtered + "\n\n"
 	if err := os.WriteFile(path, []byte(out), 0644); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 	fmt.Printf("Removed %d entries for profile %q.\n", removed, profileName)
 }
@@ -575,8 +550,7 @@ func historyWatch() {
 	fd := int(os.Stdin.Fd())
 	oldState, err := term.MakeRaw(fd)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: cannot enter raw mode: %v\n", err)
-		os.Exit(1)
+		fatal("cannot enter raw mode: %v", err)
 	}
 	defer term.Restore(fd, oldState)
 
@@ -648,24 +622,18 @@ func historyExport(args []string) {
 	if len(args) > 0 {
 		n, err := strconv.Atoi(args[0])
 		if err != nil || n <= 0 {
-			fmt.Fprintf(os.Stderr, "Error: days must be a positive integer\n")
-			os.Exit(1)
+			fatal("days must be a positive integer")
 		}
 		days = n
 	}
 
-	path := eventlog.LogPath()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Println("[]")
-			return
-		}
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+	data, ok := readLog()
+	if !ok {
+		fmt.Println("[]")
+		return
 	}
 
-	entries := eventlog.ParseEntries(string(data))
+	entries := eventlog.ParseEntries(data)
 
 	if days > 0 {
 		now := time.Now()

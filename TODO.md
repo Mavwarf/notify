@@ -57,14 +57,6 @@ Additional step types beyond `discord`, `slack`, and `telegram`:
 
 ## Tech Debt / Refactoring
 
-### Bug: Goroutine Leak in `runner.Execute()`
-
-If a sequential step fails, `Execute()` returns before `wg.Wait()`, leaking
-parallel goroutines that may still be running. `wg.Wait()` must always be
-called before returning.
-
-**File:** `internal/runner/runner.go:161-200`
-
 ### Extract `runOpts` Struct
 
 `dispatchActions` takes 9 parameters, `executeAction` takes 10. Every new
@@ -83,19 +75,6 @@ type runOpts struct {
 ```
 
 **Files:** `cmd/notify/main.go`, `cmd/notify/commands.go`
-
-### Extract `fatal()` Helper
-
-`fmt.Fprintf(os.Stderr, "Error: %v\n", err)` + `os.Exit(1)` appears 18+
-times across `main.go` and `commands.go`. A single `fatal(format, args...)`
-helper would eliminate ~36 lines of boilerplate.
-
-### Extract `readLogContent()` Helper
-
-The pattern of `os.ReadFile(logPath)` + `IsNotExist` check + empty-content
-guard is repeated 8 times across `history.go` and `voice.go`. A shared
-helper would normalize the error messaging (currently inconsistent) and
-remove ~15 lines per call site.
 
 ### Extract Shared Helpers in `eventlog`
 

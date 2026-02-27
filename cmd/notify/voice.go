@@ -61,8 +61,7 @@ func voiceGenerate(args []string, configPath string) {
 			if i+1 < len(args) {
 				n, err := strconv.Atoi(args[i+1])
 				if err != nil || n < 0 {
-					fmt.Fprintf(os.Stderr, "Error: --min-uses requires a non-negative integer\n")
-					os.Exit(1)
+					fatal("--min-uses requires a non-negative integer")
 				}
 				minUses = n
 				i++
@@ -72,8 +71,7 @@ func voiceGenerate(args []string, configPath string) {
 
 	cfg, err := loadAndValidate(configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 
 	// Resolve voice settings.
@@ -101,24 +99,18 @@ func voiceGenerate(args []string, configPath string) {
 	// Get API key.
 	apiKey := cfg.Options.Credentials.OpenAIAPIKey
 	if apiKey == "" {
-		fmt.Fprintf(os.Stderr, "Error: openai_api_key not configured\n")
-		fmt.Fprintf(os.Stderr, "Add to config: \"credentials\": { \"openai_api_key\": \"$OPENAI_API_KEY\" }\n")
-		os.Exit(1)
+		fatal("openai_api_key not configured\nAdd to config: \"credentials\": { \"openai_api_key\": \"$OPENAI_API_KEY\" }")
 	}
 
 	// Read voice line usage from event log.
-	logData, err := os.ReadFile(eventlog.LogPath())
-	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Println("No log file found. Enable logging with --log or \"log\": true to track usage.")
-			fmt.Println("Voice generation requires usage data to identify frequently used messages.")
-			return
-		}
-		fmt.Fprintf(os.Stderr, "Error reading log: %v\n", err)
-		os.Exit(1)
+	logData, ok := readLog()
+	if !ok {
+		fmt.Println("No log file found. Enable logging with --log or \"log\": true to track usage.")
+		fmt.Println("Voice generation requires usage data to identify frequently used messages.")
+		return
 	}
 
-	voiceLines := eventlog.ParseVoiceLines(string(logData))
+	voiceLines := eventlog.ParseVoiceLines(logData)
 	if len(voiceLines) == 0 {
 		fmt.Println("No voice step usage found in the event log.")
 		return
@@ -133,8 +125,7 @@ func voiceGenerate(args []string, configPath string) {
 	// Open voice cache.
 	cache, err := voice.OpenCache()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error opening voice cache: %v\n", err)
-		os.Exit(1)
+		fatal("opening voice cache: %v", err)
 	}
 
 	// Filter candidates: frequently used, not dynamic, not already cached.
@@ -229,8 +220,7 @@ func voiceGenerate(args []string, configPath string) {
 func voiceList() {
 	cache, err := voice.OpenCache()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 
 	if len(cache.Entries) == 0 {
@@ -276,8 +266,7 @@ func voiceTest(args []string, configPath string) {
 	// Defaults from config, overridable by flags.
 	cfg, err := loadAndValidate(configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 
 	voiceName := cfg.Options.Voice.Voice
@@ -308,8 +297,7 @@ func voiceTest(args []string, configPath string) {
 			if i+1 < len(args) {
 				v, err := strconv.ParseFloat(args[i+1], 64)
 				if err != nil || v < 0.25 || v > 4.0 {
-					fmt.Fprintf(os.Stderr, "Error: --speed must be 0.25-4.0\n")
-					os.Exit(1)
+					fatal("--speed must be 0.25-4.0")
 				}
 				speed = v
 				i++
@@ -334,16 +322,14 @@ func voiceTest(args []string, configPath string) {
 	}
 
 	if apiKey == "" {
-		fmt.Fprintf(os.Stderr, "Error: openai_api_key not configured\n")
-		os.Exit(1)
+		fatal("openai_api_key not configured")
 	}
 
 	fmt.Printf("Generating: %q (voice: %s, model: %s, speed: %.1f)...\n", text, voiceName, model, speed)
 
 	wavData, err := voice.Generate(apiKey, model, voiceName, text, speed)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 
 	fmt.Printf("Playing (%d KB)...\n", len(wavData)/1024)
@@ -351,36 +337,31 @@ func voiceTest(args []string, configPath string) {
 	// Write to temp file and play.
 	tmpFile, err := os.CreateTemp("", "notify-voice-test-*.wav")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 	tmpPath := tmpFile.Name()
 	defer os.Remove(tmpPath)
 
 	if _, err := tmpFile.Write(wavData); err != nil {
 		tmpFile.Close()
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 	tmpFile.Close()
 
 	if err := audio.Play(tmpPath, 1.0); err != nil {
-		fmt.Fprintf(os.Stderr, "Error playing: %v\n", err)
-		os.Exit(1)
+		fatal("playing: %v", err)
 	}
 }
 
 func voiceClear() {
 	cache, err := voice.OpenCache()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 
 	count, err := cache.Clear()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 
 	if count == 0 {
@@ -393,8 +374,7 @@ func voiceClear() {
 func voicePlay(args []string) {
 	cache, err := voice.OpenCache()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fatal("%v", err)
 	}
 
 	if len(cache.Entries) == 0 {
@@ -468,25 +448,19 @@ func voiceStats(args []string) {
 		} else {
 			n, err := strconv.Atoi(args[0])
 			if err != nil || n <= 0 {
-				fmt.Fprintf(os.Stderr, "Error: days must be a positive integer or \"all\"\n")
-				os.Exit(1)
+				fatal("days must be a positive integer or \"all\"")
 			}
 			days = n
 		}
 	}
 
-	path := eventlog.LogPath()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Println("No log file found. Enable logging with --log or \"log\": true in config.")
-			return
-		}
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+	data, ok := readLog()
+	if !ok {
+		fmt.Println("No log file found. Enable logging with --log or \"log\": true in config.")
+		return
 	}
 
-	content := string(data)
+	content := data
 
 	// Filter to date range if days specified.
 	if days > 0 {
