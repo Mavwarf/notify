@@ -2,6 +2,7 @@
 
 ## Features
 
+- Dashboard time ranges — Day/Week/Month/Year/Total views in the Watch tab with adaptive breakdown buckets and keyboard shortcuts *(Feb 27)*
 - Dashboard voice playback — play button in Voice tab to preview pre-generated AI voice files in the browser *(Feb 26)*
 - AI voice generation (`notify voice generate/list/clear`) — pre-generate high-quality AI voice files via OpenAI TTS for frequently used say steps; cached WAVs play automatically, falls back to system TTS *(Feb 26)*
 - Interactive config generator (`notify init`) — walk-through setup for channels, credentials, and profiles; `--defaults` for quick start *(Feb 26)*
@@ -49,6 +50,20 @@
 - Multi-step notification pipelines: sound, speech, toast *(Feb 19)*
 
 ---
+
+## 2026-02-27
+
+### Dashboard: Multi-Duration Time Ranges
+
+The Watch tab now supports five time range views — Day, Week, Month, Year, and
+Total — selectable via pill-style buttons next to the navigation arrows. The
+breakdown table adapts automatically: hours for day view, days for week/month
+view, and months for year/total view. Navigation arrows shift by the
+appropriate unit (1 day, 1 week, 1 month, or 1 year). The "Total" range hides
+navigation controls since it shows all-time data. Summary tables, time-spent
+estimates, bar charts, and activity timeline heatmaps all scale dynamically to
+the selected range. Bar and timeline cell widths adjust based on bucket count
+for readability. Keyboard shortcuts `d`/`w`/`m`/`y`/`a` switch ranges directly.
 
 ## 2026-02-26
 

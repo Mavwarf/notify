@@ -756,8 +756,8 @@ Commands:
   shell-hook status      Check if shell hook is installed
   play [sound|file.wav]  Preview a built-in sound or WAV file (no args lists built-ins)
   test [profile]         Dry-run: show what would happen without sending
-  dashboard [--port N]   Local web UI with watch, history, config, test, voice, silent tabs
-           [--open]      Add --open to launch in a chromeless browser window
+  dashboard [--port N]   Local web UI with watch (day/week/month/year/total), history,
+           [--open]      config, test, voice, silent tabs. --open for chromeless window
   config validate        Check config file for errors
   history [N]            Show last N log entries (default 10)
   history summary [days|all] Show action counts per day (default 7 days)

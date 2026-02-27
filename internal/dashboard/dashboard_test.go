@@ -417,12 +417,12 @@ func TestHandleWatch(t *testing.T) {
 		} `json:"summary"`
 		Hourly struct {
 			Profiles      []string `json:"profiles"`
-			Hours         []struct {
-				Hour   int   `json:"hour"`
-				Counts []int `json:"counts"`
-				Total  int   `json:"total"`
-				Pct    int   `json:"pct"`
-			} `json:"hours"`
+			Buckets       []struct {
+				Label  string `json:"label"`
+				Counts []int  `json:"counts"`
+				Total  int    `json:"total"`
+				Pct    int    `json:"pct"`
+			} `json:"buckets"`
 			ProfileTotals []int `json:"profile_totals"`
 			GrandTotal    int   `json:"grand_total"`
 		} `json:"hourly"`
@@ -490,7 +490,7 @@ func TestHandleWatch(t *testing.T) {
 	if len(resp.Hourly.Profiles) != 3 {
 		t.Fatalf("expected 3 hourly profiles, got %d", len(resp.Hourly.Profiles))
 	}
-	if len(resp.Hourly.Hours) == 0 {
+	if len(resp.Hourly.Buckets) == 0 {
 		t.Fatal("expected at least 1 hourly row")
 	}
 	if resp.Hourly.GrandTotal != 5 {
@@ -600,7 +600,7 @@ func TestHandleWatchEmpty(t *testing.T) {
 		} `json:"summary"`
 		Hourly struct {
 			Profiles []interface{} `json:"profiles"`
-			Hours    []interface{} `json:"hours"`
+			Buckets  []interface{} `json:"buckets"`
 		} `json:"hourly"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
@@ -614,8 +614,8 @@ func TestHandleWatchEmpty(t *testing.T) {
 	if resp.Hourly.Profiles == nil {
 		t.Fatal("hourly.profiles should be [] not null")
 	}
-	if resp.Hourly.Hours == nil {
-		t.Fatal("hourly.hours should be [] not null")
+	if resp.Hourly.Buckets == nil {
+		t.Fatal("hourly.buckets should be [] not null")
 	}
 }
 

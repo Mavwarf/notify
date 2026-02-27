@@ -1103,11 +1103,13 @@ six tabs (linkable via URL hash, e.g. `/#watch`):
   profile/action counts, percentages, skipped, and "New" deltas since page load,
   donut charts showing notification share and time distribution per profile,
   approximate time spent per profile (gap-based estimation with 5-minute
-  threshold), plus hourly breakdown with bar chart and activity timeline
+  threshold), plus a breakdown table with bar chart and activity timeline
   heatmap — auto-refreshes every 2 seconds. A compact
   log stats line at the bottom shows total entries, file size, and date range.
-  Day navigation buttons (`<` / `>` / Today) let you browse past days; the "New"
-  column only appears when viewing today
+  Range selector buttons (Day/Week/Month/Year/Total) switch between time ranges;
+  the breakdown adapts automatically (hours for day, days for week/month,
+  months for year/total). Arrow buttons navigate by the selected range unit.
+  The "New" column only appears when viewing today in day mode
 - **History** — live-updating table of notification events, fed by SSE.
   An activity chart shows stacked daily bars (green = runs, yellow = skipped)
   with hover tooltips; hidden for hour-based ranges.
@@ -1133,10 +1135,11 @@ six tabs (linkable via URL hash, e.g. `/#watch`):
 Profile names are clickable everywhere — click one to open a detail modal
 showing its full step pipeline (dry-run) and credential health status.
 
-Keyboard shortcuts: `1`–`6` switch tabs, left/right arrows navigate Watch days,
-`t` jumps to today, `s` toggles screenshot mode (replaces profile names with
-fake ones for privacy-safe screenshots). A dark/light theme toggle in the header
-persists your preference via `localStorage`.
+Keyboard shortcuts: `1`–`6` switch tabs, left/right arrows navigate Watch
+periods, `t` jumps to today, `d`/`w`/`m`/`y`/`a` switch range
+(day/week/month/year/all), `s` toggles screenshot mode (replaces profile names
+with fake ones for privacy-safe screenshots). A dark/light theme toggle in the
+header persists your preference via `localStorage`.
 
 ```bash
 notify dashboard              # default port 8080

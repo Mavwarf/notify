@@ -541,6 +541,29 @@ tr:hover td { background: var(--bg3); }
   font-weight: 600;
 }
 
+.range-btns {
+  display: flex;
+  gap: 2px;
+  margin-left: 12px;
+}
+
+.range-btn {
+  padding: 3px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--fg-dim);
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.range-btn:first-child { border-radius: 4px 0 0 4px; }
+.range-btn:last-child { border-radius: 0 4px 4px 0; }
+
+.range-btn:hover { color: var(--fg); border-color: var(--fg-dim); }
+.range-btn.active { color: var(--accent); border-color: var(--accent); background: var(--bg3); font-weight: 600; }
+
 /* Credential health panel */
 .cred-panel {
   margin-bottom: 16px;
@@ -786,7 +809,7 @@ tr:hover td { background: var(--bg3); }
   <div style="font-size:12px;color:var(--fg-dim);margin:-12px 0 16px;display:flex;justify-content:space-between">
     <span>Cross-platform notification engine for the command line. <a href="https://github.com/Mavwarf/notify" target="_blank" rel="noopener" style="color:var(--cyan)">github.com/Mavwarf/notify</a></span>
     <span class="silent-badge" id="silent-badge">Silent until <span id="silent-badge-time"></span></span>
-    <span class="shortcuts-hint">Keys: 1-6 tabs, arrows nav days, t today, s screenshot</span>
+    <span class="shortcuts-hint">Keys: 1-6 tabs, arrows nav, t today, d/w/m/y/a range, s screenshot</span>
   </div>
 
   <div class="tabs">
@@ -855,6 +878,13 @@ tr:hover td { background: var(--bg3); }
       <span class="watch-nav-date" id="watch-nav-date"></span>
       <button id="watch-next" title="Next day">&gt;</button>
       <button id="watch-today" class="watch-nav-today">Today</button>
+      <div class="range-btns">
+        <button class="range-btn active" data-range="day">Day</button>
+        <button class="range-btn" data-range="week">Week</button>
+        <button class="range-btn" data-range="month">Month</button>
+        <button class="range-btn" data-range="year">Year</button>
+        <button class="range-btn" data-range="total">Total</button>
+      </div>
     </div>
     <div id="watch-content">
       <div class="empty-state">Loading watch data...</div>
@@ -1627,6 +1657,7 @@ tr:hover td { background: var(--bg3); }
   // ---- Watch tab ----
   let watchBaseline = null;
   let watchDate = null; // null = today, or "YYYY-MM-DD"
+  let watchRange = 'day'; // 'day'|'week'|'month'|'year'|'total'
   let summarySortKey = 'total'; // 'name' | 'total'
   let summarySortAsc = false;
   let timeSortKey = 'time'; // 'name' | 'time' | 'pct'
@@ -1659,59 +1690,99 @@ tr:hover td { background: var(--bg3); }
     return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
   }
 
-  function shiftDate(dateStr, delta) {
+  function shiftAnchor(dateStr, delta) {
     const d = new Date(dateStr + 'T12:00:00');
-    d.setDate(d.getDate() + delta);
+    switch (watchRange) {
+      case 'week': d.setDate(d.getDate() + delta * 7); break;
+      case 'month': d.setMonth(d.getMonth() + delta); break;
+      case 'year': d.setFullYear(d.getFullYear() + delta); break;
+      default: d.setDate(d.getDate() + delta); break;
+    }
     return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
   }
 
-  function dayName(dateStr) {
-    const d = new Date(dateStr + 'T12:00:00');
-    return d.toLocaleDateString(undefined, { weekday: 'long' });
-  }
+  // cachedRangeLabel is filled by the server response and used for display.
+  let cachedRangeLabel = '';
 
-  function updateWatchNav() {
+  function updateWatchNav(rangeLabel) {
+    if (rangeLabel) cachedRangeLabel = rangeLabel;
+
+    const isTotal = watchRange === 'total';
     const effective = watchDate || todayStr();
     const isToday = effective === todayStr();
-    watchNavDate.textContent = effective + '  (' + dayName(effective) + ')';
-    watchNext.disabled = isToday;
-    watchToday.style.display = isToday ? 'none' : '';
+
+    if (cachedRangeLabel) {
+      watchNavDate.textContent = cachedRangeLabel;
+    } else {
+      // Fallback before first load
+      const d = new Date(effective + 'T12:00:00');
+      watchNavDate.textContent = effective + '  (' + d.toLocaleDateString(undefined, { weekday: 'long' }) + ')';
+    }
+
+    watchPrev.style.display = isTotal ? 'none' : '';
+    watchNext.style.display = isTotal ? 'none' : '';
+    watchNext.disabled = isToday && !isTotal;
+    watchToday.style.display = (isToday || isTotal) ? 'none' : '';
+
+    // Update range button active state.
+    document.querySelectorAll('.range-btn').forEach(function(btn) {
+      btn.classList.toggle('active', btn.dataset.range === watchRange);
+    });
   }
 
   watchPrev.addEventListener('click', () => {
     const effective = watchDate || todayStr();
-    watchDate = shiftDate(effective, -1);
+    watchDate = shiftAnchor(effective, -1);
     watchBaseline = null;
+    cachedRangeLabel = '';
     updateWatchNav();
     loadWatch();
   });
 
   watchNext.addEventListener('click', () => {
-    if (watchDate) {
-      const next = shiftDate(watchDate, 1);
-      watchDate = next === todayStr() ? null : next;
-      watchBaseline = null;
-      updateWatchNav();
-      loadWatch();
-    }
+    const effective = watchDate || todayStr();
+    const next = shiftAnchor(effective, 1);
+    watchDate = next === todayStr() ? null : next;
+    watchBaseline = null;
+    cachedRangeLabel = '';
+    updateWatchNav();
+    loadWatch();
   });
 
   watchToday.addEventListener('click', () => {
     watchDate = null;
     watchBaseline = null;
+    cachedRangeLabel = '';
     updateWatchNav();
     loadWatch();
   });
 
+  // Range button click handler.
+  document.querySelectorAll('.range-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      watchRange = btn.dataset.range;
+      watchDate = null;
+      watchBaseline = null;
+      cachedRangeLabel = '';
+      updateWatchNav();
+      loadWatch();
+    });
+  });
+
   updateWatchNav();
 
+  let watchGeneration = 0; // guards against stale responses from polling
+
   async function loadWatch() {
+    const gen = ++watchGeneration;
     try {
-      let url = '/api/watch';
-      if (watchDate) url += '?date=' + watchDate;
+      let url = '/api/watch?range=' + watchRange;
+      if (watchDate) url += '&date=' + watchDate;
       const res = await fetch(url);
       const data = await res.json();
-      if (data.is_today && !watchBaseline) {
+      if (gen !== watchGeneration) return; // stale response, discard
+      updateWatchNav(data.range_label);
+      if (data.is_today && watchRange === 'day' && !watchBaseline) {
         watchBaseline = buildWatchBaseline(data);
       }
       renderWatch(data);
@@ -1734,12 +1805,12 @@ tr:hover td { background: var(--bg3); }
 
   function renderWatch(data) {
     const el = document.getElementById('watch-content');
-    if (!data.summary.profiles.length && !data.hourly.hours.length) {
-      el.innerHTML = '<div class="empty-state">No activity for ' + esc(data.date) + '.</div>';
+    if (!data.summary.profiles.length && (!data.hourly.buckets || !data.hourly.buckets.length)) {
+      el.innerHTML = '<div class="empty-state">No activity for ' + esc(data.range_label || data.date) + '.</div>';
       return;
     }
 
-    const showNew = data.is_today;
+    const showNew = data.is_today && watchRange === 'day' && watchBaseline;
     let html = '';
 
     // Summary table
@@ -1818,32 +1889,34 @@ tr:hover td { background: var(--bg3); }
     html += renderDonutChart(profiles, gt);
     html += '</div>'; // end flex wrapper
 
-    // Hourly breakdown table
-    if (data.hourly.hours && data.hourly.hours.length > 0) {
-      html += '<div style="border-top:1px solid var(--border);margin-top:20px;padding-top:12px" class="watch-section-title">Hourly breakdown</div>';
+    // Breakdown table (hourly/daily/monthly)
+    var buckets = data.hourly.buckets;
+    var bucketLabel = data.hourly.bucket_label || 'Hour';
+    if (buckets && buckets.length > 0) {
+      html += '<div style="border-top:1px solid var(--border);margin-top:20px;padding-top:12px" class="watch-section-title">' + esc(bucketLabel) + ' breakdown</div>';
       html += '<div style="display:flex;gap:32px;align-items:flex-start">';
       html += '<div style="overflow-x:auto">';
       html += '<table class="watch-table"><thead><tr>';
-      html += '<th>Hour</th>';
+      html += '<th>' + esc(bucketLabel) + '</th>';
       for (const p of data.hourly.profiles) {
         html += '<th style="color:var(--cyan)">' + esc(maskProfile(p)) + '</th>';
       }
       html += '<th>Total</th><th>%</th>';
       html += '</tr></thead><tbody>';
 
-      for (const hr of data.hourly.hours) {
+      for (const b of buckets) {
         html += '<tr>';
-        html += '<td style="text-align:left">' + pad2(hr.hour) + ':00</td>';
-        for (const c of hr.counts) {
+        html += '<td style="text-align:left">' + esc(b.label) + '</td>';
+        for (const c of b.counts) {
           if (c > 0) {
             html += '<td>' + fmtNum(c) + '</td>';
           } else {
             html += '<td class="val-dash">-</td>';
           }
         }
-        if (hr.total > 0) {
-          html += '<td>' + fmtNum(hr.total) + '</td>';
-          html += '<td>' + hr.pct + '%</td>';
+        if (b.total > 0) {
+          html += '<td>' + fmtNum(b.total) + '</td>';
+          html += '<td>' + b.pct + '%</td>';
         } else {
           html += '<td class="val-dash">-</td>';
           html += '<td></td>';
@@ -1851,7 +1924,7 @@ tr:hover td { background: var(--bg3); }
         html += '</tr>';
       }
 
-      // Hourly total row
+      // Total row
       html += '<tr class="total-row">';
       html += '<td style="text-align:left"><strong>Total</strong></td>';
       for (const pt of data.hourly.profile_totals) {
@@ -1863,7 +1936,7 @@ tr:hover td { background: var(--bg3); }
 
       html += '</tbody></table>';
       html += '</div>'; // end table wrapper
-      html += '<div style="flex-shrink:0">' + renderHourlyBarChart(data.hourly) + renderActivityTimeline(data.hourly) + '</div>';
+      html += '<div style="flex-shrink:0">' + renderBarChart(data.hourly) + renderTimeline(data.hourly) + '</div>';
       html += '</div>'; // end flex wrapper
     }
 
@@ -1938,19 +2011,21 @@ tr:hover td { background: var(--bg3); }
     return m + 'm';
   }
 
-  // ---- Hourly bar chart ----
-  function renderHourlyBarChart(hourly) {
-    var hours = hourly.hours;
+  // ---- Bar chart ----
+  function renderBarChart(hourly) {
+    var buckets = hourly.buckets;
     var profiles = hourly.profiles || [];
-    if (!hours || hours.length === 0) return '';
+    var bucketLabel = hourly.bucket_label || 'Hour';
+    if (!buckets || buckets.length === 0) return '';
     var maxTotal = 0;
-    for (var i = 0; i < hours.length; i++) {
-      if (hours[i].total > maxTotal) maxTotal = hours[i].total;
+    for (var i = 0; i < buckets.length; i++) {
+      if (buckets[i].total > maxTotal) maxTotal = buckets[i].total;
     }
     if (maxTotal === 0) return '';
 
-    var barW = 14, gap = 2, chartH = 108, labelH = 14;
-    var totalW = hours.length * (barW + gap) - gap;
+    var barW = Math.max(6, Math.min(14, Math.floor(300 / buckets.length)));
+    var gap = 2, chartH = 108, labelH = 14;
+    var totalW = buckets.length * (barW + gap) - gap;
     var svgW = totalW + 2;
     var svgH = chartH + labelH;
 
@@ -1960,54 +2035,57 @@ tr:hover td { background: var(--bg3); }
 
     var svg = '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 ' + svgW + ' ' + svgH + '">';
 
-    for (var i = 0; i < hours.length; i++) {
-      var hr = hours[i];
+    // Label frequency: every 1 for ≤12, every 3 for ≤31, every 5 for more.
+    var labelFreq = buckets.length <= 12 ? 1 : buckets.length <= 31 ? 3 : 5;
+
+    for (var i = 0; i < buckets.length; i++) {
+      var b = buckets[i];
       var x = 1 + i * (barW + gap);
-      var barH = maxTotal > 0 ? Math.max(Math.round((hr.total / maxTotal) * (chartH - 2)), 0) : 0;
+      var barH = maxTotal > 0 ? Math.max(Math.round((b.total / maxTotal) * (chartH - 2)), 0) : 0;
       var y = chartH - barH;
 
       if (barH > 0) {
         var detail = '';
         for (var j = 0; j < profiles.length; j++) {
-          if (hr.counts[j] > 0) {
+          if (b.counts[j] > 0) {
             detail += esc(maskProfile(profiles[j])).replace(/"/g, '&quot;') +
-              ': ' + hr.counts[j] + '&lt;br&gt;';
+              ': ' + b.counts[j] + '&lt;br&gt;';
           }
         }
         svg += '<rect class="donut-segment" x="' + x + '" y="' + y + '" width="' + barW + '" height="' + barH +
           '" fill="transparent" stroke="' + fg + '" stroke-width="1" rx="1"' +
-          ' data-name="' + pad2(hr.hour) + ':00" data-total="' + hr.total + '" data-pct="' + hr.pct +
+          ' data-name="' + esc(b.label).replace(/"/g, '&quot;') + '" data-total="' + b.total + '" data-pct="' + b.pct +
           '" data-detail="' + detail + '"' +
           ' style="cursor:crosshair;transition:opacity 0.15s"/>';
       }
 
-      // Show every 3rd hour label to keep it compact
-      if (i % 3 === 0) {
+      if (i % labelFreq === 0) {
         svg += '<text x="' + (x + barW / 2) + '" y="' + (chartH + labelH - 2) +
           '" text-anchor="middle" font-size="7" font-family="inherit" fill="' + fgDim + '">' +
-          pad2(hr.hour) + '</text>';
+          esc(b.label) + '</text>';
       }
     }
 
     svg += '</svg>';
     return '<div style="flex-shrink:0;text-align:center;padding-top:20px">' +
-      '<div class="watch-section-title" style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)">Activity by hour</div>' +
+      '<div class="watch-section-title" style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)">Activity by ' + esc(bucketLabel).toLowerCase() + '</div>' +
       '<div style="position:relative;display:inline-block">' + svg +
       '<div class="chart-tooltip donut-tooltip"></div></div></div>';
   }
 
   // ---- Activity timeline ----
-  function renderActivityTimeline(hourly) {
-    var hours = hourly.hours;
+  function renderTimeline(hourly) {
+    var buckets = hourly.buckets;
     var profiles = hourly.profiles || [];
-    if (!hours || hours.length === 0 || profiles.length === 0) return '';
+    if (!buckets || buckets.length === 0 || profiles.length === 0) return '';
 
     var cs = getComputedStyle(document.documentElement);
     var fg = cs.getPropertyValue('--fg').trim();
     var fgDim = cs.getPropertyValue('--fg-dim').trim();
 
-    var cellW = 14, gap = 2, rowH = 20, rowGap = 3, labelW = 60, labelH = 14;
-    var chartW = hours.length * (cellW + gap) - gap;
+    var cellW = Math.max(6, Math.min(14, Math.floor(300 / buckets.length)));
+    var gap = 2, rowH = 20, rowGap = 3, labelW = 60, labelH = 14;
+    var chartW = buckets.length * (cellW + gap) - gap;
     var svgW = labelW + chartW + 2;
     var svgH = profiles.length * (rowH + rowGap) - rowGap + labelH + 4;
 
@@ -2015,11 +2093,13 @@ tr:hover td { background: var(--bg3); }
 
     // Find max per-cell count for opacity scaling.
     var maxCount = 0;
-    for (var i = 0; i < hours.length; i++) {
+    for (var i = 0; i < buckets.length; i++) {
       for (var j = 0; j < profiles.length; j++) {
-        if (hours[i].counts[j] > maxCount) maxCount = hours[i].counts[j];
+        if (buckets[i].counts[j] > maxCount) maxCount = buckets[i].counts[j];
       }
     }
+
+    var labelFreq = buckets.length <= 12 ? 1 : buckets.length <= 31 ? 3 : 5;
 
     for (var p = 0; p < profiles.length; p++) {
       var y = p * (rowH + rowGap);
@@ -2029,19 +2109,19 @@ tr:hover td { background: var(--bg3); }
         '" text-anchor="end" font-size="8" font-family="inherit" fill="' + fgDim + '">' +
         esc(maskProfile(profiles[p])).replace(/"/g, '&quot;') + '</text>';
 
-      for (var i = 0; i < hours.length; i++) {
+      for (var i = 0; i < buckets.length; i++) {
         var x = labelW + i * (cellW + gap);
-        var count = hours[i].counts[p];
+        var count = buckets[i].counts[p];
 
         var pName = esc(maskProfile(profiles[p])).replace(/"/g, '&quot;');
-        var hrTotal = hours[i].total;
-        var hrPct = hrTotal > 0 ? Math.round(count * 100 / hrTotal) : 0;
+        var bTotal = buckets[i].total;
+        var bPct = bTotal > 0 ? Math.round(count * 100 / bTotal) : 0;
         if (count > 0) {
           svg += '<rect class="donut-segment" x="' + x + '" y="' + y + '" width="' + cellW + '" height="' + rowH +
             '" fill="' + fg + '" stroke="' + fg + '" stroke-width="1" rx="1"' +
             ' opacity="' + (0.25 + 0.75 * (count / maxCount)).toFixed(2) + '"' +
-            ' data-name="' + pName + ' · ' + pad2(hours[i].hour) + ':00"' +
-            ' data-total="' + count + '" data-pct="' + hrPct + '"' +
+            ' data-name="' + pName + ' · ' + esc(buckets[i].label).replace(/"/g, '&quot;') + '"' +
+            ' data-total="' + count + '" data-pct="' + bPct + '"' +
             ' style="cursor:crosshair;transition:opacity 0.15s"/>';
         } else {
           svg += '<rect x="' + x + '" y="' + y + '" width="' + cellW + '" height="' + rowH +
@@ -2050,14 +2130,14 @@ tr:hover td { background: var(--bg3); }
       }
     }
 
-    // Hour labels
+    // Bucket labels
     var labelY = profiles.length * (rowH + rowGap) + labelH;
-    for (var i = 0; i < hours.length; i++) {
-      if (i % 3 === 0) {
+    for (var i = 0; i < buckets.length; i++) {
+      if (i % labelFreq === 0) {
         var x = labelW + i * (cellW + gap) + cellW / 2;
         svg += '<text x="' + x + '" y="' + labelY +
           '" text-anchor="middle" font-size="7" font-family="inherit" fill="' + fgDim + '">' +
-          pad2(hours[i].hour) + '</text>';
+          esc(buckets[i].label) + '</text>';
       }
     }
 
@@ -2403,20 +2483,28 @@ tr:hover td { background: var(--bg3); }
       return;
     }
 
-    // Arrow keys: watch tab day navigation
+    // Arrow keys + range shortcuts: watch tab navigation
     if (activeTab() === 'watch') {
-      if (e.key === 'ArrowLeft') {
+      if (e.key === 'ArrowLeft' && watchRange !== 'total') {
         watchPrev.click();
         e.preventDefault();
         return;
       }
-      if (e.key === 'ArrowRight' && !watchNext.disabled) {
+      if (e.key === 'ArrowRight' && !watchNext.disabled && watchRange !== 'total') {
         watchNext.click();
         e.preventDefault();
         return;
       }
       if (e.key === 't') {
         watchToday.click();
+        e.preventDefault();
+        return;
+      }
+      // d/w/m/y/a: switch range
+      var rangeMap = { d: 'day', w: 'week', m: 'month', y: 'year', a: 'total' };
+      if (rangeMap[e.key]) {
+        var btn = document.querySelector('.range-btn[data-range="' + rangeMap[e.key] + '"]');
+        if (btn) btn.click();
         e.preventDefault();
         return;
       }
