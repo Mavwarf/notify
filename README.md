@@ -102,6 +102,9 @@ cmd/
     voice.go             Voice subcommands: generate, test, play, list, clear, stats
     init.go              Interactive config generation (notify init)
     shellhook.go         Shell hook install/uninstall subcommand
+  notify-app/
+    main.go              Wails desktop app entry point
+    app.go               App lifecycle (startup/shutdown)
     notify-config.example.json  Example config file
 internal/
   audio/
@@ -1263,6 +1266,25 @@ if neither is available.
 
 The dashboard binds to `127.0.0.1` only (not exposed to the network). Config
 is loaded once at startup. Press `Ctrl+C` to stop.
+
+#### Desktop app (`notify-app`)
+
+A native desktop window for the dashboard using Wails v2 and the OS webview
+(WebView2 on Windows). No bundled Chromium, no address bar — just the dashboard
+in a proper native window with SSE live updates.
+
+```bash
+# Build
+go build -tags desktop,production -ldflags "-w -s -H windowsgui" -o output/notify-app.exe ./cmd/notify-app
+
+# Run
+./output/notify-app.exe                    # default port 8811
+./output/notify-app.exe --port 9000        # custom port
+./output/notify-app.exe --config path.json # custom config
+```
+
+The app starts the dashboard HTTP server internally and navigates the WebView
+directly to it. Default port is 8811 (different from the CLI's 8080).
 
 ### Cooldown / rate limiting
 

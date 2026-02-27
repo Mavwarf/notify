@@ -2,6 +2,7 @@
 
 ## Features
 
+- Wails desktop app (`notify-app`) — native desktop window for the dashboard using OS webview (WebView2); no bundled Chromium, proper window chrome, SSE live updates *(Feb 27)*
 - Startup command (`notify startup`) — register `notify://` protocol handler and launch the web dashboard in one step; passes through `--port` and `--open` flags *(Feb 27)*
 - Duration-based escalation (`when: "long:DURATION"`) — fire steps only when a wrapped command exceeds a time threshold; quick builds stay local, long ones escalate to Discord/Slack *(Feb 27)*
 - SQLite migration fix — fixed data loss where `cooldown=recorded` lines merged with execution blocks; single-connection pool for reliable CASCADE deletes *(Feb 27)*
@@ -66,6 +67,29 @@
 ---
 
 ## 2026-02-27
+
+### Wails Desktop App (`notify-app`)
+
+A native desktop window for the web dashboard using Wails v2 and the OS webview
+(WebView2 on Windows). Instead of opening Chrome/Edge in app mode, `notify-app`
+launches a proper native window with no address bar, no browser dependency, and
+full SSE live updates.
+
+The app starts the existing dashboard HTTP server internally, then navigates the
+WebView directly to `http://127.0.0.1:{port}` — zero changes to existing
+dashboard code. Default port is 8811 to avoid collision with the CLI's 8080.
+
+```bash
+# Build
+go build -tags desktop,production -ldflags "-w -s -H windowsgui" -o output/notify-app.exe ./cmd/notify-app
+
+# Run
+./output/notify-app.exe                    # default port 8811
+./output/notify-app.exe --port 9000        # custom port
+./output/notify-app.exe --config path.json # custom config
+```
+
+Flags: `--port` / `-p` (default 8811), `--config` / `-c` (config file path).
 
 ### Startup Command (`notify startup`)
 
