@@ -82,9 +82,12 @@ clicks don't switch desktops. Without protocol registration, Windows shows a
 default "how to open" dialog. On non-Windows, the `desktop` field is accepted
 but ignored.
 
+The protocol handler calls `FreeConsole()` before switching to prevent Windows
+from snapping back to the previous desktop when the process exits.
+
 New package: `internal/desktop/` with `SwitchTo`, `Current`, `Count`,
-`Available` (DLL wrapper) and `RegisterProtocol`, `UnregisterProtocol`,
-`IsProtocolRegistered` (registry management).
+`Available`, `HideConsole` (DLL wrapper) and `RegisterProtocol`,
+`UnregisterProtocol`, `IsProtocolRegistered` (registry management).
 
 ### Dashboard Color Schemes
 
