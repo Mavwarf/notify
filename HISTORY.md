@@ -2,6 +2,7 @@
 
 ## Features
 
+- History remove (`notify history remove <profile>`) — selectively delete all log entries for a specific profile *(Feb 27)*
 - Dashboard project count — donut chart shows number of active projects below the chart *(Feb 27)*
 - Plugin step type — run external commands/scripts as notification steps with NOTIFY_* env vars, configurable timeout, and parallel execution *(Feb 27)*
 - Dashboard time ranges — Day/Week/Month/Year/Total views in the Watch tab with adaptive breakdown buckets and keyboard shortcuts *(Feb 27)*
@@ -54,6 +55,17 @@
 ---
 
 ## 2026-02-27
+
+### History Remove (`notify history remove <profile>`)
+
+Selectively delete all log entries for a specific profile. Useful for cleaning
+up after testing, removing renamed profiles, or pruning unwanted entries without
+wiping the entire log. The command scans each log block's summary line for the
+`profile=<name>` field and removes matching blocks, preserving everything else.
+
+```
+notify history remove testing    # Remove all "testing" entries
+```
 
 ### Dashboard Project Count
 

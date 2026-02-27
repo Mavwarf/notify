@@ -31,6 +31,9 @@ func historyCmd(args []string) {
 		case "watch":
 			historyWatch()
 			return
+		case "remove":
+			historyRemove(args[1:])
+			return
 		}
 	}
 
@@ -522,6 +525,50 @@ func historyClean(args []string) {
 		os.Exit(1)
 	}
 	fmt.Printf("Removed %d entries, kept %d (last %d days).\n", removed, keptBlocks, days)
+}
+
+func historyRemove(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintf(os.Stderr, "Usage: notify history remove <profile>\n")
+		os.Exit(1)
+	}
+	profileName := args[0]
+
+	path := eventlog.LogPath()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Println("Log file is empty.")
+			return
+		}
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	content := strings.TrimRight(string(data), "\n\r ")
+	if content == "" {
+		fmt.Println("Log file is empty.")
+		return
+	}
+
+	filtered, removed := eventlog.FilterBlocksByProfile(content, profileName)
+	if removed == 0 {
+		fmt.Printf("No entries found for profile %q.\n", profileName)
+		return
+	}
+
+	if filtered == "" {
+		_ = os.Remove(path)
+		fmt.Printf("Removed %d entries for profile %q. Log file cleared.\n", removed, profileName)
+		return
+	}
+
+	out := filtered + "\n\n"
+	if err := os.WriteFile(path, []byte(out), 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Removed %d entries for profile %q.\n", removed, profileName)
 }
 
 func historyWatch() {

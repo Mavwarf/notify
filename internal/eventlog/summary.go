@@ -217,6 +217,30 @@ func ComputeTimeSpent(entries []Entry, targetDate time.Time, loc *time.Location)
 	return td
 }
 
+// FilterBlocksByProfile removes all log blocks belonging to the named profile.
+// Returns the filtered content and the number of removed blocks.
+func FilterBlocksByProfile(content string, profile string) (string, int) {
+	blocks := strings.Split(content, "\n\n")
+	var kept []string
+	removed := 0
+	for _, block := range blocks {
+		block = strings.TrimSpace(block)
+		if block == "" {
+			continue
+		}
+		firstLine := block
+		if idx := strings.Index(block, "\n"); idx > 0 {
+			firstLine = block[:idx]
+		}
+		if extractField(firstLine, "profile") == profile {
+			removed++
+		} else {
+			kept = append(kept, block)
+		}
+	}
+	return strings.Join(kept, "\n\n"), removed
+}
+
 // FilterBlocksByDays returns only log blocks whose timestamp falls within
 // the last N calendar days. Each block is separated by a blank line.
 func FilterBlocksByDays(content string, days int) string {

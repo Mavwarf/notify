@@ -763,6 +763,7 @@ Commands:
   history summary [days|all] Show action counts per day (default 7 days)
   history watch          Live dashboard with summary + hourly breakdown (x or Esc to exit)
   history export [days]  Export log entries as JSON (default: all)
+  history remove <profile> Remove all entries for a specific profile
   history clean [days]   Remove old entries, keep last N days (no arg = clear all)
   history clear          Delete the log file
   voice generate [--min-uses N]  Generate AI voice files for frequently used voice steps
