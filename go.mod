@@ -5,6 +5,7 @@ go 1.24.0
 require (
 	github.com/ebitengine/oto/v3 v3.4.0
 	github.com/eclipse/paho.mqtt.golang v1.5.1
+	github.com/energye/systray v1.0.3
 	github.com/wailsapp/wails/v2 v2.11.0
 	golang.org/x/sys v0.41.0
 	golang.org/x/term v0.40.0

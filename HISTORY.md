@@ -2,6 +2,7 @@
 
 ## Features
 
+- System tray for `notify-app` — lives in the notification area; closing the window hides to tray, double-click or menu to reopen, Shift+close or Quit to exit *(Mar 01)*
 - Release binaries for `notify-app` — Windows amd64, macOS amd64, macOS arm64 added to GitHub Actions release workflow *(Feb 27)*
 - Log retention (`retention_days`) — automatic cleanup of old event log entries after every write; off by default (0 = keep forever) *(Feb 27)*
 - Scheduled reminders (`--delay`, `--at`) — fire a notification after a delay or at a specific time; foreground sleep, cancellable with Ctrl+C *(Feb 27)*
@@ -67,6 +68,21 @@
 - Template variables: `{profile}`, `{command}`, `{duration}` *(Feb 20)*
 - Opt-in event logging *(Feb 20)*
 - Multi-step notification pipelines: sound, speech, toast *(Feb 19)*
+
+---
+
+## 2026-03-01
+
+### System Tray (`notify-app`)
+
+The desktop app now lives in the system tray. Closing the window hides it to the
+notification area instead of exiting — the dashboard server keeps running in the
+background. Double-click the tray icon or use the "Open Dashboard" menu item to
+bring the window back. Shift+close or "Quit" from the tray menu fully exits.
+
+Uses `github.com/energye/systray` (a fork of getlantern/systray with no GTK
+dependency). The embedded app icon is wrapped in an ICO container at runtime
+since Windows `LoadImage(IMAGE_ICON)` requires ICO format.
 
 ---
 

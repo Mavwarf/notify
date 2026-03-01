@@ -105,6 +105,7 @@ cmd/
   notify-app/
     main.go              Wails desktop app entry point
     app.go               App lifecycle (startup/shutdown)
+    tray.go              System tray icon and menu
     notify-config.example.json  Example config file
 internal/
   audio/
@@ -1340,6 +1341,11 @@ AFK detection, step filtering, execution, and event logging.
 A native desktop window for the dashboard using Wails v2 and the OS webview
 (WebView2 on Windows). No bundled Chromium, no address bar — just the dashboard
 in a proper native window with SSE live updates.
+
+The app lives in the system tray. Closing the window hides it to the notification
+area — the dashboard server keeps running. Double-click the tray icon or use
+"Open Dashboard" from the tray menu to bring it back. Shift+close or "Quit"
+from the tray menu fully exits.
 
 ```bash
 # Build

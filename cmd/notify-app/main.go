@@ -63,7 +63,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	app := &App{port: port}
+	app := &App{port: port, ready: make(chan struct{})}
+
+	go runTray(app)
 
 	// A minimal handler bootstraps the WebView with an empty page.
 	// OnStartup then navigates to the real dashboard URL so the browser
@@ -86,10 +88,11 @@ func main() {
 		AssetServer: &assetserver.Options{
 			Handler: loader,
 		},
-		BackgroundColour: &options.RGBA{R: 26, G: 27, B: 38, A: 255}, // #1a1b26
+		BackgroundColour:  &options.RGBA{R: 26, G: 27, B: 38, A: 255}, // #1a1b26
+		OnBeforeClose:    app.beforeClose,
 		OnStartup:        app.startup,
 		OnShutdown:       app.shutdown,
-		Bind:             []interface{}{app},
+		Bind:              []interface{}{app},
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "notify-app: %v\n", err)
