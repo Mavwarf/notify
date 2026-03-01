@@ -50,6 +50,7 @@ func pngToICO(png []byte) []byte {
 func onTrayReady(app *App) {
 	systray.SetIcon(pngToICO(trayIcon))
 	systray.SetTooltip("notify")
+	systray.SetOnClick(func(menu systray.IMenu) { menu.ShowMenu() })
 	systray.SetOnDClick(func(menu systray.IMenu) { app.ShowWindow() })
 
 	mDashboard := systray.AddMenuItem("Open Dashboard", "Show the notify dashboard window")
