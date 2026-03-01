@@ -3,6 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -460,4 +463,47 @@ func hookCmd(args []string, configPath string, opts runOpts) {
 			v.Duration = formatDuration(elapsed)
 			v.DurationSay = formatDurationSay(elapsed)
 		})
+}
+
+const autostartRegKey = `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
+
+// autostartCmd manages a Windows Registry Run entry so notify-app.exe
+// launches on login. Usage: notify autostart [on|off]
+func autostartCmd(arg string) {
+	if runtime.GOOS != "windows" {
+		fatal("autostart is only supported on Windows")
+	}
+
+	// Locate notify-app.exe next to the current binary.
+	exe, err := os.Executable()
+	if err != nil {
+		fatal("cannot determine executable path: %v", err)
+	}
+	appExe := filepath.Join(filepath.Dir(exe), "notify-app.exe")
+
+	switch arg {
+	case "on":
+		if _, err := os.Stat(appExe); err != nil {
+			fatal("notify-app.exe not found at %s", appExe)
+		}
+		cmd := exec.Command("reg", "add", autostartRegKey, "/v", "notify", "/t", "REG_SZ", "/d", appExe, "/f")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			fatal("reg add failed: %s", strings.TrimSpace(string(out)))
+		}
+		fmt.Printf("Autostart enabled: %s\n", appExe)
+	case "off":
+		cmd := exec.Command("reg", "delete", autostartRegKey, "/v", "notify", "/f")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			fatal("reg delete failed: %s", strings.TrimSpace(string(out)))
+		}
+		fmt.Println("Autostart disabled")
+	default:
+		// Query current status.
+		cmd := exec.Command("reg", "query", autostartRegKey, "/v", "notify")
+		if err := cmd.Run(); err != nil {
+			fmt.Println("Autostart: off")
+		} else {
+			fmt.Println("Autostart: on")
+		}
+	}
 }

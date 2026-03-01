@@ -209,6 +209,7 @@ notify voice play [text]               # Play all cached voices, or one matching
 notify voice list                      # List cached AI voice files
 notify voice clear                     # Delete all cached voice files
 notify voice stats [days|all]          # Show voice step text usage frequency
+notify autostart [on|off]              # Enable/disable starting on login (Windows)
 notify protocol register               # Register notify:// URI handler (Windows)
 notify protocol unregister             # Remove notify:// URI handler
 notify protocol status                 # Show registration and desktop info
@@ -1346,7 +1347,8 @@ The app lives in the system tray. Closing the window hides it to the notificatio
 area — the dashboard server keeps running. Double-click the tray icon or use
 "Open Dashboard" from the tray menu to bring it back. Shift+close or "Quit"
 from the tray menu fully exits. Launching again while an instance is running
-brings the existing window to front.
+brings the existing window to front. Use `notify autostart on` to launch
+automatically on Windows login.
 
 ```bash
 # Build

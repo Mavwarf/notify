@@ -2,6 +2,7 @@
 
 ## Features
 
+- Autostart command (`notify autostart`) — enable/disable launching `notify-app` on Windows login via Registry Run key *(Mar 01)*
 - Single-instance detection for `notify-app` — launching again brings existing window to front instead of starting a duplicate *(Mar 01)*
 - System tray for `notify-app` — lives in the notification area; closing the window hides to tray, double-click or menu to reopen, Shift+close or Quit to exit *(Mar 01)*
 - Release binaries for `notify-app` — Windows amd64, macOS amd64, macOS arm64 added to GitHub Actions release workflow *(Feb 27)*
@@ -73,6 +74,16 @@
 ---
 
 ## 2026-03-01
+
+### Autostart (`notify autostart`)
+
+Manage a Windows Registry entry to launch `notify-app.exe` on login.
+Uses `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` — no admin
+privileges required.
+
+- `notify autostart on` — enable (verifies `notify-app.exe` exists next to binary)
+- `notify autostart off` — disable
+- `notify autostart` — show current status
 
 ### System Tray (`notify-app`)
 

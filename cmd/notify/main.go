@@ -240,6 +240,12 @@ func main() {
 		initCmd(filtered[1:], configPath)
 	case "config":
 		configCmd(filtered[1:], configPath)
+	case "autostart":
+		arg := ""
+		if len(filtered) > 1 {
+			arg = filtered[1]
+		}
+		autostartCmd(arg)
 	case "protocol":
 		protocolCmd(filtered[1:])
 	case "send":
@@ -977,6 +983,7 @@ Commands:
   voice list             List cached AI voice files
   voice clear            Delete all cached AI voice files
   voice stats [days|all]  Show voice step text usage frequency (default: all)
+  autostart [on|off]     Enable/disable starting on login (Windows)
   protocol register      Register notify:// URI handler (Windows only)
   protocol unregister    Remove notify:// URI handler
   protocol status        Show protocol registration and virtual desktop info
