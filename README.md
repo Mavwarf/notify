@@ -1345,7 +1345,8 @@ in a proper native window with SSE live updates.
 The app lives in the system tray. Closing the window hides it to the notification
 area — the dashboard server keeps running. Double-click the tray icon or use
 "Open Dashboard" from the tray menu to bring it back. Shift+close or "Quit"
-from the tray menu fully exits.
+from the tray menu fully exits. Launching again while an instance is running
+brings the existing window to front.
 
 ```bash
 # Build

@@ -2,6 +2,7 @@
 
 ## Features
 
+- Single-instance detection for `notify-app` — launching again brings existing window to front instead of starting a duplicate *(Mar 01)*
 - System tray for `notify-app` — lives in the notification area; closing the window hides to tray, double-click or menu to reopen, Shift+close or Quit to exit *(Mar 01)*
 - Release binaries for `notify-app` — Windows amd64, macOS amd64, macOS arm64 added to GitHub Actions release workflow *(Feb 27)*
 - Log retention (`retention_days`) — automatic cleanup of old event log entries after every write; off by default (0 = keep forever) *(Feb 27)*
@@ -83,6 +84,13 @@ bring the window back. Shift+close or "Quit" from the tray menu fully exits.
 Uses `github.com/energye/systray` (a fork of getlantern/systray with no GTK
 dependency). The embedded app icon is wrapped in an ICO container at runtime
 since Windows `LoadImage(IMAGE_ICON)` requires ICO format.
+
+### Single-Instance Detection (`notify-app`)
+
+Launching `notify-app` while an instance is already running (or hidden to tray)
+brings the existing window to front instead of starting a duplicate. The new
+process sends `POST /api/show` to the running dashboard server — if it responds,
+the existing window is shown and the new process exits immediately.
 
 ---
 
