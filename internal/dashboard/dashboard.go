@@ -172,7 +172,7 @@ type voiceResponse struct {
 // Serve starts the dashboard HTTP server on 127.0.0.1:port and blocks
 // until interrupted. If open is true, a browser window is launched in
 // app mode (chromeless) pointing at the dashboard URL.
-func Serve(cfg config.Config, configPath string, port int, open bool) error {
+func Serve(cfg config.Config, configPath string, port int, open bool, showFn func()) error {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/", handleIndex)
@@ -188,6 +188,16 @@ func Serve(cfg config.Config, configPath string, port int, open bool) error {
 	mux.HandleFunc("/api/voice/play/", handleVoicePlay)
 	mux.HandleFunc("/api/silent", handleSilent)
 	mux.HandleFunc("/api/trigger", handleTrigger(cfg))
+	if showFn != nil {
+		mux.HandleFunc("/api/show", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+				return
+			}
+			showFn()
+			w.WriteHeader(http.StatusNoContent)
+		})
+	}
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	srv := &http.Server{Addr: addr, Handler: mux}

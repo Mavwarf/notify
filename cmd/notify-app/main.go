@@ -34,6 +34,14 @@ func main() {
 		}
 	}
 
+	// If an instance is already running, ask it to show its window and exit.
+	showURL := fmt.Sprintf("http://127.0.0.1:%d/api/show", port)
+	resp, err := http.Post(showURL, "", nil)
+	if err == nil {
+		resp.Body.Close()
+		os.Exit(0)
+	}
+
 	// Load config and open event log (same pattern as CLI).
 	cfg, err := config.Load(configPath)
 	if err != nil {
@@ -46,12 +54,14 @@ func main() {
 	}
 	cfgPath, _ := config.FindPath(configPath)
 
+	app := &App{port: port, ready: make(chan struct{})}
+
 	eventlog.OpenDefault(cfg.Options.Storage)
 	defer eventlog.Close()
 
 	// Start the existing dashboard HTTP server in the background.
 	go func() {
-		if err := dashboard.Serve(cfg, cfgPath, port, false); err != nil {
+		if err := dashboard.Serve(cfg, cfgPath, port, false, app.ShowWindow); err != nil {
 			fmt.Fprintf(os.Stderr, "notify-app: dashboard: %v\n", err)
 			os.Exit(1)
 		}
@@ -62,8 +72,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "notify-app: %v\n", err)
 		os.Exit(1)
 	}
-
-	app := &App{port: port, ready: make(chan struct{})}
 
 	go runTray(app)
 

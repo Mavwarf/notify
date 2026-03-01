@@ -394,7 +394,7 @@ func dashboardCmd(configPath string, port int, open bool) {
 		fatal("%v", err)
 	}
 	p, _ := config.FindPath(configPath)
-	if err := dashboard.Serve(cfg, p, port, open); err != nil {
+	if err := dashboard.Serve(cfg, p, port, open, nil); err != nil {
 		fatal("%v", err)
 	}
 }
