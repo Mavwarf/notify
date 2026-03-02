@@ -2,6 +2,7 @@
 
 ## Features
 
+- Always on top — pin button in the dashboard header toggles the window to stay above all other windows; state persists across restarts via localStorage *(Mar 02)*
 - Dashboard external links open in system browser when running in `notify-app` *(Mar 02)*
 - Configurable desktop limit (`max_desktops`) — raise the virtual desktop upper bound beyond the default of 4 *(Mar 02)*
 - Autostart command (`notify autostart`) — enable/disable launching `notify-app` on Windows login via Registry Run key *(Mar 01)*
@@ -76,6 +77,19 @@
 ---
 
 ## 2026-03-02
+
+### Always on top
+
+The dashboard header now has a **pin** button (📌) between the theme toggle and
+the minimize button (visible in `notify-app` only). Clicking it toggles
+always-on-top mode — the window stays above all other windows. Clicking again
+reverts to normal behavior. The state is saved in localStorage, so if you pin
+the window and restart the app, it re-applies automatically on load.
+
+- Windows: `SetWindowPos` with `HWND_TOPMOST` / `HWND_NOTOPMOST`
+- Non-Windows: no-op stub (feature is Windows-only)
+- New `/api/topmost` POST endpoint accepts `{"on_top": true/false}`
+- Pin button uses accent color when active
 
 ### Dashboard external links in system browser
 

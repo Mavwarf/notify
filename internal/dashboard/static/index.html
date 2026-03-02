@@ -147,6 +147,7 @@ header .status {
   line-height: 1;
 }
 .win-btn:hover { color: var(--fg); border-color: var(--fg-dim); }
+.win-btn-pin.active { color: var(--accent); border-color: var(--accent); }
 .win-btn-quit:hover { color: var(--red); border-color: var(--red); }
 
 header .status .dot {
@@ -878,6 +879,7 @@ tr:hover td { background: var(--bg3); }
     <span id="screenshot-badge" class="screenshot-badge">screenshot</span>
     <button class="theme-toggle" id="theme-toggle" title="Toggle theme"></button>
     <div class="window-controls" id="window-controls" style="display:none">
+      <button class="win-btn win-btn-pin" id="pin-btn" onclick="togglePin()" title="Pin on top">&#128204;</button>
       <button class="win-btn" onclick="minimizeWindow()" title="Minimize">&minus;</button>
       <button class="win-btn win-btn-quit" onclick="quitApp()" title="Quit">&times;</button>
     </div>
@@ -2716,11 +2718,30 @@ tr:hover td { background: var(--bg3); }
   window.minimizeWindow = minimizeWindow;
   window.quitApp = quitApp;
 
+  // Pin on top
+  var pinned = localStorage.getItem('notify-pin') === 'on';
+  function updatePinBtn() {
+    var btn = document.getElementById('pin-btn');
+    btn.classList.toggle('active', pinned);
+    btn.title = pinned ? 'Unpin from top' : 'Pin on top';
+  }
+  async function togglePin() {
+    pinned = !pinned;
+    localStorage.setItem('notify-pin', pinned ? 'on' : '');
+    updatePinBtn();
+    try { await fetch('/api/topmost', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({on_top:pinned})}); } catch(e) {}
+  }
+  window.togglePin = togglePin;
+
   // Show window controls only when running inside the desktop app.
   // In app mode, also intercept external links to open in the system browser.
   fetch('/api/minimize', {method: 'OPTIONS'}).then(function(r) {
     if (r.status !== 404) {
       document.getElementById('window-controls').style.display = 'flex';
+      updatePinBtn();
+      if (pinned) {
+        fetch('/api/topmost', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({on_top:true})}).catch(function(){});
+      }
       document.addEventListener('click', function(e) {
         var a = e.target.closest('a[href]');
         if (!a) return;

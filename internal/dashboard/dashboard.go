@@ -173,7 +173,7 @@ type voiceResponse struct {
 // Serve starts the dashboard HTTP server on 127.0.0.1:port and blocks
 // until interrupted. If open is true, a browser window is launched in
 // app mode (chromeless) pointing at the dashboard URL.
-func Serve(cfg config.Config, configPath string, port int, open bool, showFn, minimizeFn, quitFn func()) error {
+func Serve(cfg config.Config, configPath string, port int, open bool, showFn, minimizeFn, quitFn func(), topmostFn func(bool)) error {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/", handleIndex)
@@ -231,6 +231,23 @@ func Serve(cfg config.Config, configPath string, port int, open bool, showFn, mi
 				return
 			}
 			go openSystemBrowser(rawURL)
+			w.WriteHeader(http.StatusNoContent)
+		})
+	}
+	if topmostFn != nil {
+		mux.HandleFunc("/api/topmost", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+				return
+			}
+			var req struct {
+				OnTop bool `json:"on_top"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, "bad request", http.StatusBadRequest)
+				return
+			}
+			topmostFn(req.OnTop)
 			w.WriteHeader(http.StatusNoContent)
 		})
 	}

@@ -1354,7 +1354,9 @@ area — the dashboard server keeps running. Double-click the tray icon or use
 "Open Dashboard" from the tray menu to bring it back. Shift+close or "Quit"
 from the tray menu fully exits. Launching again while an instance is running
 brings the existing window to front. Use `notify autostart on` to launch
-automatically on Windows login.
+automatically on Windows login. The header includes a pin button (📌) to toggle
+always-on-top mode — the window stays above all other windows. The state persists
+across restarts via localStorage.
 
 ```bash
 # Build
