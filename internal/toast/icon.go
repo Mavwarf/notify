@@ -14,7 +14,7 @@ import (
 const iconFileName = "icon.png"
 
 // EnsureIcon writes a 64×64 PNG app icon to DataDir()/icon.png if it doesn't
-// already exist and returns the absolute file path. The icon is a green circle
+// already exist and returns the absolute file path. The icon is an orange circle
 // with a white "N" letter, generated programmatically with no external deps.
 func EnsureIcon() (string, error) {
 	p := filepath.Join(paths.DataDir(), iconFileName)

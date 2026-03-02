@@ -7,10 +7,10 @@ import (
 	"math"
 )
 
-// Draw creates a size×size RGBA image with a green circle and white "N".
+// Draw creates a size×size RGBA image with an orange circle and white "N".
 func Draw(size int) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, size, size))
-	green := color.RGBA{R: 34, G: 197, B: 94, A: 255} // #22c55e
+	orange := color.RGBA{R: 234, G: 138, B: 0, A: 255} // #ea8a00
 	white := color.RGBA{R: 255, G: 255, B: 255, A: 255}
 
 	cx, cy := float64(size)/2, float64(size)/2
@@ -22,7 +22,7 @@ func Draw(size int) *image.RGBA {
 			dx := float64(x) + 0.5 - cx
 			dy := float64(y) + 0.5 - cy
 			if dx*dx+dy*dy <= radius*radius {
-				img.SetRGBA(x, y, green)
+				img.SetRGBA(x, y, orange)
 			}
 		}
 	}
