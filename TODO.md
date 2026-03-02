@@ -157,12 +157,8 @@ Additional step types beyond `discord`, `slack`, and `telegram`:
   fixed: uses `strconv.Atoi` with error check now.
 - ~~**MQTT client ID always `"notify"`**~~ — fixed: uses `notify-{pid}`
   for unique client IDs per process.
-- **`historyCmd` reads raw file format, not Store API** — the default
-  `notify history N` path uses `ReadContent()` + string split instead of
-  `eventlog.Entries()`. Works via a SQLiteStore shim today but will break
-  if the reconstructed format ever drifts. Fixing this would also let
-  `ReadContent()` be removed from the `Store` interface entirely.
-  `cmd/notify/history.go:49-72`
+- ~~**`historyCmd` reads raw file format, not Store API**~~ — fixed: uses
+  `eventlog.Entries(0)` now; removed dead `readLog()` helper.
 
 ### Maintainability
 
@@ -188,19 +184,20 @@ Additional step types beyond `discord`, `slack`, and `telegram`:
 
 ### Test Coverage Gaps
 
-- `internal/desktop/` — no tests
-- `internal/icon/` — no tests (smoke test for `Draw(64)` would help)
+- ~~`internal/desktop/`~~ — fixed: stub tests for non-Windows API surface.
+- ~~`internal/icon/`~~ — fixed: smoke tests for `Draw(64)`, orange fill,
+  transparent corners.
 - `cmd/notify/history.go` — export, clean, remove, clear, watch untested
-- `cmd/notify/init.go` — `buildInitConfig`, `writeConfig` untested
-- `internal/dashboard/` — SSE handler and trigger endpoint not covered
+- ~~`cmd/notify/init.go`~~ — fixed: tests for `buildInitConfig` and
+  `writeConfig` (minimal, all channels, extra profiles, overwrite).
+- ~~`internal/dashboard/`~~ — fixed: trigger endpoint (missing action, bad
+  JSON, default profile) and SSE handler tests.
 
 ### CI/CD
 
-- **notify-app version not injected** — `build-app` job in `release.yml`
-  omits `-X main.version=...`, so the app always reports `dev`.
-
-- **Linux not in CI build-check** — compilation errors only caught at
-  release time. Should be added to `ci.yml` matrix.
-
-- **Linux binary requires libasound2** (`CGO_ENABLED=1`) but README doesn't
-  mention this runtime dependency.
+- ~~**notify-app version not injected**~~ — fixed: `build-app` job now
+  passes `-X main.version=...`; added `version` var to notify-app.
+- ~~**Linux not in CI build-check**~~ — fixed: added linux/amd64 to
+  `ci.yml` build-check matrix with libasound2-dev.
+- ~~**Linux binary requires libasound2**~~ — fixed: added note to README
+  Installation section.

@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -1012,6 +1013,77 @@ func TestHandleSilentPostBadRequest(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestHandleTriggerMissingAction(t *testing.T) {
+	cfg := testConfig()
+	handler := handleTrigger("", cfg)
+
+	req := httptest.NewRequest("GET", "/api/trigger?profile=notify", nil)
+	w := httptest.NewRecorder()
+	handler(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", w.Code)
+	}
+	var resp triggerResponse
+	json.NewDecoder(w.Body).Decode(&resp)
+	if resp.Error == "" {
+		t.Error("expected error message")
+	}
+}
+
+func TestHandleTriggerDefaultProfile(t *testing.T) {
+	cfg := testConfig()
+	handler := handleTrigger("", cfg)
+
+	// "ready" action exists on "notify" but not "default" — should get error about missing profile.
+	req := httptest.NewRequest("GET", "/api/trigger?action=ready", nil)
+	w := httptest.NewRecorder()
+	handler(w, req)
+
+	// Default profile is "default" which doesn't exist in testConfig.
+	var resp triggerResponse
+	json.NewDecoder(w.Body).Decode(&resp)
+	if resp.OK {
+		t.Error("expected failure for missing default profile")
+	}
+}
+
+func TestHandleTriggerPostBadJSON(t *testing.T) {
+	cfg := testConfig()
+	handler := handleTrigger("", cfg)
+
+	req := httptest.NewRequest("POST", "/api/trigger", strings.NewReader("{invalid"))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	handler(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestHandleEventsSSE(t *testing.T) {
+	dir := t.TempDir()
+	logFile := filepath.Join(dir, "test.log")
+	os.WriteFile(logFile, []byte{}, 0644)
+
+	origDefault := eventlog.Default
+	eventlog.Default = eventlog.NewFileStore(logFile)
+	defer func() { eventlog.Default = origDefault }()
+
+	// Use a context with short timeout so the SSE handler exits quickly.
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	req := httptest.NewRequest("GET", "/api/events", nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+	handleEvents(w, req)
+
+	if ct := w.Header().Get("Content-Type"); ct != "text/event-stream" {
+		t.Errorf("Content-Type = %q, want text/event-stream", ct)
 	}
 }
 

@@ -35,6 +35,9 @@ Download the latest binary for your platform from
 Place the binary somewhere on your `PATH` and copy
 `notify-config.example.json` as `notify-config.json` next to it.
 
+On Linux, audio playback requires ALSA: `sudo apt install libasound2`
+(or equivalent for your distro).
+
 ### From source
 
 ```bash

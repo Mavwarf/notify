@@ -70,20 +70,6 @@ type runOpts struct {
 	AtTime   string
 }
 
-// readLog reads the event log via the default Store. Returns the content
-// and true on success. If the log is empty, returns ("", false) so the
-// caller can print a context-appropriate message. Fatals on read errors.
-func readLog() (string, bool) {
-	data, err := eventlog.ReadContent()
-	if err != nil {
-		fatal("%v", err)
-	}
-	if data == "" {
-		return "", false
-	}
-	return data, true
-}
-
 // fatal prints an error message to stderr and exits with code 1.
 func fatal(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, "Error: "+format+"\n", args...)

@@ -46,24 +46,28 @@ func historyCmd(args []string) {
 		count = n
 	}
 
-	data, ok := readLog()
-	if !ok {
+	entries, err := eventlog.Entries(0)
+	if err != nil {
+		fatal("%v", err)
+	}
+	if len(entries) == 0 {
 		fmt.Println("No log data found. Enable logging with --log or \"log\": true in config.")
 		return
 	}
 
-	content := strings.TrimRight(data, "\n\r ")
-	if content == "" {
-		fmt.Println("Log is empty.")
-		return
-	}
-
-	entries := strings.Split(content, "\n\n")
 	if len(entries) > count {
 		entries = entries[len(entries)-count:]
 	}
 	for i, e := range entries {
-		fmt.Print(e)
+		kind := eventlog.KindString(e.Kind)
+		fmt.Printf("%s  profile=%s  action=%s  %s",
+			e.Time.Format("2006-01-02 15:04:05"), e.Profile, e.Action, kind)
+		if e.ClaudeHook != "" {
+			fmt.Printf("  claude_hook=%s", e.ClaudeHook)
+		}
+		if e.ClaudeMessage != "" {
+			fmt.Printf("  claude_message=%q", e.ClaudeMessage)
+		}
 		fmt.Println()
 		if i < len(entries)-1 {
 			fmt.Println()

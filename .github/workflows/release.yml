@@ -123,7 +123,7 @@ jobs:
             fi
           fi
           go build -tags desktop,production \
-            -ldflags "-w -s ${{ matrix.extra_ldflags }}" \
+            -ldflags "-X main.version=${{ github.ref_name }} -w -s ${{ matrix.extra_ldflags }}" \
             -o ${{ matrix.binary }} ./cmd/notify-app
       - uses: actions/upload-artifact@v4
         with:

@@ -15,6 +15,8 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 )
 
+var version = "dev"
+
 func main() {
 	configPath := ""
 	const defaultPort = 8811
