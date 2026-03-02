@@ -11,6 +11,7 @@ import (
 	"github.com/Mavwarf/notify/internal/dashboard"
 	"github.com/Mavwarf/notify/internal/eventlog"
 	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/logger"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 )
@@ -106,8 +107,9 @@ func main() {
 		AssetServer: &assetserver.Options{
 			Handler: loader,
 		},
-		BackgroundColour:  &options.RGBA{R: 26, G: 27, B: 38, A: 255}, // #1a1b26
-		OnBeforeClose:    app.beforeClose,
+		BackgroundColour:   &options.RGBA{R: 26, G: 27, B: 38, A: 255}, // #1a1b26
+		LogLevelProduction: logger.ERROR,
+		OnBeforeClose:      app.beforeClose,
 		OnStartup:        app.startup,
 		OnShutdown:       app.shutdown,
 		Bind:              []interface{}{app},

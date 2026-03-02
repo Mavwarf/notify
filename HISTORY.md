@@ -78,6 +78,12 @@
 
 ## 2026-03-02
 
+### Suppress console output in desktop app
+
+`notify-app` no longer prints "Dashboard: ..." and "Press Ctrl+C to stop" to
+stdout — those messages only appear in CLI mode (`notify dashboard`). Wails
+production log level set to ERROR to suppress informational WebView2 messages.
+
 ### Always on top
 
 The dashboard header now has a **pin** button (📌) between the theme toggle and

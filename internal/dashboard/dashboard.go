@@ -266,8 +266,10 @@ func Serve(cfg config.Config, configPath string, port int, open bool, showFn, mi
 	}()
 
 	url := fmt.Sprintf("http://%s", addr)
-	fmt.Printf("Dashboard: %s\n", url)
-	fmt.Println("Press Ctrl+C to stop")
+	if showFn == nil { // CLI mode — print info for the terminal
+		fmt.Printf("Dashboard: %s\n", url)
+		fmt.Println("Press Ctrl+C to stop")
+	}
 
 	if open {
 		go openBrowser(url)
