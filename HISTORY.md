@@ -2,6 +2,8 @@
 
 ## Features
 
+- Dashboard external links open in system browser when running in `notify-app` *(Mar 02)*
+- Configurable desktop limit (`max_desktops`) — raise the virtual desktop upper bound beyond the default of 4 *(Mar 02)*
 - Autostart command (`notify autostart`) — enable/disable launching `notify-app` on Windows login via Registry Run key *(Mar 01)*
 - Single-instance detection for `notify-app` — launching again brings existing window to front instead of starting a duplicate *(Mar 01)*
 - System tray for `notify-app` — lives in the notification area; closing the window hides to tray, double-click or menu to reopen, Shift+close or Quit to exit *(Mar 01)*
@@ -70,6 +72,26 @@
 - Template variables: `{profile}`, `{command}`, `{duration}` *(Feb 20)*
 - Opt-in event logging *(Feb 20)*
 - Multi-step notification pipelines: sound, speech, toast *(Feb 19)*
+
+---
+
+## 2026-03-02
+
+### Dashboard external links in system browser
+
+When running inside `notify-app`, clicking external links (e.g. GitHub
+URLs in the footer) now opens the system default browser instead of
+navigating within the WebView. A new `/api/open` endpoint handles the
+OS-specific browser launch; the frontend intercepts `<a>` clicks with
+`http://` or `https://` hrefs in app mode. No change when running the
+dashboard via `notify dashboard` in a regular browser.
+
+### Configurable desktop limit (`max_desktops`)
+
+The virtual desktop index upper bound was previously hardcoded to 4.
+A new `"max_desktops"` config option lets users raise this limit for
+setups with more than 4 virtual desktops. Defaults to 4 if omitted.
+Validation, config, and protocol handler all use the single constant.
 
 ---
 
@@ -285,7 +307,7 @@ Toast notifications now use the modern Windows 10+ `ToastNotificationManager`
 XML API, replacing the legacy `NotifyIcon.BalloonTip` approach. This enables
 click-to-action toasts via protocol activation.
 
-Per-profile `"desktop"` config field (1-4) adds a "Desktop N" action button to
+Per-profile `"desktop"` config field adds a "Desktop N" action button to
 toasts for that profile. Clicking the button triggers the
 `notify://switch?desktop=N` protocol URI, which launches notify with
 `--protocol` and calls `VirtualDesktopAccessor.dll` to switch desktops.

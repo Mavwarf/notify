@@ -55,12 +55,14 @@ func ttsToTempFile(prefix, text string) (path string, cleanup func(), err error)
 	return path, cleanup, nil
 }
 
-// retryOnce calls fn and, if it fails, waits 2 seconds and tries once
-// more. Used for remote network calls so a single transient error
-// doesn't lose the notification.
+const retryDelay = 2 * time.Second
+
+// retryOnce calls fn and, if it fails, waits and tries once more.
+// Used for remote network calls so a single transient error doesn't
+// lose the notification.
 func retryOnce(fn func() error) error {
 	if err := fn(); err != nil {
-		time.Sleep(2 * time.Second)
+		time.Sleep(retryDelay)
 		return fn()
 	}
 	return nil

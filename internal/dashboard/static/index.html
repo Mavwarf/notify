@@ -2717,8 +2717,20 @@ tr:hover td { background: var(--bg3); }
   window.quitApp = quitApp;
 
   // Show window controls only when running inside the desktop app.
+  // In app mode, also intercept external links to open in the system browser.
   fetch('/api/minimize', {method: 'OPTIONS'}).then(function(r) {
-    if (r.status !== 404) document.getElementById('window-controls').style.display = 'flex';
+    if (r.status !== 404) {
+      document.getElementById('window-controls').style.display = 'flex';
+      document.addEventListener('click', function(e) {
+        var a = e.target.closest('a[href]');
+        if (!a) return;
+        var href = a.getAttribute('href');
+        if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
+          e.preventDefault();
+          fetch('/api/open', {method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: 'url=' + encodeURIComponent(href)});
+        }
+      });
+    }
   }).catch(function() {});
 
   // ---- Init ----

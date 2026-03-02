@@ -172,9 +172,8 @@ Additional step types beyond `discord`, `slack`, and `telegram`:
   `eventlog.GapThreshold`, dashboard references it.
 - ~~**Desktop limit `4` hardcoded in 3 places**~~ — fixed: extracted
   `DefaultMaxDesktops` constant + configurable `max_desktops` option.
-- **Various magic numbers** — SSE ticker `2s`, retry delay `2s`, protocol
-  sleep `200ms`, default ports `8080`/`8811`, date sentinels `2000`/`2099`.
-  Should be named constants.
+- ~~**Various magic numbers**~~ — fixed: named constants for retry delay,
+  SSE interval, default ports; comments on date sentinels and protocol sleep.
 - **`dashboard.go` is 1361 lines** — HTTP handlers, aggregation logic,
   browser launch, and credential redaction all in one file. Aggregation
   functions (~250 lines) could move to a separate file.
@@ -183,9 +182,9 @@ Additional step types beyond `discord`, `slack`, and `telegram`:
 
 - ~~**`notify history foo` says "count must be a positive integer"**~~ —
   fixed: now says "unknown subcommand" with list of valid options.
-- **Dashboard links open inside WebView** — clicking external links
-  (e.g. GitHub URLs) in the notify-app dashboard should open in the
-  system default browser instead of navigating within the WebView.
+- ~~**Dashboard links open inside WebView**~~ — fixed: `/api/open`
+  endpoint + frontend click interceptor opens external links in system
+  browser when running in app mode.
 
 ### Test Coverage Gaps
 

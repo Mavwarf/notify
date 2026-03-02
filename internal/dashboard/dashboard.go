@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 	"os/signal"
 	"path/filepath"
 	"runtime"
@@ -218,6 +219,21 @@ func Serve(cfg config.Config, configPath string, port int, open bool, showFn, mi
 			go quitFn()
 		})
 	}
+	if showFn != nil {
+		mux.HandleFunc("/api/open", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+				return
+			}
+			rawURL := r.FormValue("url")
+			if !strings.HasPrefix(rawURL, "https://") && !strings.HasPrefix(rawURL, "http://") {
+				http.Error(w, "url must start with http:// or https://", http.StatusBadRequest)
+				return
+			}
+			go openSystemBrowser(rawURL)
+			w.WriteHeader(http.StatusNoContent)
+		})
+	}
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	srv := &http.Server{Addr: addr, Handler: mux}
@@ -270,6 +286,20 @@ func openBrowser(url string) {
 	}
 
 	// Fallback: open in default browser (with address bar).
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	case "darwin":
+		cmd = exec.Command("open", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	cmd.Start()
+}
+
+// openSystemBrowser opens a URL in the OS default browser.
+func openSystemBrowser(url string) {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
@@ -409,7 +439,8 @@ func handleEvents(w http.ResponseWriter, r *http.Request) {
 	initial, _ := eventlog.Entries(0)
 	seen := len(initial)
 
-	ticker := time.NewTicker(2 * time.Second)
+	const sseInterval = 2 * time.Second
+	ticker := time.NewTicker(sseInterval)
 	defer ticker.Stop()
 
 	ctx := r.Context()
@@ -583,8 +614,8 @@ func computeRange(anchor time.Time, rangeType string, loc *time.Location) (time.
 		end := time.Date(y, 12, 31, 0, 0, 0, 0, loc)
 		return start, end
 	case "total":
-		start := time.Date(2000, 1, 1, 0, 0, 0, 0, loc)
-		end := time.Date(2099, 12, 31, 0, 0, 0, 0, loc)
+		start := time.Date(2000, 1, 1, 0, 0, 0, 0, loc) // epoch sentinel
+		end := time.Date(2099, 12, 31, 0, 0, 0, 0, loc) // far-future sentinel
 		return start, end
 	default: // "day"
 		day := time.Date(y, m, d, 0, 0, 0, 0, loc)

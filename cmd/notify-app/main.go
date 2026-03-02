@@ -17,7 +17,8 @@ import (
 
 func main() {
 	configPath := ""
-	port := 8811
+	const defaultPort = 8811
+	port := defaultPort
 
 	args := os.Args[1:]
 	for i := 0; i < len(args); i++ {

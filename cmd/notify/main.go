@@ -98,7 +98,8 @@ func main() {
 	echoFlag := false
 	cooldownFlag := false
 	heartbeatSec := 0
-	port := 8080
+	const defaultPort = 8080
+	port := defaultPort
 	openFlag := false
 	protocolURI := ""
 	var delayDur time.Duration
@@ -867,7 +868,7 @@ func handleProtocolURI(uri string) {
 	if err := desktop.SwitchTo(d); err != nil {
 		fatal("switch desktop: %v", err)
 	}
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond) // brief pause so the desktop switch completes before exit
 }
 
 // protocolCmd handles the "protocol" subcommand for managing the

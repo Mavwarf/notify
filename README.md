@@ -54,8 +54,9 @@ go install github.com/Mavwarf/notify/cmd/notify@latest
   (Windows 10+ ToastNotificationManager, macOS `osascript`, Linux `notify-send`).
   On Windows, toasts display an app icon and "via notify" attribution, with an
   optional button to switch virtual desktops.
-- **Virtual desktop switching** *(experimental)* — per-profile `desktop` config (1-4) adds a
+- **Virtual desktop switching** *(experimental)* — per-profile `desktop` config adds a
   "Desktop N" button to Windows toasts; clicking it switches virtual desktops.
+  Default limit is 4; raise with `"max_desktops"` in config.
   Requires `VirtualDesktopAccessor.dll` next to the binary.
 - **Discord webhooks** — post messages to a Discord channel via webhook,
   no external dependencies (just `net/http`).
@@ -264,6 +265,7 @@ notify help                            # Show help
     "shell_hook_threshold": 30,
     "storage": "sqlite",
     "retention_days": 0,
+    "max_desktops": 4,
     "openai_voice": {
       "model": "tts-1",
       "voice": "nova",
@@ -358,10 +360,11 @@ notify help                            # Show help
 - **Volume priority:** per-step `volume` > CLI `--volume` > config
   `"default_volume"` > 100.
 - Toast `title` defaults to the profile name if omitted.
-- **Desktop switching (Windows):** add `"desktop": N` (1-4) to a profile to
+- **Desktop switching (Windows):** add `"desktop": N` to a profile to
   show a "Desktop N" button on toast notifications for that profile. Clicking
   the button triggers the `notify://switch?desktop=N` protocol URI to switch
-  virtual desktops. Requires `VirtualDesktopAccessor.dll` next to the binary
+  virtual desktops. Default limit is 4; set `"max_desktops"` in config to
+  raise it. Requires `VirtualDesktopAccessor.dll` next to the binary
   and `notify protocol register` to set up the URI handler. Without the DLL
   or protocol registration, toasts still fire normally — they just won't
   switch desktops on click.
@@ -1443,7 +1446,7 @@ Windows 10+ `ToastNotificationManager` XML API with a custom protocol URI.
    ```bash
    notify protocol register
    ```
-3. Add `"desktop": N` (1-4) to any profile in your config:
+3. Add `"desktop": N` to any profile in your config (default max 4, configurable via `"max_desktops"`):
    ```json
    "boss": {
      "extends": "default",
