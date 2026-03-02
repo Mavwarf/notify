@@ -184,11 +184,14 @@ func ComputeHourly(entries []Entry, targetDate time.Time, loc *time.Location) Ho
 	return hd
 }
 
+// GapThreshold is the maximum gap between consecutive entries that is still
+// counted as active time in time-spent calculations.
+const GapThreshold = 5 * time.Minute
+
 // ComputeTimeSpent estimates approximate time spent per profile on a target
 // date. It walks consecutive entry timestamps per profile; gaps of 5 minutes
 // or less are counted as active time.
 func ComputeTimeSpent(entries []Entry, targetDate time.Time, loc *time.Location) TimeSpentData {
-	const gapThreshold = 5 * time.Minute
 
 	profileEntries := map[string][]time.Time{}
 	for _, e := range entries {
@@ -219,7 +222,7 @@ func ComputeTimeSpent(entries []Entry, targetDate time.Time, loc *time.Location)
 		secs := 0
 		for i := 1; i < len(times); i++ {
 			gap := times[i].Sub(times[i-1])
-			if gap <= gapThreshold {
+			if gap <= GapThreshold {
 				secs += int(gap.Seconds())
 			}
 		}
@@ -231,7 +234,7 @@ func ComputeTimeSpent(entries []Entry, targetDate time.Time, loc *time.Location)
 	sort.Slice(allTimes, func(i, j int) bool { return allTimes[i].Before(allTimes[j]) })
 	for i := 1; i < len(allTimes); i++ {
 		gap := allTimes[i].Sub(allTimes[i-1])
-		if gap <= gapThreshold {
+		if gap <= GapThreshold {
 			td.Total += int(gap.Seconds())
 		}
 	}

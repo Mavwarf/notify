@@ -151,15 +151,13 @@ Additional step types beyond `discord`, `slack`, and `telegram`:
 
 ### Bugs / Correctness
 
-- **`SetRetention` not called in notify-app** — `retention_days` config has
-  no effect in the desktop app; event log grows forever.
-  Fix: call `eventlog.SetRetention(cfg.Options.RetentionDays)` before
-  `OpenDefault` in `cmd/notify-app/main.go`.
-
+- ~~**`SetRetention` not called in notify-app**~~ — fixed: added
+  `SetRetention` call before `OpenDefault` in `cmd/notify-app/main.go`.
+- ~~**`fmt.Sscanf` silently swallows port errors in notify-app**~~ —
+  fixed: uses `strconv.Atoi` with error check now.
 - **MQTT client ID always `"notify"`** — two concurrent MQTT steps to the
   same broker cause client eviction. Should use a unique ID per connection
   (e.g. PID or random suffix). `internal/runner/runner.go:314`
-
 - **`historyCmd` reads raw file format, not Store API** — the default
   `notify history N` path uses `ReadContent()` + string split instead of
   `eventlog.Entries()`. Works via a SQLiteStore shim today but will break
@@ -167,38 +165,29 @@ Additional step types beyond `discord`, `slack`, and `telegram`:
   `ReadContent()` be removed from the `Store` interface entirely.
   `cmd/notify/history.go:49-72`
 
-- **`fmt.Sscanf` silently swallows port errors in notify-app** —
-  `--port abc` silently defaults to 8811 instead of erroring. Should use
-  `strconv.Atoi` with explicit error check like the CLI does.
-  `cmd/notify-app/main.go:31`
-
 ### Maintainability
 
-- **`go 1.24.0` in go.mod** — should be `go 1.24` (no patch version);
-  causes linter and diagnostic warnings. `go.mod:3`
-
-- **`gapThreshold` duplicated** — same `5 * time.Minute` constant defined
-  independently in `internal/eventlog/summary.go:191` and
-  `internal/dashboard/dashboard.go:764`. Change one and CLI/dashboard
-  diverge. Should be a single exported constant in `summary.go`.
-
+- ~~**`go 1.24.0` in go.mod**~~ — false positive; Go 1.21+ allows
+  three-part versions and `go mod tidy` sets it canonically.
+- ~~**`gapThreshold` duplicated**~~ — fixed: exported as
+  `eventlog.GapThreshold`, dashboard references it.
 - **Desktop limit `4` hardcoded in 3 places** — `main.go:860`,
   `config.go:289`, and toast string. Windows supports up to 20 virtual
   desktops. Should be a single named constant.
-
 - **Various magic numbers** — SSE ticker `2s`, retry delay `2s`, protocol
   sleep `200ms`, default ports `8080`/`8811`, date sentinels `2000`/`2099`.
   Should be named constants.
-
 - **`dashboard.go` is 1361 lines** — HTTP handlers, aggregation logic,
   browser launch, and credential redaction all in one file. Aggregation
   functions (~250 lines) could move to a separate file.
 
 ### UX
 
-- **`notify history foo` says "count must be a positive integer"** — should
-  say "unknown subcommand" instead. Missing `default` case in
-  `cmd/notify/history.go` switch.
+- ~~**`notify history foo` says "count must be a positive integer"**~~ —
+  fixed: now says "unknown subcommand" with list of valid options.
+- **Dashboard links open inside WebView** — clicking external links
+  (e.g. GitHub URLs) in the notify-app dashboard should open in the
+  system default browser instead of navigating within the WebView.
 
 ### Test Coverage Gaps
 

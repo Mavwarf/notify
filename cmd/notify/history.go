@@ -41,7 +41,7 @@ func historyCmd(args []string) {
 	if len(args) > 0 {
 		n, err := strconv.Atoi(args[0])
 		if err != nil || n <= 0 {
-			fatal("count must be a positive integer")
+			fatal("unknown subcommand %q — expected: summary, watch, clear, clean, export, remove, or a positive integer", args[0])
 		}
 		count = n
 	}

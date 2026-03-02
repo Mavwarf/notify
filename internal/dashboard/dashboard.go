@@ -761,7 +761,7 @@ func computeBreakdown(entries []eventlog.Entry, start, end time.Time, rangeType 
 // computeTimeSpentRange estimates approximate time spent per profile across
 // all entries within [start, end]. Same 5-min-gap algorithm as ComputeTimeSpent.
 func computeTimeSpentRange(entries []eventlog.Entry, start, end time.Time, loc *time.Location) watchTimeSpent {
-	const gapThreshold = 5 * time.Minute
+	gapThreshold := eventlog.GapThreshold
 
 	startDay := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, loc)
 	endDay := time.Date(end.Year(), end.Month(), end.Day(), 23, 59, 59, 999999999, loc)

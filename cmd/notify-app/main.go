@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/Mavwarf/notify/internal/config"
@@ -28,7 +29,12 @@ func main() {
 			}
 		case "--port", "-p":
 			if i+1 < len(args) {
-				fmt.Sscanf(args[i+1], "%d", &port)
+				n, err := strconv.Atoi(args[i+1])
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "notify-app: invalid port %q\n", args[i+1])
+					os.Exit(1)
+				}
+				port = n
 				i++
 			}
 		}
@@ -56,6 +62,7 @@ func main() {
 
 	app := &App{port: port, ready: make(chan struct{})}
 
+	eventlog.SetRetention(cfg.Options.RetentionDays)
 	eventlog.OpenDefault(cfg.Options.Storage)
 	defer eventlog.Close()
 
