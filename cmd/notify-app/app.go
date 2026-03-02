@@ -13,7 +13,8 @@ import (
 type App struct {
 	ctx   context.Context
 	port  int
-	ready chan struct{} // closed when Wails startup completes
+	geom  *WindowGeometry // restored geometry from previous session, nil if none
+	ready chan struct{}    // closed when Wails startup completes
 }
 
 // startup is called by Wails once the WebView window is ready. It stores the
@@ -21,6 +22,10 @@ type App struct {
 // blocked on the ready channel (e.g. tray callbacks calling ShowWindow).
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	// Restore saved window position from previous session.
+	if a.geom != nil {
+		wailsRuntime.WindowSetPosition(ctx, a.geom.X, a.geom.Y)
+	}
 	// Wails v2 has no Navigate API, so we use WindowExecJS to set
 	// window.location, redirecting the WebView from the loader page to
 	// the live dashboard HTTP server.
@@ -33,11 +38,20 @@ func (a *App) startup(ctx context.Context) {
 // actual cleanup happens via systray.Quit or os.Exit in beforeClose/QuitApp.
 func (a *App) shutdown(ctx context.Context) {}
 
+// saveWindowGeometry captures the current window position and size and persists
+// them to disk for restoration on next launch.
+func (a *App) saveWindowGeometry() {
+	x, y := wailsRuntime.WindowGetPosition(a.ctx)
+	w, h := wailsRuntime.WindowGetSize(a.ctx)
+	saveGeometry(&WindowGeometry{X: x, Y: y, Width: w, Height: h})
+}
+
 // beforeClose intercepts the window close event. Shift+close exits fully;
 // normal close hides to tray. The return value follows the Wails convention:
 // returning true prevents the default close (keeping the app alive in tray),
 // returning false allows the window to close normally.
 func (a *App) beforeClose(ctx context.Context) bool {
+	a.saveWindowGeometry()
 	if isShiftHeld() {
 		systray.Quit()
 		os.Exit(0)
@@ -64,6 +78,7 @@ func (a *App) MinimizeWindow() {
 // QuitApp fully exits the application by tearing down the system tray and
 // terminating the process. Called from the dashboard's Quit button.
 func (a *App) QuitApp() {
+	a.saveWindowGeometry()
 	systray.Quit()
 	os.Exit(0)
 }

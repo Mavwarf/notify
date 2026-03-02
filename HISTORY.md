@@ -2,6 +2,7 @@
 
 ## Features
 
+- Window geometry persistence for `notify-app` — saves window position and size on close, restores on next launch *(Mar 02)*
 - Codebase documentation — package-level doc comments, function docs, and inline explanations across 43 Go source files covering non-obvious logic, Win32 APIs, audio math, and design decisions *(Mar 02)*
 - Always on top — pin button in the dashboard header toggles the window to stay above all other windows; state persists across restarts via localStorage *(Mar 02)*
 - Dashboard external links open in system browser when running in `notify-app` *(Mar 02)*
@@ -78,6 +79,14 @@
 ---
 
 ## 2026-03-02
+
+### Window geometry persistence (`notify-app`)
+
+The desktop app now remembers its window position and size across sessions.
+Geometry is saved to `window.json` in the data directory on every close (hide
+to tray, Shift+close, tray Quit, dashboard Quit button) and restored on next
+launch. Minimized windows (coordinates < -10000) and tiny dimensions (< 100px)
+are ignored to avoid restoring unusable state.
 
 ### Codebase documentation pass
 

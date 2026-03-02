@@ -4,7 +4,6 @@ import (
 	"bytes"
 	_ "embed"
 	"encoding/binary"
-	"os"
 	"runtime"
 
 	"github.com/energye/systray"
@@ -63,8 +62,5 @@ func onTrayReady(app *App) {
 	systray.AddSeparator()
 
 	mQuit := systray.AddMenuItem("Quit", "Exit notify-app")
-	mQuit.Click(func() {
-		systray.Quit()
-		os.Exit(0)
-	})
+	mQuit.Click(func() { app.QuitApp() })
 }

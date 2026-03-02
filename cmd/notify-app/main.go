@@ -70,7 +70,9 @@ func main() {
 	}
 	cfgPath, _ := config.FindPath(configPath)
 
-	app := &App{port: port, ready: make(chan struct{})}
+	geom := loadGeometry()
+
+	app := &App{port: port, geom: geom, ready: make(chan struct{})}
 
 	eventlog.SetRetention(cfg.Options.RetentionDays)
 	eventlog.OpenDefault(cfg.Options.Storage)
@@ -107,10 +109,15 @@ func main() {
 	// with white "N", same as toast icon). Regenerate with:
 	//   go run ./cmd/mkicon cmd/notify-app/appicon.png
 	//   cd cmd/notify-app && go-winres make
+	width, height := 1200, 800
+	if geom != nil {
+		width, height = geom.Width, geom.Height
+	}
+
 	err = wails.Run(&options.App{
 		Title:     "notify dashboard",
-		Width:     1200,
-		Height:    800,
+		Width:     width,
+		Height:    height,
 		MinWidth:  800,
 		MinHeight: 600,
 		AssetServer: &assetserver.Options{
