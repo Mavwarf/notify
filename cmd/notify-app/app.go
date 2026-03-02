@@ -43,3 +43,13 @@ func (a *App) ShowWindow() {
 	<-a.ready // wait for Wails to be initialized
 	wailsRuntime.WindowShow(a.ctx)
 }
+
+func (a *App) MinimizeWindow() {
+	<-a.ready
+	wailsRuntime.WindowMinimise(a.ctx)
+}
+
+func (a *App) QuitApp() {
+	systray.Quit()
+	os.Exit(0)
+}

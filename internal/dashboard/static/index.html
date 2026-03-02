@@ -108,23 +108,46 @@ body {
 
 header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
   margin-bottom: 20px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border);
 }
 
 header h1 {
-  font-size: 18px;
+  font-size: 1.3em;
   font-weight: 600;
   color: var(--accent);
+  margin-bottom: 0;
 }
 
 header .status {
   font-size: 12px;
   color: var(--fg-dim);
 }
+.window-controls {
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+.win-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--fg-dim);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+  line-height: 1;
+}
+.win-btn:hover { color: var(--fg); border-color: var(--fg-dim); }
+.win-btn-quit:hover { color: var(--red); border-color: var(--red); }
 
 header .status .dot {
   display: inline-block;
@@ -752,7 +775,11 @@ tr:hover td { background: var(--bg3); }
   border-radius: 4px;
   padding: 1px 8px;
   opacity: 0.7;
+  display: none;
+  margin-left: auto;
 }
+.screenshot-badge.visible { display: inline-block; }
+.screenshot-badge:not(.visible) ~ .theme-toggle { margin-left: auto; }
 
 /* Profile detail modal */
 .modal-backdrop {
@@ -847,9 +874,13 @@ tr:hover td { background: var(--bg3); }
 <div class="container">
   <header>
     <h1>notify dashboard</h1>
-    <span id="screenshot-badge" class="screenshot-badge" style="display:none">screenshot</span>
-    <button class="theme-toggle" id="theme-toggle" title="Toggle theme"></button>
     <div class="status"><span class="dot" id="sse-dot"></span><span id="sse-status">connecting...</span></div>
+    <span id="screenshot-badge" class="screenshot-badge">screenshot</span>
+    <button class="theme-toggle" id="theme-toggle" title="Toggle theme"></button>
+    <div class="window-controls" id="window-controls" style="display:none">
+      <button class="win-btn" onclick="minimizeWindow()" title="Minimize">&minus;</button>
+      <button class="win-btn win-btn-quit" onclick="quitApp()" title="Quit">&times;</button>
+    </div>
   </header>
   <div style="font-size:12px;color:var(--fg-dim);margin:-12px 0 16px;display:flex;justify-content:space-between">
     <span>Cross-platform notification engine by <a href="https://mavwarf.netlify.app/" target="_blank" rel="noopener" style="color:var(--fg)">Thomas H&auml;user</a>. <a href="https://github.com/Mavwarf/notify" target="_blank" rel="noopener" style="color:var(--cyan)">github.com/Mavwarf/notify</a></span>
@@ -1063,7 +1094,7 @@ tr:hover td { background: var(--bg3); }
   }
 
   function updateScreenshotBadge() {
-    document.getElementById('screenshot-badge').style.display = screenshotMode ? '' : 'none';
+    document.getElementById('screenshot-badge').classList.toggle('visible', screenshotMode);
   }
   updateScreenshotBadge();
 
@@ -2674,6 +2705,21 @@ tr:hover td { background: var(--bg3); }
 
   // Update countdown every second for smooth display.
   setInterval(updateSilentUI, 1000);
+
+  // ---- Window controls (app mode only) ----
+  async function minimizeWindow() {
+    try { await fetch('/api/minimize', {method: 'POST'}); } catch(e) {}
+  }
+  async function quitApp() {
+    try { await fetch('/api/quit', {method: 'POST'}); } catch(e) {}
+  }
+  window.minimizeWindow = minimizeWindow;
+  window.quitApp = quitApp;
+
+  // Show window controls only when running inside the desktop app.
+  fetch('/api/minimize', {method: 'OPTIONS'}).then(function(r) {
+    if (r.status !== 404) document.getElementById('window-controls').style.display = 'flex';
+  }).catch(function() {});
 
   // ---- Init ----
   loadHistory();

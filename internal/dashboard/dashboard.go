@@ -172,7 +172,7 @@ type voiceResponse struct {
 // Serve starts the dashboard HTTP server on 127.0.0.1:port and blocks
 // until interrupted. If open is true, a browser window is launched in
 // app mode (chromeless) pointing at the dashboard URL.
-func Serve(cfg config.Config, configPath string, port int, open bool, showFn func()) error {
+func Serve(cfg config.Config, configPath string, port int, open bool, showFn, minimizeFn, quitFn func()) error {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/", handleIndex)
@@ -196,6 +196,26 @@ func Serve(cfg config.Config, configPath string, port int, open bool, showFn fun
 			}
 			showFn()
 			w.WriteHeader(http.StatusNoContent)
+		})
+	}
+	if minimizeFn != nil {
+		mux.HandleFunc("/api/minimize", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+				return
+			}
+			minimizeFn()
+			w.WriteHeader(http.StatusNoContent)
+		})
+	}
+	if quitFn != nil {
+		mux.HandleFunc("/api/quit", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+			go quitFn()
 		})
 	}
 

@@ -61,7 +61,7 @@ func main() {
 
 	// Start the existing dashboard HTTP server in the background.
 	go func() {
-		if err := dashboard.Serve(cfg, cfgPath, port, false, app.ShowWindow); err != nil {
+		if err := dashboard.Serve(cfg, cfgPath, port, false, app.ShowWindow, app.MinimizeWindow, app.QuitApp); err != nil {
 			fmt.Fprintf(os.Stderr, "notify-app: dashboard: %v\n", err)
 			os.Exit(1)
 		}
