@@ -2,6 +2,7 @@
 
 ## Features
 
+- Codebase documentation — package-level doc comments, function docs, and inline explanations across 43 Go source files covering non-obvious logic, Win32 APIs, audio math, and design decisions *(Mar 02)*
 - Always on top — pin button in the dashboard header toggles the window to stay above all other windows; state persists across restarts via localStorage *(Mar 02)*
 - Dashboard external links open in system browser when running in `notify-app` *(Mar 02)*
 - Configurable desktop limit (`max_desktops`) — raise the virtual desktop upper bound beyond the default of 4 *(Mar 02)*
@@ -77,6 +78,15 @@
 ---
 
 ## 2026-03-02
+
+### Codebase documentation pass
+
+Added comments across 43 Go source files — no logic changes. Covers package-level
+`godoc` comments for all 22 internal packages, function doc comments on key
+exported and unexported functions, and inline explanations for non-obvious logic:
+Win32 constants and calling conventions, ANSI escape sequences, PCM audio math,
+PowerShell quirks, SSE clear detection, voice cache fail-open design, template
+replacement ordering, and various magic numbers.
 
 ### Suppress console output in desktop app
 
