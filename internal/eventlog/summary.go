@@ -111,6 +111,7 @@ func AggregateGroups(groups []DayGroup) AggregatedData {
 
 	for ak := range ad.PerAction {
 		ad.ActionsByProfile[ak.Profile] = append(ad.ActionsByProfile[ak.Profile], ak)
+		// First pass: check actions with a non-empty profile.
 		if ak.Profile != "" && ad.PerAction[ak].Skip > 0 {
 			ad.HasSkipped = true
 		}
@@ -118,6 +119,10 @@ func AggregateGroups(groups []DayGroup) AggregatedData {
 	for _, aks := range ad.ActionsByProfile {
 		sort.Slice(aks, func(i, j int) bool { return aks[i].Action < aks[j].Action })
 	}
+	// Second pass: catch any skipped counts that were missed above -- the first
+	// loop only checks actions with a non-empty profile, so actions with an
+	// empty profile key (edge case) would be missed. This fallback ensures
+	// HasSkipped is set regardless of profile value.
 	if !ad.HasSkipped {
 		for _, c := range ad.PerAction {
 			if c.Skip > 0 {
@@ -213,7 +218,10 @@ func ComputeTimeSpent(entries []Entry, targetDate time.Time, loc *time.Location)
 	}
 	sort.Strings(names)
 
-	// Compute per-profile time.
+	// Compute per-profile time by summing gaps between consecutive entries
+	// that are within the threshold. A profile with a single entry produces
+	// zero seconds because there is no pair of timestamps to compute a span
+	// from -- one event is a point in time, not a duration.
 	var td TimeSpentData
 	var allTimes []time.Time
 	for _, p := range names {

@@ -107,6 +107,10 @@ var voiceTextTypes = map[string]bool{
 	"say": true, "discord_voice": true, "telegram_audio": true, "telegram_voice": true,
 }
 
+// Log inserts an execution event into the events table, then inserts one
+// step_details row per step in the same transaction. For voice-capable step
+// types (say, discord_voice, telegram_audio, telegram_voice), the expanded
+// text is stored in voice_text for later frequency queries.
 func (s *SQLiteStore) Log(action string, steps []config.Step, afk bool, vars tmpl.Vars, desktop *int) error {
 	ts := time.Now().Format(time.RFC3339)
 
@@ -165,6 +169,9 @@ func (s *SQLiteStore) Log(action string, steps []config.Step, afk bool, vars tmp
 	return tx.Commit()
 }
 
+// LogCooldown records that an invocation was skipped due to cooldown.
+// Uses KindCooldown so the event appears in Entries/EntriesSince queries
+// (which filter on profile != '' AND action != '').
 func (s *SQLiteStore) LogCooldown(profile, action string, seconds int) error {
 	ts := time.Now().Format(time.RFC3339)
 	_, err := s.db.Exec(
@@ -174,6 +181,13 @@ func (s *SQLiteStore) LogCooldown(profile, action string, seconds int) error {
 	return err
 }
 
+// LogCooldownRecord records that a cooldown timer was started/updated. Uses
+// KindOther (not KindCooldown) so these events are excluded from history
+// queries -- Entries/EntriesSince filter on profile != '' AND action != '',
+// but KindOther entries with profile/action set still pass that filter. The
+// key difference is that KindOther events are skipped by SummarizeByDay and
+// other aggregation functions, preventing cooldown-recorded events from
+// inflating execution or skip counts.
 func (s *SQLiteStore) LogCooldownRecord(profile, action string, seconds int) error {
 	ts := time.Now().Format(time.RFC3339)
 	_, err := s.db.Exec(
@@ -183,6 +197,7 @@ func (s *SQLiteStore) LogCooldownRecord(profile, action string, seconds int) err
 	return err
 }
 
+// LogSilent records that an invocation was suppressed by silent mode.
 func (s *SQLiteStore) LogSilent(profile, action string) error {
 	ts := time.Now().Format(time.RFC3339)
 	_, err := s.db.Exec(
@@ -192,6 +207,8 @@ func (s *SQLiteStore) LogSilent(profile, action string) error {
 	return err
 }
 
+// LogSilentEnable records that silent mode was turned on for duration d.
+// No profile/action is set, so this event is excluded from Entries queries.
 func (s *SQLiteStore) LogSilentEnable(d time.Duration) error {
 	ts := time.Now().Format(time.RFC3339)
 	_, err := s.db.Exec(
@@ -201,6 +218,7 @@ func (s *SQLiteStore) LogSilentEnable(d time.Duration) error {
 	return err
 }
 
+// LogSilentDisable records that silent mode was turned off.
 func (s *SQLiteStore) LogSilentDisable() error {
 	ts := time.Now().Format(time.RFC3339)
 	_, err := s.db.Exec(
@@ -210,7 +228,12 @@ func (s *SQLiteStore) LogSilentDisable() error {
 	return err
 }
 
+// Entries returns parsed execution/cooldown/silent entries, optionally
+// filtered to the last N calendar days. Pass days=0 for all entries.
 func (s *SQLiteStore) Entries(days int) ([]Entry, error) {
+	// WHERE profile != '' AND action != '' mirrors the flat-file ParseEntries
+	// logic, which skips lines without both fields (e.g. silent=enabled/disabled
+	// system events). This keeps both backends returning the same result set.
 	query := `SELECT timestamp, profile, action, kind, claude_hook, claude_message
 		FROM events WHERE profile != '' AND action != ''`
 	var args []any
@@ -224,6 +247,8 @@ func (s *SQLiteStore) Entries(days int) ([]Entry, error) {
 	return s.queryEntries(query, args...)
 }
 
+// EntriesSince returns entries with timestamps at or after cutoff.
+// Same profile/action filter as Entries for consistency.
 func (s *SQLiteStore) EntriesSince(cutoff time.Time) ([]Entry, error) {
 	query := `SELECT timestamp, profile, action, kind, claude_hook, claude_message
 		FROM events WHERE timestamp >= ? AND profile != '' AND action != ''
@@ -231,6 +256,7 @@ func (s *SQLiteStore) EntriesSince(cutoff time.Time) ([]Entry, error) {
 	return s.queryEntries(query, cutoff.Format(time.RFC3339))
 }
 
+// queryEntries executes a SELECT query and scans rows into Entry structs.
 func (s *SQLiteStore) queryEntries(query string, args ...any) ([]Entry, error) {
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
@@ -261,6 +287,9 @@ func (s *SQLiteStore) queryEntries(query string, args ...any) ([]Entry, error) {
 	return entries, rows.Err()
 }
 
+// VoiceLines queries the step_details table for distinct TTS texts and their
+// usage counts. Uses the partial index on voice_text (WHERE voice_text IS NOT
+// NULL) for efficient lookups. Pass days=0 for all history.
 func (s *SQLiteStore) VoiceLines(days int) ([]VoiceLine, error) {
 	query := `SELECT sd.voice_text, COUNT(*) as cnt
 		FROM step_details sd
@@ -292,6 +321,10 @@ func (s *SQLiteStore) VoiceLines(days int) ([]VoiceLine, error) {
 	return lines, rows.Err()
 }
 
+// ReadContent reconstructs the flat-file log format from SQL rows. This
+// provides backward compatibility with code that expects text-based log
+// parsing (e.g. historyExport, ParseVoiceLines in FileStore mode). The
+// output matches what FileStore.Log/LogCooldown/etc. would have written.
 func (s *SQLiteStore) ReadContent() (string, error) {
 	rows, err := s.db.Query(
 		`SELECT e.id, e.timestamp, e.profile, e.action, e.kind, e.afk,
@@ -409,6 +442,9 @@ func (s *SQLiteStore) ReadContent() (string, error) {
 	return b.String(), nil
 }
 
+// Clean deletes events older than N calendar days. Returns the number of
+// deleted rows. Associated step_details rows are automatically removed via
+// ON DELETE CASCADE on the event_id foreign key.
 func (s *SQLiteStore) Clean(days int) (int, error) {
 	cutoff := DayCutoff(days).Format(time.RFC3339)
 	res, err := s.db.Exec(`DELETE FROM events WHERE timestamp < ?`, cutoff)
@@ -419,6 +455,8 @@ func (s *SQLiteStore) Clean(days int) (int, error) {
 	return int(n), err
 }
 
+// RemoveProfile deletes all events for the named profile. Step details are
+// cascade-deleted. Returns the number of removed event rows.
 func (s *SQLiteStore) RemoveProfile(name string) (int, error) {
 	res, err := s.db.Exec(`DELETE FROM events WHERE profile = ?`, name)
 	if err != nil {
@@ -428,11 +466,14 @@ func (s *SQLiteStore) RemoveProfile(name string) (int, error) {
 	return int(n), err
 }
 
+// Clear deletes all events. Step_details rows are automatically removed
+// via ON DELETE CASCADE when their parent events are deleted.
 func (s *SQLiteStore) Clear() error {
 	_, err := s.db.Exec(`DELETE FROM events`)
 	return err
 }
 
+// Path returns the filesystem path of the SQLite database file.
 func (s *SQLiteStore) Path() string {
 	return s.path
 }

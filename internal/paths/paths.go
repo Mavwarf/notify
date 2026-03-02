@@ -1,3 +1,4 @@
+// Package paths resolves platform-specific directories for configuration and data files.
 package paths
 
 import (
@@ -11,8 +12,8 @@ const (
 	CooldownFileName = "cooldown.json"
 	SilentFileName   = "silent.json"
 	LogFileName      = "notify.log"
-	DirPerm          = 0755
-	FilePerm         = 0644
+	DirPerm  = 0755 // rwxr-xr-x — owner full, group/other read+execute
+	FilePerm = 0644 // rw-r--r-- — owner read+write, group/other read-only
 )
 
 // CooldownKey returns the map key for a profile/action pair.
@@ -21,7 +22,8 @@ func CooldownKey(profile, action string) string {
 }
 
 // AtomicWrite writes data to path via a temporary file + rename to avoid
-// partial writes. The parent directory is created if needed.
+// partial writes on crash. The parent directory is created if needed.
+// Readers always see either the old or new contents, never a half-written file.
 func AtomicWrite(path string, data []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), DirPerm); err != nil {
 		return err

@@ -1,5 +1,6 @@
 //go:build windows
 
+// Package desktop provides virtual desktop switching on Windows via the IVirtualDesktopManager COM interface.
 package desktop
 
 import (
@@ -9,6 +10,8 @@ import (
 	"syscall"
 )
 
+// dll is a lazy-loaded handle to the VirtualDesktopAccessor DLL, a third-party
+// COM wrapper that exposes virtual desktop switching as simple C exports.
 var dll *syscall.LazyDLL
 
 func init() {

@@ -10,11 +10,15 @@ import (
 // EntryKind classifies a log entry.
 type EntryKind int
 
+// Entry classification constants. KindExecution and KindCooldown/KindSilent
+// represent "real" events that appear in history summaries. KindOther covers
+// informational records (cooldown=recorded, silent=enabled/disabled) that are
+// stored for audit but excluded from aggregation counts.
 const (
-	KindExecution EntryKind = iota
-	KindCooldown
-	KindSilent
-	KindOther
+	KindExecution EntryKind = iota // A notification pipeline was fully executed
+	KindCooldown                   // Invocation was skipped due to cooldown
+	KindSilent                     // Invocation was suppressed by silent mode
+	KindOther                      // Informational record (not counted in summaries)
 )
 
 // Entry is a single parsed log entry.
@@ -73,7 +77,11 @@ func ParseEntries(content string) []Entry {
 				continue
 			}
 
-			// Classify.
+			// Classify by looking for distinguishing fields in the summary line:
+			//   steps=...           -> KindExecution (notification was sent)
+			//   cooldown=skipped    -> KindCooldown  (blocked by cooldown timer)
+			//   silent=skipped      -> KindSilent    (blocked by silent mode)
+			//   anything else       -> KindOther     (cooldown=recorded, etc.)
 			kind := KindOther
 			if hasField(line, "steps") {
 				kind = KindExecution
@@ -271,6 +279,9 @@ type VoiceLine struct {
 
 // voiceStepSuffixes lists the log patterns for step types that use TTS.
 // Each is the string after "step[N]" and before the text= field.
+// These must match the format strings used in StepSummary (eventlog.go) and
+// the Log methods that write step detail lines -- if the log format changes,
+// these suffixes must be updated in lockstep.
 var voiceStepSuffixes = []string{
 	"] say  text=",
 	"] discord_voice  text=",

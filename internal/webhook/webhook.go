@@ -1,3 +1,4 @@
+// Package webhook sends notification payloads to arbitrary HTTP endpoints.
 package webhook
 
 import (

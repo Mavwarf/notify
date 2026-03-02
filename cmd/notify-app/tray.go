@@ -16,15 +16,17 @@ var trayIcon []byte
 // runTray starts the system tray icon. Must be called in a goroutine —
 // systray.Run blocks until Quit is called.
 func runTray(app *App) {
-	// Lock this goroutine to an OS thread so that the hidden window created
-	// by systray and the GetMessage loop share the same thread.
+	// Lock this goroutine to an OS thread. On Windows, systray creates a
+	// hidden window and runs a GetMessage loop — both must execute on the
+	// same OS thread or messages will be lost.
 	runtime.LockOSThread()
 	systray.Run(func() { onTrayReady(app) }, func() {})
 }
 
-// pngToICO wraps raw PNG bytes in a minimal ICO container.
-// Windows LoadImage(IMAGE_ICON) requires ICO format; since Vista,
-// ICO supports embedded PNG data directly.
+// pngToICO wraps raw PNG bytes in a minimal ICO container. Windows
+// LoadImage(IMAGE_ICON) rejects raw PNG files — they must be wrapped in an
+// ICO header. Since Vista, ICO supports embedded PNG data directly, so the
+// image bytes are included verbatim without re-encoding.
 func pngToICO(png []byte) []byte {
 	buf := new(bytes.Buffer)
 	// ICONDIR header
@@ -47,6 +49,8 @@ func pngToICO(png []byte) []byte {
 	return buf.Bytes()
 }
 
+// onTrayReady configures the system tray icon, tooltip, and menu items.
+// Single-click opens the menu; double-click shows the dashboard window.
 func onTrayReady(app *App) {
 	systray.SetIcon(pngToICO(trayIcon))
 	systray.SetTooltip("notify")

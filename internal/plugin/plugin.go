@@ -1,3 +1,4 @@
+// Package plugin executes external notification plugins as subprocesses.
 package plugin
 
 import (
@@ -52,6 +53,8 @@ func Run(command, text string, timeoutSec *int, vars tmpl.Vars) error {
 
 	cmd.Env = buildEnv(text, vars)
 
+	// Stdout is intentionally discarded — plugins communicate success/failure
+	// via exit code and diagnostic output via stderr.
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 

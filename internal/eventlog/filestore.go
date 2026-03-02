@@ -43,6 +43,9 @@ func (f *FileStore) writeLog(fn func(file *os.File, ts string)) error {
 	return nil
 }
 
+// Log appends an execution event to the log file: a summary line with
+// profile, action, step types, and metadata, followed by one detail line
+// per step, terminated by a blank line to separate blocks.
 func (f *FileStore) Log(action string, steps []config.Step, afk bool, vars tmpl.Vars, desktop *int) error {
 	return f.writeLog(func(file *os.File, ts string) {
 		types := make([]string, len(steps))
@@ -72,6 +75,9 @@ func (f *FileStore) Log(action string, steps []config.Step, afk bool, vars tmpl.
 	})
 }
 
+// LogCooldown records that an invocation was skipped because the action's
+// cooldown period had not yet elapsed. Ends with "\n\n" (blank line) so
+// this event forms its own block in SplitBlocks.
 func (f *FileStore) LogCooldown(profile, action string, seconds int) error {
 	return f.writeLog(func(file *os.File, ts string) {
 		fmt.Fprintf(file, "%s  profile=%s  action=%s  cooldown=skipped (%ds)\n\n",
@@ -79,6 +85,11 @@ func (f *FileStore) LogCooldown(profile, action string, seconds int) error {
 	})
 }
 
+// LogCooldownRecord records that a cooldown timer was started/updated for an
+// action. Unlike LogCooldown, this writes a single "\n" (not "\n\n"), so the
+// line merges into the same SplitBlocks block as the execution entry that
+// follows it. This is intentional: cooldown=recorded events are grouped with
+// the execution they precede, keeping related log lines together.
 func (f *FileStore) LogCooldownRecord(profile, action string, seconds int) error {
 	return f.writeLog(func(file *os.File, ts string) {
 		fmt.Fprintf(file, "%s  profile=%s  action=%s  cooldown=recorded (%ds)\n",
@@ -86,6 +97,7 @@ func (f *FileStore) LogCooldownRecord(profile, action string, seconds int) error
 	})
 }
 
+// LogSilent records that an invocation was suppressed by silent mode.
 func (f *FileStore) LogSilent(profile, action string) error {
 	return f.writeLog(func(file *os.File, ts string) {
 		fmt.Fprintf(file, "%s  profile=%s  action=%s  silent=skipped\n\n",
@@ -93,18 +105,22 @@ func (f *FileStore) LogSilent(profile, action string) error {
 	})
 }
 
+// LogSilentEnable records that silent mode was turned on for duration d.
 func (f *FileStore) LogSilentEnable(d time.Duration) error {
 	return f.writeLog(func(file *os.File, ts string) {
 		fmt.Fprintf(file, "%s  silent=enabled (%s)\n\n", ts, d)
 	})
 }
 
+// LogSilentDisable records that silent mode was turned off.
 func (f *FileStore) LogSilentDisable() error {
 	return f.writeLog(func(file *os.File, ts string) {
 		fmt.Fprintf(file, "%s  silent=disabled\n\n", ts)
 	})
 }
 
+// Entries reads the entire log file, parses it into entries, and optionally
+// filters to the last N calendar days. Pass days=0 to return all entries.
 func (f *FileStore) Entries(days int) ([]Entry, error) {
 	data, err := os.ReadFile(f.path)
 	if err != nil {
@@ -128,6 +144,7 @@ func (f *FileStore) Entries(days int) ([]Entry, error) {
 	return filtered, nil
 }
 
+// EntriesSince returns all entries with timestamps at or after cutoff.
 func (f *FileStore) EntriesSince(cutoff time.Time) ([]Entry, error) {
 	data, err := os.ReadFile(f.path)
 	if err != nil {
@@ -146,6 +163,8 @@ func (f *FileStore) EntriesSince(cutoff time.Time) ([]Entry, error) {
 	return filtered, nil
 }
 
+// VoiceLines scans the log for TTS step detail lines and returns unique
+// texts with their usage counts. Pass days=0 for all history.
 func (f *FileStore) VoiceLines(days int) ([]VoiceLine, error) {
 	data, err := os.ReadFile(f.path)
 	if err != nil {
@@ -162,6 +181,8 @@ func (f *FileStore) VoiceLines(days int) ([]VoiceLine, error) {
 	return ParseVoiceLines(content), nil
 }
 
+// ReadContent returns the raw text content of the log file. Returns ""
+// with no error if the file does not exist.
 func (f *FileStore) ReadContent() (string, error) {
 	data, err := os.ReadFile(f.path)
 	if err != nil {
@@ -173,6 +194,10 @@ func (f *FileStore) ReadContent() (string, error) {
 	return string(data), nil
 }
 
+// Clean removes log blocks older than N calendar days. It works by splitting
+// the file on double-newline boundaries (SplitBlocks), filtering blocks by
+// their first-line timestamp, counting the difference between original and
+// kept block counts, and rewriting the file with only recent blocks.
 func (f *FileStore) Clean(days int) (int, error) {
 	data, err := os.ReadFile(f.path)
 	if err != nil {
@@ -218,6 +243,8 @@ func (f *FileStore) Clean(days int) (int, error) {
 	return removed, nil
 }
 
+// RemoveProfile deletes all log blocks belonging to the named profile.
+// Returns the number of blocks removed.
 func (f *FileStore) RemoveProfile(name string) (int, error) {
 	data, err := os.ReadFile(f.path)
 	if err != nil {
@@ -249,6 +276,7 @@ func (f *FileStore) RemoveProfile(name string) (int, error) {
 	return removed, nil
 }
 
+// Clear deletes the entire log file. Silently succeeds if already absent.
 func (f *FileStore) Clear() error {
 	err := os.Remove(f.path)
 	if err != nil && !os.IsNotExist(err) {
@@ -257,6 +285,7 @@ func (f *FileStore) Clear() error {
 	return nil
 }
 
+// Path returns the filesystem path of the log file.
 func (f *FileStore) Path() string {
 	return f.path
 }

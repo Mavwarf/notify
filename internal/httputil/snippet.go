@@ -1,3 +1,4 @@
+// Package httputil provides helpers for constructing multipart HTTP requests.
 package httputil
 
 import (
@@ -52,6 +53,8 @@ func PostMultipart(url string, upload FileUpload, fields [][2]string) (*http.Res
 		}
 	}
 
+	// CreatePart allows setting a custom Content-Type (e.g. "audio/ogg"),
+	// while CreateFormFile hardcodes "application/octet-stream".
 	var part io.Writer
 	if upload.ContentType != "" {
 		h := make(textproto.MIMEHeader)
@@ -88,6 +91,8 @@ func CheckStatus(resp *http.Response, prefix string) error {
 // ReadSnippet reads up to 200 bytes from r for inclusion in error messages.
 func ReadSnippet(r io.Reader) string {
 	buf := make([]byte, 200)
+	// Error intentionally discarded: ReadFull returns ErrUnexpectedEOF for
+	// bodies shorter than 200 bytes, which is the normal (non-error) case.
 	n, _ := io.ReadFull(r, buf)
 	if n == 0 {
 		return "(empty body)"

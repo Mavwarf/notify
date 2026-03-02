@@ -1,3 +1,4 @@
+// Package idle detects user inactivity on Windows via the GetLastInputInfo API.
 package idle
 
 import (
@@ -14,6 +15,10 @@ var (
 	pGetTickCount64    = kernel32.NewProc("GetTickCount64")
 )
 
+// lastInputInfo mirrors Win32 LASTINPUTINFO. cbSize must be pre-initialized to
+// the struct size before calling GetLastInputInfo, or the call fails.
+// dwTime is uint32 milliseconds (wraps every ~49.7 days), but we compare it
+// against GetTickCount64 to compute the delta without overflow.
 type lastInputInfo struct {
 	cbSize uint32
 	dwTime uint32
@@ -25,11 +30,13 @@ func IdleSeconds() (float64, error) {
 	var lii lastInputInfo
 	lii.cbSize = uint32(unsafe.Sizeof(lii))
 
+	// Win32 BOOL: non-zero = success, zero = failure (opposite of Go's nil-error convention).
 	r, _, err := pGetLastInputInfo.Call(uintptr(unsafe.Pointer(&lii)))
 	if r == 0 {
 		return 0, fmt.Errorf("GetLastInputInfo: %w", err)
 	}
 
+	// GetTickCount64 cannot fail; it always returns a valid millisecond uptime.
 	r2, _, _ := pGetTickCount64.Call()
 	tickMs := uint64(r2)
 

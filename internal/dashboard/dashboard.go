@@ -1,3 +1,4 @@
+// Package dashboard serves the web-based notification management UI.
 package dashboard
 
 import (
@@ -170,9 +171,11 @@ type voiceResponse struct {
 	Total int         `json:"total"`
 }
 
-// Serve starts the dashboard HTTP server on 127.0.0.1:port and blocks
-// until interrupted. If open is true, a browser window is launched in
-// app mode (chromeless) pointing at the dashboard URL.
+// Serve starts the dashboard HTTP server on 127.0.0.1:port and blocks until
+// interrupted. If open is true, a browser window is launched in app mode
+// (chromeless) pointing at the dashboard URL. The showFn, minimizeFn, quitFn,
+// and topmostFn callbacks control the native window; the CLI passes nil for all
+// of them, while the Wails desktop app supplies real implementations.
 func Serve(cfg config.Config, configPath string, port int, open bool, showFn, minimizeFn, quitFn func(), topmostFn func(bool)) error {
 	mux := http.NewServeMux()
 
@@ -189,6 +192,12 @@ func Serve(cfg config.Config, configPath string, port int, open bool, showFn, mi
 	mux.HandleFunc("/api/voice/play/", handleVoicePlay)
 	mux.HandleFunc("/api/silent", handleSilent)
 	mux.HandleFunc("/api/trigger", handleTrigger(configPath, cfg))
+
+	// App-mode-only endpoints: registered only when the corresponding callback
+	// is non-nil. The CLI passes nil for all callbacks, so these routes simply
+	// don't exist in CLI mode. The frontend detects app mode by probing
+	// /api/minimize — a 405 (Method Not Allowed on GET) means app mode, while
+	// a 404 (route absent) means CLI mode.
 	if showFn != nil {
 		mux.HandleFunc("/api/show", func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != http.MethodPost {
@@ -346,6 +355,9 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 // loadCfg reloads the config from disk; on any error it returns fallback.
+// Called on every request by handlers that need the current config (handleConfig,
+// handleTest, handleCredentials, handleTrigger) so that external edits to the
+// config file (e.g. from a text editor) are picked up without restarting the server.
 func loadCfg(configPath string, fallback config.Config) config.Config {
 	if configPath == "" {
 		return fallback
@@ -357,6 +369,7 @@ func loadCfg(configPath string, fallback config.Config) config.Config {
 	return cfg
 }
 
+// handleConfig returns the current config as JSON with credential values redacted.
 func handleConfig(configPath string, fallback config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cfg := loadCfg(configPath, fallback)
@@ -366,6 +379,7 @@ func handleConfig(configPath string, fallback config.Config) http.HandlerFunc {
 	}
 }
 
+// handleHistory returns event log entries as JSON, filtered by ?hours or ?days (default 7).
 func handleHistory(w http.ResponseWriter, r *http.Request) {
 	var entries []eventlog.Entry
 	if h := r.URL.Query().Get("hours"); h != "" {
@@ -394,6 +408,7 @@ func handleHistory(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(out)
 }
 
+// handleSummary returns per-day execution/skip counts grouped by profile and action.
 func handleSummary(w http.ResponseWriter, r *http.Request) {
 	var entries []eventlog.Entry
 	if h := r.URL.Query().Get("hours"); h != "" {
@@ -439,6 +454,8 @@ func handleSummary(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(out)
 }
 
+// handleEvents streams new event log entries to the browser via Server-Sent Events.
+// It polls the store every 2 seconds and sends only entries added since the last check.
 func handleEvents(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -472,7 +489,11 @@ func handleEvents(w http.ResponseWriter, r *http.Request) {
 			all, _ := eventlog.Entries(0)
 
 			if len(all) < seen {
-				// History was cleared or cleaned.
+				// Clear detection: if the total entry count dropped, the user
+				// ran "history clear" or "history clean". Reset the watermark
+				// so the next poll cycle picks up from the new baseline rather
+				// than sending stale indices. The frontend relies on receiving
+				// no data during this tick to trigger a full refresh.
 				seen = len(all)
 				continue
 			}
@@ -500,6 +521,8 @@ func handleEvents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleTest performs a dry-run of a profile's notification pipeline and returns
+// which steps would run or be skipped, with expanded template details.
 func handleTest(configPath string, fallback config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cfg := loadCfg(configPath, fallback)
@@ -633,8 +656,11 @@ func computeRange(anchor time.Time, rangeType string, loc *time.Location) (time.
 		end := time.Date(y, 12, 31, 0, 0, 0, 0, loc)
 		return start, end
 	case "total":
-		start := time.Date(2000, 1, 1, 0, 0, 0, 0, loc) // epoch sentinel
-		end := time.Date(2099, 12, 31, 0, 0, 0, 0, loc) // far-future sentinel
+		// Sentinel dates that bracket any realistic event timestamp. Using
+		// 2000-01-01 and 2099-12-31 ensures the range includes all stored
+		// entries without needing to scan for actual min/max dates first.
+		start := time.Date(2000, 1, 1, 0, 0, 0, 0, loc)
+		end := time.Date(2099, 12, 31, 0, 0, 0, 0, loc)
 		return start, end
 	default: // "day"
 		day := time.Date(y, m, d, 0, 0, 0, 0, loc)
@@ -683,6 +709,9 @@ func computeBreakdown(entries []eventlog.Entry, start, end time.Time, rangeType 
 	perCell := map[bucketKey]int{}
 	perBucket := map[int]int{}
 	profileSet := map[string]bool{}
+	// Sentinel values: start at max-int / min-int so the first real bucket
+	// index always replaces them. Used by "day" and "total" range types to
+	// trim the output to only the buckets that contain data.
 	minIdx, maxIdx := 1<<31, -(1 << 31)
 
 	// bucketIndex maps an entry time to its bucket index.
@@ -755,13 +784,19 @@ func computeBreakdown(entries []eventlog.Entry, start, end time.Time, rangeType 
 		endIdx = maxIdx
 	}
 
-	// bucketLabel generates a label for a bucket index.
+	// bucketLabel generates a human-readable label for a bucket index.
+	// For month-based ranges, bucket 0 corresponds to start.Month(). Adding
+	// the index gives the absolute month, then we convert back to
+	// year + Month via divmod-12 arithmetic (1-based, so subtract/add 1).
 	bucketLabel := func(idx int) string {
 		switch rangeType {
 		case "year":
+			// Within a single year: start.Month()+idx gives Jan..Dec directly.
 			m := time.Month(int(start.Month()) + idx)
 			return m.String()[:3]
 		case "total":
+			// Across multiple years: compute absolute month offset from the
+			// start date, then split into year and 1-based month.
 			base := int(start.Month()) + idx
 			y := start.Year() + (base-1)/12
 			m := time.Month(((base - 1) % 12) + 1)
@@ -863,6 +898,8 @@ func computeTimeSpentRange(entries []eventlog.Entry, start, end time.Time, loc *
 	return watchTimeSpent{Profiles: tps, Total: total}
 }
 
+// handleWatch returns the Watch tab payload: summary counts, time breakdown, and
+// estimated time spent, scoped to a date range (?date=YYYY-MM-DD&range=day|week|month|year|total).
 func handleWatch(w http.ResponseWriter, r *http.Request) {
 	entries, _ := eventlog.Entries(0)
 
@@ -969,6 +1006,7 @@ func handleWatch(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
+// handleStats returns event log metadata: storage backend, file size, entry count, and date range.
 func handleStats(w http.ResponseWriter, r *http.Request) {
 	var stats logStats
 
@@ -994,6 +1032,7 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(stats)
 }
 
+// handleVoice returns frequently-used TTS texts with their usage counts and cache status.
 func handleVoice(w http.ResponseWriter, r *http.Request) {
 	days := 0
 	if d := r.URL.Query().Get("days"); d != "" {
@@ -1046,6 +1085,7 @@ func handleVoice(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(voiceResponse{Lines: out, Total: total})
 }
 
+// handleVoicePlay serves a cached AI voice WAV file by its content hash.
 func handleVoicePlay(w http.ResponseWriter, r *http.Request) {
 	// URL: /api/voice/play/{hash}
 	hash := r.URL.Path[len("/api/voice/play/"):]
@@ -1083,6 +1123,8 @@ type silentResponse struct {
 	Until  *string `json:"until"`
 }
 
+// handleSilent reads (GET) or updates (POST) the silent/suppress mode.
+// POST accepts {"minutes": N} to enable or {"disable": true} to turn off.
 func handleSilent(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -1150,6 +1192,9 @@ type triggerResponse struct {
 	Error     string `json:"error,omitempty"`
 }
 
+// handleTrigger executes a real notification pipeline from the web UI. It reloads
+// the config, resolves the profile/action, applies cooldown and silent checks, runs
+// the step pipeline, and logs the result -- mirroring the CLI's runAction path.
 func handleTrigger(configPath string, fallback config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cfg := loadCfg(configPath, fallback)
@@ -1336,6 +1381,8 @@ var credentialRequirements = map[string][]string{
 	"telegram_voice": {"telegram_token", "telegram_chat_id"},
 }
 
+// handleCredentials reports which credentials each profile needs and whether
+// they are configured ("ok") or "missing", without revealing actual values.
 func handleCredentials(configPath string, fallback config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cfg := loadCfg(configPath, fallback)

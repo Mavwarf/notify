@@ -9,9 +9,11 @@ import (
 	"strconv"
 )
 
+// Say synthesizes text to speech using espeak-ng or espeak on Linux.
 func Say(text string, volume int) error {
 	// espeak amplitude: 0-200, map 0-100 to 0-200
 	amp := strconv.Itoa(volume * 2)
+	// espeak-ng is preferred (actively maintained fork); falls back to legacy espeak.
 	for _, bin := range []string{"espeak-ng", "espeak"} {
 		if path, err := exec.LookPath(bin); err == nil {
 			cmd := exec.Command(path, "--amplitude", amp, text)

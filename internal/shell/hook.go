@@ -1,3 +1,4 @@
+// Package shell installs and removes shell hooks that trigger notifications on command completion.
 package shell
 
 import (
@@ -9,6 +10,8 @@ import (
 	"strings"
 )
 
+// Sentinel markers that delimit the hook block in shell config files.
+// Used to detect existing installations and to locate the block for removal.
 const (
 	markerBegin = "# BEGIN notify shell-hook"
 	markerEnd   = "# END notify shell-hook"
@@ -60,9 +63,9 @@ func ShellConfigPath(shell string) (string, error) {
 	}
 }
 
-// psProfilePath resolves the PowerShell $PROFILE path.
+// psProfilePath resolves the PowerShell $PROFILE path by querying the shell.
+// Tries pwsh (PowerShell Core) first, then falls back to powershell (Windows PowerShell).
 func psProfilePath() (string, error) {
-	// Try pwsh first (PowerShell Core), then powershell (Windows PowerShell).
 	for _, exe := range []string{"pwsh", "powershell"} {
 		out, err := exec.Command(exe, "-NoProfile", "-Command", "$PROFILE").Output()
 		if err == nil {
@@ -99,7 +102,8 @@ func Install(shell string, threshold int, notifyPath string) (string, error) {
 		return "", err
 	}
 
-	// Check for existing installation.
+	// Double-wrap guard: check if the hook is already installed to prevent
+	// appending duplicate hooks that would fire notifications twice.
 	existing, _ := os.ReadFile(configPath)
 	if strings.Contains(string(existing), markerBegin) {
 		return configPath, fmt.Errorf("shell hook already installed in %s (use 'notify shell-hook uninstall' first)", configPath)
@@ -152,6 +156,8 @@ func Uninstall(shell string) (string, error) {
 		return configPath, fmt.Errorf("shell hook not installed in %s (marker not found)", configPath)
 	}
 
+	// Search for end marker relative to beginIdx, then convert back to an
+	// absolute offset. The final endIdx points past the end marker text.
 	endIdx := strings.Index(content[beginIdx:], markerEnd)
 	if endIdx < 0 {
 		return configPath, fmt.Errorf("malformed shell hook in %s (begin marker without end marker)", configPath)
@@ -196,6 +202,8 @@ func IsInstalled(shell string) (configPath string, installed bool, err error) {
 	return configPath, strings.Contains(string(data), markerBegin), nil
 }
 
+// bashSnippet generates a Bash PROMPT_COMMAND hook that records command start
+// time via a DEBUG trap (preexec) and checks elapsed time in precmd.
 func bashSnippet(threshold int, notifyPath string) string {
 	// Escape the notify path for embedding in bash single quotes.
 	escaped := strings.ReplaceAll(notifyPath, "'", "'\\''")
@@ -230,6 +238,8 @@ PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND;}_notify_hook_precmd"
 %s`, markerBegin, threshold, threshold, escaped, markerEnd)
 }
 
+// zshSnippet generates Zsh precmd/preexec hooks via add-zsh-hook.
+// Unlike Bash, Zsh preexec receives the command text as $1 directly.
 func zshSnippet(threshold int, notifyPath string) string {
 	escaped := strings.ReplaceAll(notifyPath, "'", "'\\''")
 	return fmt.Sprintf(`%s
@@ -261,6 +271,9 @@ add-zsh-hook precmd _notify_hook_precmd
 %s`, markerBegin, threshold, threshold, escaped, markerEnd)
 }
 
+// powershellSnippet generates a PowerShell hook using PSReadLine's Enter key
+// handler. This is the only reliable way to capture command text before
+// execution in PowerShell -- there is no native preexec equivalent.
 func powershellSnippet(threshold int, notifyPath string) string {
 	escaped := strings.ReplaceAll(notifyPath, "'", "''")
 	return fmt.Sprintf(`%s
@@ -280,12 +293,15 @@ Set-PSReadLineKeyHandler -Key Enter -ScriptBlock {
     [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
 }
 
-# Store the original prompt
+# Store the original prompt (only on first load, to avoid re-wrapping if
+# the profile is sourced multiple times in one session)
 if (-not (Test-Path Function:\global:_NotifyHookOriginalPrompt)) {
     Copy-Item Function:\prompt Function:\global:_NotifyHookOriginalPrompt
 }
 
 function global:prompt {
+    # $? is a boolean (last cmdlet succeeded); $LASTEXITCODE is the numeric
+    # exit code from external processes. We combine both to get a useful code.
     $exitCode = if ($?) { 0 } else { $LASTEXITCODE }
     if ($null -eq $exitCode) { $exitCode = 0 }
     if ($null -ne $global:_NotifyHookCmd -and $null -ne $global:_NotifyHookStart) {

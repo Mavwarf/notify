@@ -1,5 +1,6 @@
 //go:build windows
 
+// Package toast displays Windows toast notifications via PowerShell and the ToastNotificationManager API.
 package toast
 
 import (
@@ -33,6 +34,8 @@ const powershellAUMID = `{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\WindowsPowerShel
 // When desktop is non-nil, an action button is added that triggers the
 // notify://switch?desktop=N protocol URI to switch virtual desktops.
 func showScript(title, message, iconPath string, desktop *int) string {
+	// Order matters: escape XML entities first, then PowerShell single-quote
+	// escaping. Reversing the order would double-escape the ampersands.
 	t := shell.EscapePowerShell(escapeXML(title))
 	m := shell.EscapePowerShell(escapeXML(message))
 
@@ -60,6 +63,7 @@ func showScript(title, message, iconPath string, desktop *int) string {
 
 $xml = New-Object Windows.Data.Xml.Dom.XmlDocument
 $xml.LoadXml('%s')
+# Single quotes prevent PowerShell variable interpolation in the XML string.
 $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('%s').Show($toast)
 `, xml.String(), powershellAUMID)

@@ -8,6 +8,7 @@ import (
 	"os/exec"
 )
 
+// Say synthesizes text to speech using the macOS built-in say command.
 func Say(text string, volume int) error {
 	// macOS say uses 0.0-1.0 scale
 	vol := fmt.Sprintf("%.2f", float64(volume)/100.0)
@@ -30,6 +31,7 @@ func SayToFile(text string, volume int, path string) error {
 	}
 	defer func() { _ = os.Remove(aiff) }()
 
+	// LEI16 = Little-Endian Integer 16-bit, the afconvert format code for PCM WAV output.
 	cmd = exec.Command("afconvert", "-f", "WAVE", "-d", "LEI16", aiff, path)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("aiff to wav conversion failed: %w\n%s", err, out)

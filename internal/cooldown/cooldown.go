@@ -1,3 +1,4 @@
+// Package cooldown implements per-profile rate limiting for notifications.
 package cooldown
 
 import (
@@ -12,7 +13,8 @@ import (
 
 // Check returns true if the given profile/action is still within its cooldown
 // window. A missing or unreadable state file is treated as "not on cooldown"
-// (fail-open).
+// (fail-open: if checking fails, notifications are allowed through rather
+// than blocked, so a corrupt state file never silences alerts).
 func Check(profile, action string, cooldownSeconds int) bool {
 	return check(statePath(), profile, action, cooldownSeconds)
 }
@@ -55,7 +57,8 @@ func record(path, profile, action string) {
 		_ = json.Unmarshal(data, &state) // ignore corrupt; overwrite
 	}
 
-	// Prune expired entries.
+	// Prune entries older than 24 hours to prevent unbounded growth of the
+	// state file. No real cooldown should last longer than a day.
 	for k, v := range state {
 		t, err := time.Parse(time.RFC3339, v)
 		if err != nil || time.Since(t) > 24*time.Hour {

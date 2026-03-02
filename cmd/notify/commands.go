@@ -31,6 +31,8 @@ var sendTypes = map[string]bool{
 	"telegram": true, "telegram_audio": true, "telegram_voice": true,
 }
 
+// sendCmd sends a one-off notification of a specific type (say, toast,
+// discord, etc.) without requiring a profile or action in the config.
 func sendCmd(args []string, configPath string, opts runOpts) {
 	// Parse optional --title flag (for toast).
 	var title string
@@ -87,6 +89,8 @@ func sendCmd(args []string, configPath string, opts runOpts) {
 	}
 }
 
+// silentCmd manages the silent/mute period. With no args it shows status;
+// with a duration it enables silent mode; with "off" it disables it.
 func silentCmd(args []string, configPath string, logFlag bool) {
 	if len(args) == 0 {
 		// Show current status.
@@ -122,6 +126,7 @@ func silentCmd(args []string, configPath string, logFlag bool) {
 	}
 }
 
+// configCmd dispatches config subcommands. Currently only "validate" is supported.
 func configCmd(args []string, configPath string) {
 	if len(args) == 0 || args[0] == "validate" {
 		configValidate(configPath)
@@ -131,6 +136,7 @@ func configCmd(args []string, configPath string) {
 	os.Exit(1)
 }
 
+// configValidate loads and validates the config, printing the resolved path on success.
 func configValidate(configPath string) {
 	p, err := config.FindPath(configPath)
 	if err != nil {
@@ -142,6 +148,8 @@ func configValidate(configPath string) {
 	fmt.Printf("Config OK: %s\n", p)
 }
 
+// playCmd previews a built-in sound or WAV file. With no args it lists
+// all available built-in sounds.
 func playCmd(args []string, volume int) {
 	if len(args) == 0 {
 		// List available sounds.
@@ -168,6 +176,8 @@ func playCmd(args []string, volume int) {
 	}
 }
 
+// listProfiles prints all profiles with their actions, step types, and metadata
+// (extends, aliases, match rules).
 func listProfiles(configPath string) {
 	cfg, err := loadAndValidate(configPath)
 	if err != nil {
@@ -220,6 +230,9 @@ func listProfiles(configPath string) {
 	}
 }
 
+// dryRun shows what a notification pipeline would do without executing it.
+// Displays config status, credentials, AFK state, and per-action step details
+// including which steps would run/skip and their voice source.
 func dryRun(args []string, configPath string) {
 	profile := "default"
 	if len(args) > 0 {
@@ -323,6 +336,8 @@ func credStatus(ok bool) string {
 	return " not configured"
 }
 
+// watchCmd watches a running process by PID and sends a notification when
+// it exits. Fires the "ready" action with {command} set to "PID <N>".
 func watchCmd(args []string, configPath string, opts runOpts) {
 	opts.RunMode = true
 	// Parse --pid flag from args.
@@ -375,6 +390,8 @@ func watchCmd(args []string, configPath string, opts runOpts) {
 		})
 }
 
+// startupCmd combines protocol registration and dashboard launch into one
+// command, intended for use at login.
 func startupCmd(configPath string, port int, open bool) {
 	if desktop.IsProtocolRegistered() {
 		fmt.Println("Protocol: already registered")
@@ -391,6 +408,7 @@ func startupCmd(configPath string, port int, open bool) {
 	dashboardCmd(configPath, port, open)
 }
 
+// dashboardCmd starts the local web dashboard on the given port.
 func dashboardCmd(configPath string, port int, open bool) {
 	cfg, err := loadAndValidate(configPath)
 	if err != nil {
@@ -465,6 +483,9 @@ func hookCmd(args []string, configPath string, opts runOpts) {
 		})
 }
 
+// autostartRegKey is the Windows Registry key where per-user login programs
+// are registered. The "reg" CLI tool is used instead of the registry Go
+// package to avoid a CGO dependency.
 const autostartRegKey = `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
 
 // autostartCmd manages a Windows Registry Run entry so notify-app.exe

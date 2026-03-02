@@ -76,6 +76,8 @@ func fatal(format string, args ...any) {
 	os.Exit(1)
 }
 
+// main is the entry point. It manually parses flags and dispatches to
+// subcommands or the notification pipeline (runAction / runWrapped / runPipe).
 func main() {
 	args := os.Args[1:]
 	volume := -1
@@ -92,7 +94,9 @@ func main() {
 	var atTime string
 	var matches []matchPair
 
-	// Parse flags
+	// Manual flag-parsing loop: flag.Parse stops at the first non-flag argument,
+	// but we need flags to appear after positional args (e.g. "notify run boss -L -- cmd")
+	// and we must route the first positional arg to a subcommand dispatcher.
 	filtered := args[:0]
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
@@ -184,7 +188,10 @@ func main() {
 		}
 	}
 
-	// Initialize storage backend from config.
+	// Initialize storage backend from config. This is the first of potentially
+	// multiple config loads — loadAndValidate is called again in each subcommand
+	// because it validates and may print warnings. This early load only reads
+	// the storage backend and retention settings needed for eventlog init.
 	storage := ""
 	if cfg, err := config.Load(configPath); err == nil {
 		storage = cfg.Options.Storage
@@ -266,6 +273,8 @@ func cwd() string {
 	return dir
 }
 
+// runAction executes a direct notification: resolves [profile] <action>,
+// handles scheduled reminders (--delay / --at), and dispatches.
 func runAction(args []string, configPath string, opts runOpts) {
 	var profile, actionArg string
 	explicit := len(args) == 2
@@ -298,6 +307,9 @@ func runAction(args []string, configPath string, opts runOpts) {
 	}
 }
 
+// runWrapped wraps an external command: runs it, captures output and exit code,
+// resolves the notification action (via --match patterns, exit_codes map, or
+// default ready/error), and dispatches the notification on completion.
 func runWrapped(args []string, configPath string, opts runOpts, matches []matchPair, heartbeatFlag int) {
 	opts.RunMode = true
 
@@ -380,6 +392,8 @@ func runWrapped(args []string, configPath string, opts runOpts, matches []matchP
 	}
 
 	cmdErr := cmd.Run()
+	// Signal the heartbeat goroutine to stop before we proceed. Closing done
+	// before reading elapsed ensures no heartbeat fires after the command ends.
 	close(done)
 	elapsed := time.Since(start)
 
@@ -424,6 +438,9 @@ func runWrapped(args []string, configPath string, opts runOpts, matches []matchP
 	os.Exit(exitCode)
 }
 
+// runPipe reads stdin line-by-line and triggers a notification per line.
+// With --match flags, only matching lines fire (using the matched action);
+// without --match, every line triggers the "ready" action.
 func runPipe(args []string, configPath string, opts runOpts, matches []matchPair) {
 	// Parse optional profile from args[0], default "default".
 	profile := "default"
@@ -898,10 +915,13 @@ func protocolCmd(args []string) {
 	}
 }
 
+// printVersion prints the version, build date, and platform.
 func printVersion() {
 	fmt.Printf("notify %s (%s) %s/%s\n", version, buildDate, runtime.GOOS, runtime.GOARCH)
 }
 
+// printUsage prints the full CLI help text including all subcommands,
+// options, config resolution order, template variables, and examples.
 func printUsage() {
 	fmt.Printf("notify %s - Run notification actions from a config file\n", version)
 	fmt.Println(`

@@ -1,3 +1,4 @@
+// Package silent manages a temporary mute period that suppresses all notifications.
 package silent
 
 import (
@@ -77,6 +78,7 @@ func enable(path string, d time.Duration) {
 	}
 }
 
+// disable is idempotent — os.Remove on a non-existent file is not an error.
 func disable(path string) {
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		fmt.Fprintf(os.Stderr, "silent: remove %s: %v\n", path, err)

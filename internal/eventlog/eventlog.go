@@ -1,3 +1,4 @@
+// Package eventlog records and queries notification execution history.
 package eventlog
 
 import (

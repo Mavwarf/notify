@@ -1,3 +1,4 @@
+// Package audio provides sound playback using the oto audio library.
 package audio
 
 import (
@@ -15,6 +16,9 @@ var (
 	otoInitErr error
 )
 
+// getContext returns the process-wide oto audio context, creating it on first
+// call. Oto requires exactly one context per process; creating a second panics.
+// The readyChan drain blocks until the audio device is ready for playback.
 func getContext() (*oto.Context, error) {
 	otoOnce.Do(func() {
 		op := &oto.NewContextOptions{
@@ -25,7 +29,7 @@ func getContext() (*oto.Context, error) {
 		var readyChan chan struct{}
 		otoCtx, readyChan, otoInitErr = oto.NewContext(op)
 		if otoInitErr == nil {
-			<-readyChan
+			<-readyChan // block until audio device is initialized
 		}
 	})
 	return otoCtx, otoInitErr
@@ -72,6 +76,7 @@ func playStereo16(pcm []byte) error {
 	player := ctx.NewPlayer(bytes.NewReader(pcm))
 	player.Play()
 
+	// Oto has no blocking Wait API, so we poll IsPlaying in a sleep loop.
 	for player.IsPlaying() {
 		time.Sleep(5 * time.Millisecond)
 	}

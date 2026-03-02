@@ -1,3 +1,4 @@
+// Package telegram sends notifications via the Telegram Bot API.
 package telegram
 
 import (
@@ -71,6 +72,8 @@ func sendFile(endpoint, chatID, filePath, caption, fieldName string) error {
 func mimeForField(fieldName string) string {
 	switch fieldName {
 	case "voice":
+		// audio/ogg causes Telegram to display the file as an inline voice
+		// bubble rather than a generic audio attachment.
 		return "audio/ogg"
 	case "audio":
 		return "audio/wav"

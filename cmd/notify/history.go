@@ -13,6 +13,8 @@ import (
 	"github.com/Mavwarf/notify/internal/eventlog"
 )
 
+// historyCmd dispatches history subcommands: summary, watch, clear, clean,
+// export, remove. With no subcommand (or a number), shows recent log entries.
 func historyCmd(args []string) {
 	if len(args) > 0 {
 		switch args[0] {
@@ -75,6 +77,8 @@ func historyCmd(args []string) {
 	}
 }
 
+// historySummary renders an aggregated summary table of notification counts
+// grouped by profile and action, over the last N days (default 7) or all time.
 func historySummary(args []string) {
 	days := 7
 	if len(args) > 0 {
@@ -495,7 +499,11 @@ func historyRemove(args []string) {
 	}
 }
 
+// historyWatch live-tails today's notification events in a full-screen
+// terminal display, refreshing every 2 seconds. Press x or Esc to exit.
 func historyWatch() {
+	// Enter raw terminal mode so we can detect single keystrokes (x, Esc)
+	// without waiting for Enter. Restored on exit via defer.
 	fd := int(os.Stdin.Fd())
 	oldState, err := term.MakeRaw(fd)
 	if err != nil {
@@ -522,7 +530,7 @@ func historyWatch() {
 	for {
 		elapsed := time.Since(started).Truncate(time.Second)
 		var out strings.Builder
-		out.WriteString("\033[2J\033[H")
+		out.WriteString("\033[2J\033[H") // \033[2J = clear screen, \033[H = cursor to home (top-left)
 		fmt.Fprintf(&out, "notify history watch  —  started %s (%s)\n%s\n\n",
 			started.Format("15:04:05"), dim(elapsed.String()),
 			dim("press x or Esc to exit"))
@@ -546,15 +554,16 @@ func historyWatch() {
 			}
 		}
 
-		// In raw mode \n doesn't include \r, so convert.
+		// In raw terminal mode, \n only moves down (no carriage return),
+		// so we must convert to \r\n for correct cursor positioning.
 		os.Stdout.WriteString(strings.ReplaceAll(out.String(), "\n", "\r\n"))
 
 		timer := time.NewTimer(watchInterval)
 		select {
 		case key := <-keys:
 			timer.Stop()
-			if key == 'x' || key == 'X' || key == 3 || key == 27 { // x, X, Ctrl+C, or Esc
-				os.Stdout.WriteString("\033[2J\033[H")
+			if key == 'x' || key == 'X' || key == 3 || key == 27 { // x, X, Ctrl+C (0x03), or Esc (0x1B)
+				os.Stdout.WriteString("\033[2J\033[H") // clear screen before returning to normal mode
 				return
 			}
 		case <-timer.C:

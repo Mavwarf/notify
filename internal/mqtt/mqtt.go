@@ -1,3 +1,4 @@
+// Package mqtt publishes notification messages to an MQTT broker.
 package mqtt
 
 import (
@@ -31,8 +32,11 @@ func Publish(broker, clientID, topic, message string, qos byte, retain bool, use
 	if tok.Error() != nil {
 		return fmt.Errorf("mqtt: connect: %w", tok.Error())
 	}
+	// 250ms quiesce timeout allows in-flight messages to complete before disconnecting.
 	defer client.Disconnect(250)
 
+	// WaitTimeout returns false if the deadline elapses; Error() blocks until
+	// completion and returns any error. Check timeout first, then error.
 	pub := client.Publish(topic, qos, retain, message)
 	if !pub.WaitTimeout(5 * time.Second) {
 		return fmt.Errorf("mqtt: publish timeout")

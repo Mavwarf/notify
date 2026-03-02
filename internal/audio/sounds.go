@@ -19,6 +19,7 @@ type SoundDefinition struct {
 	Segments    []ToneSegment
 }
 
+// SampleRate is the playback rate in Hz. Must match the oto context sample rate.
 const SampleRate = 44100
 
 // Sounds is the registry of all available sound effects.
@@ -97,7 +98,8 @@ func GeneratePCM(def SoundDefinition) []byte {
 
 	for _, seg := range def.Segments {
 		numSamples := int(float64(SampleRate) * seg.Duration.Seconds())
-		fadeSamples := SampleRate * 5 / 1000 // 5ms fade in/out
+		// 5ms fade in/out to prevent audible clicks/pops at segment boundaries.
+		fadeSamples := SampleRate * 5 / 1000
 
 		for i := 0; i < numSamples; i++ {
 			t := float64(i) / float64(SampleRate)
@@ -115,10 +117,11 @@ func GeneratePCM(def SoundDefinition) []byte {
 				val = math.Sin(2*math.Pi*seg.Frequency*t) * seg.Volume * envelope
 			}
 
-			sample := int16(val * 32767)
+			sample := int16(val * 32767) // 32767 = max positive value for signed 16-bit PCM
 			lo := byte(sample)
 			hi := byte(sample >> 8)
-			buf = append(buf, lo, hi, lo, hi) // L + R
+			// Write sample twice: once for left channel, once for right (stereo output).
+			buf = append(buf, lo, hi, lo, hi)
 		}
 	}
 

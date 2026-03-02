@@ -10,7 +10,7 @@ import (
 // Draw creates a size×size RGBA image with an orange circle and white "N".
 func Draw(size int) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, size, size))
-	orange := color.RGBA{R: 234, G: 138, B: 0, A: 255} // #ea8a00
+	orange := color.RGBA{R: 234, G: 138, B: 0, A: 255} // #ea8a00 — notify brand color
 	white := color.RGBA{R: 255, G: 255, B: 255, A: 255}
 
 	cx, cy := float64(size)/2, float64(size)/2

@@ -36,6 +36,8 @@ func RegisterProtocol(exePath string) error {
 	}
 	defer cmdKey.Close()
 
+	// %%1 is the registry's escape for %1 — Windows substitutes the activated
+	// URI (e.g. "notify://switch?desktop=2") for %1 at launch time.
 	cmd := fmt.Sprintf(`"%s" --protocol "%%1"`, exePath)
 	if err := cmdKey.SetStringValue("", cmd); err != nil {
 		return fmt.Errorf("set command: %w", err)

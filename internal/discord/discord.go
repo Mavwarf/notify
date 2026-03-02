@@ -1,3 +1,4 @@
+// Package discord sends notifications to Discord channels via webhooks.
 package discord
 
 import (
@@ -32,6 +33,8 @@ func SendVoice(webhookURL, wavPath, caption string) error {
 		return fmt.Errorf("discord: marshal payload: %w", err)
 	}
 
+	// Discord requires the JSON payload in a multipart field named "payload_json"
+	// (not a regular JSON body) when files are attached.
 	resp, err := httputil.PostMultipart(webhookURL, httputil.FileUpload{
 		FieldName: "file",
 		FilePath:  wavPath,

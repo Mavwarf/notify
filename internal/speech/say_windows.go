@@ -1,5 +1,6 @@
 //go:build windows
 
+// Package speech synthesizes text to speech using platform-native TTS engines.
 package speech
 
 import (
@@ -9,7 +10,8 @@ import (
 	"github.com/Mavwarf/notify/internal/shell"
 )
 
-// sayScript returns the PowerShell script for speaking text aloud.
+// sayScript returns a PowerShell script that uses the .NET System.Speech.Synthesis
+// API to speak text aloud through the default audio device.
 func sayScript(text string, volume int) string {
 	return fmt.Sprintf(`Add-Type -AssemblyName System.Speech; `+
 		`$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; `+
@@ -17,6 +19,7 @@ func sayScript(text string, volume int) string {
 		`$s.Speak('%s')`, volume, shell.EscapePowerShell(text))
 }
 
+// Say synthesizes text to speech using Windows System.Speech and plays it aloud.
 func Say(text string, volume int) error {
 	cmd := exec.Command("powershell", "-NoProfile", "-Command", sayScript(text, volume))
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -32,7 +35,7 @@ func sayToFileScript(text string, volume int, path string) string {
 		`$s.Volume = %d; `+
 		`$s.SetOutputToWaveFile('%s'); `+
 		`$s.Speak('%s'); `+
-		`$s.Dispose()`,
+		`$s.Dispose()`, // Dispose flushes buffered WAV data to disk; without it the file may be truncated
 		volume, shell.EscapePowerShell(path), shell.EscapePowerShell(text))
 }
 

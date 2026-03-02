@@ -1,3 +1,4 @@
+// Package slack sends notifications to Slack channels via incoming webhooks.
 package slack
 
 import (

@@ -21,6 +21,7 @@ func LoadWAV(path string) ([]byte, error) {
 	if len(data) > maxWAVSize {
 		return nil, fmt.Errorf("wav: file too large (%d bytes, max %d)", len(data), maxWAVSize)
 	}
+	// 44 bytes is the minimum standard WAV/RIFF header (12-byte RIFF + 24-byte fmt + 8-byte data header).
 	if len(data) < 44 {
 		return nil, fmt.Errorf("wav: file too short")
 	}
@@ -123,7 +124,8 @@ func findChunk(data []byte, id string) (int, int, error) {
 			dataStart := off + 8
 			return dataStart, chunkSize, nil
 		}
-		// Advance to next chunk (chunks are word-aligned)
+		// Advance to next chunk. RIFF chunks are padded to even (word-aligned)
+		// byte boundaries, so odd-sized chunks get one byte of padding.
 		off += 8 + chunkSize
 		if off%2 != 0 {
 			off++
@@ -143,12 +145,14 @@ func decodeSample(data []byte, off int, bitsPerSample uint16) float64 {
 		s := int16(data[off]) | int16(data[off+1])<<8
 		return float64(s) / 32768.0
 	case 24:
-		// 24-bit WAV is signed little-endian
+		// 24-bit WAV is signed little-endian. Assemble the unsigned value,
+		// then sign-extend: if bit 23 is set the value is negative, so
+		// subtract 2^24 to convert from unsigned to signed range.
 		val := int(data[off]) | int(data[off+1])<<8 | int(data[off+2])<<16
 		if val >= 1<<23 {
 			val -= 1 << 24
 		}
-		return float64(val) / 8388608.0
+		return float64(val) / 8388608.0 // 8388608 = 2^23, normalizes to [-1, 1]
 	}
 	return 0
 }

@@ -1,3 +1,4 @@
+// Package config handles loading, validating, and merging notification pipeline configurations.
 package config
 
 import (
@@ -90,6 +91,9 @@ type Config struct {
 func (c *Config) UnmarshalJSON(data []byte) error {
 	c.Options.AFKThresholdSeconds = DefaultAFKThreshold
 	c.Options.DefaultVolume = DefaultVolume
+	// type Alias Config creates a new type that has the same fields as Config
+	// but does NOT inherit Config's UnmarshalJSON method. Without this trick,
+	// json.Unmarshal would call this method again, causing infinite recursion.
 	type Alias Config
 	return json.Unmarshal(data, (*Alias)(c))
 }
@@ -642,6 +646,9 @@ func MatchProfile(cfg Config, dir string) string {
 	return "default"
 }
 
+// readConfig reads a JSON config file from disk, parses it into a Config,
+// resolves profile inheritance, expands environment variables in credentials,
+// and makes relative sound paths absolute against the config file's directory.
 func readConfig(path string) (Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -718,6 +725,8 @@ func resolveInheritance(cfg *Config) error {
 			mergedActions[k] = v
 		}
 		profile.Actions = mergedActions
+		// Profile is a value type (not a pointer), so the modified copy must be
+		// assigned back to the map. Go maps hold values, not references to them.
 		cfg.Profiles[name] = profile
 
 		resolved[name] = true
@@ -776,6 +785,8 @@ func (c *Credentials) fields() []*string {
 
 // MergeCredentials returns global credentials with any non-empty profile
 // fields overriding. A nil profile returns global unchanged.
+// The profile parameter is a pointer so callers can pass nil to indicate
+// "no profile-level overrides" without needing a zero-value Credentials.
 func MergeCredentials(global Credentials, profile *Credentials) Credentials {
 	if profile == nil {
 		return global

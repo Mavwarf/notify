@@ -18,8 +18,11 @@ import (
 
 var version = "dev"
 
+// main launches the Wails desktop app that wraps the notification dashboard
+// in a native WebView2 window with a system tray icon.
 func main() {
 	configPath := ""
+	// Port 8811 avoids collision with the CLI dashboard's default port 8080.
 	const defaultPort = 8811
 	port := defaultPort
 
@@ -44,7 +47,10 @@ func main() {
 		}
 	}
 
-	// If an instance is already running, ask it to show its window and exit.
+	// Single-instance detection: POST to the running instance's /api/show
+	// endpoint. If it responds, that instance brings its window to the
+	// foreground and this process exits. The HTTP client's default timeout
+	// (~30s) is acceptable here because a running server responds instantly.
 	showURL := fmt.Sprintf("http://127.0.0.1:%d/api/show", port)
 	resp, err := http.Post(showURL, "", nil)
 	if err == nil {
@@ -78,7 +84,9 @@ func main() {
 		}
 	}()
 
-	// Wait for the dashboard server to become ready.
+	// Wait up to 3 seconds for the dashboard server to accept connections.
+	// This is generous — startup is normally <100ms, but slow disks or
+	// SQLite migration on first run can add delay.
 	if err := waitForServer(port, 3*time.Second); err != nil {
 		fmt.Fprintf(os.Stderr, "notify-app: %v\n", err)
 		os.Exit(1)
@@ -86,9 +94,10 @@ func main() {
 
 	go runTray(app)
 
-	// A minimal handler bootstraps the WebView with an empty page.
-	// OnStartup then navigates to the real dashboard URL so the browser
-	// connects directly — SSE streaming works without a proxy layer.
+	// Loader serves a minimal HTML page to bootstrap the WebView. The Wails
+	// asset server can't relay SSE flushes, so OnStartup immediately redirects
+	// the WebView to the real dashboard HTTP server via JavaScript, giving the
+	// browser a direct connection where SSE streaming works properly.
 	loader := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.Write([]byte(`<!DOCTYPE html><html><body style="background:#1a1b26"></body></html>`))

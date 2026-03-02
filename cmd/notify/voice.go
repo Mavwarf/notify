@@ -17,6 +17,7 @@ import (
 
 const defaultMinUses = 3
 
+// voiceCmd dispatches voice subcommands: generate, test, play, list, clear, stats.
 func voiceCmd(args []string, configPath string) {
 	if len(args) > 0 {
 		switch args[0] {
@@ -52,6 +53,8 @@ Commands:
 	os.Exit(1)
 }
 
+// voiceGenerate scans the event log for frequently-used say/voice texts and
+// pre-generates AI voice cache entries via the OpenAI TTS API.
 func voiceGenerate(args []string, configPath string) {
 	minUses := -1 // -1 = not set by flag, use config or default
 
@@ -144,6 +147,9 @@ func voiceGenerate(args []string, configPath string) {
 			skippedBelowThreshold++
 			continue
 		}
+		// Skip texts containing runtime template variables like {duration} or
+		// {output} — these expand to different values each invocation, so a
+		// single cached WAV would be wrong. They fall back to system TTS.
 		if tmpl.HasDynamic(text) {
 			skippedDynamic++
 			continue
@@ -183,7 +189,8 @@ func voiceGenerate(args []string, configPath string) {
 	var generated, failed int
 	for i, item := range toGenerate {
 		if i > 0 {
-			// Pace requests to stay within OpenAI rate limits (free tier: 3 RPM).
+			// 21-second delay between API calls to stay under OpenAI's free-tier
+			// rate limit of 3 requests per minute (60s / 3 = 20s + 1s margin).
 			fmt.Printf("  (waiting 21s to avoid rate limit...)\n")
 			time.Sleep(21 * time.Second)
 		}
@@ -219,6 +226,7 @@ func voiceGenerate(args []string, configPath string) {
 	fmt.Println()
 }
 
+// voiceList displays all cached voice entries in a table sorted by creation time.
 func voiceList() {
 	cache, err := voice.OpenCache()
 	if err != nil {
@@ -264,6 +272,8 @@ func voiceList() {
 	}
 }
 
+// voiceTest generates a one-off AI voice sample and plays it immediately.
+// Supports --voice, --speed, and --model overrides.
 func voiceTest(args []string, configPath string) {
 	// Defaults from config, overridable by flags.
 	cfg, err := loadAndValidate(configPath)
@@ -355,6 +365,7 @@ func voiceTest(args []string, configPath string) {
 	}
 }
 
+// voiceClear deletes all cached AI voice WAV files and resets the index.
 func voiceClear() {
 	cache, err := voice.OpenCache()
 	if err != nil {
@@ -373,6 +384,8 @@ func voiceClear() {
 	}
 }
 
+// voicePlay plays cached voice WAV files. With no args, plays all entries
+// in alphabetical order; with a text argument, filters to matching entries.
 func voicePlay(args []string) {
 	cache, err := voice.OpenCache()
 	if err != nil {
@@ -442,6 +455,8 @@ func formatSize(bytes int64) string {
 	return fmt.Sprintf("%.1f MB", mb)
 }
 
+// voiceStats shows voice step text usage frequency from the event log,
+// ranked by count. Accepts an optional day range or "all".
 func voiceStats(args []string) {
 	days := 0 // default: all time
 	if len(args) > 0 {

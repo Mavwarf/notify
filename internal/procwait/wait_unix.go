@@ -14,6 +14,8 @@ import (
 // error immediately if the process doesn't exist at the start.
 func Wait(pid int) error {
 	// Check that the process exists before entering the poll loop.
+	// Note: Kill(pid, 0) returns EPERM if the process exists but belongs to
+	// another user — we can't distinguish "not found" from "not permitted" here.
 	if err := syscall.Kill(pid, 0); err != nil {
 		return fmt.Errorf("process %d not found: %w", pid, err)
 	}

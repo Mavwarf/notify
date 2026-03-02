@@ -16,39 +16,53 @@ type App struct {
 	ready chan struct{} // closed when Wails startup completes
 }
 
+// startup is called by Wails once the WebView window is ready. It stores the
+// context for later window operations and signals readiness to any goroutine
+// blocked on the ready channel (e.g. tray callbacks calling ShowWindow).
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-	// Navigate the WebView directly to the dashboard HTTP server.
-	// This bypasses the Wails asset server so SSE streaming works natively.
+	// Wails v2 has no Navigate API, so we use WindowExecJS to set
+	// window.location, redirecting the WebView from the loader page to
+	// the live dashboard HTTP server.
 	url := fmt.Sprintf("http://127.0.0.1:%d", a.port)
 	wailsRuntime.WindowExecJS(ctx, fmt.Sprintf("window.location.href = '%s';", url))
 	close(a.ready)
 }
 
+// shutdown is called by Wails when the window closes. Intentionally a no-op;
+// actual cleanup happens via systray.Quit or os.Exit in beforeClose/QuitApp.
 func (a *App) shutdown(ctx context.Context) {}
 
 // beforeClose intercepts the window close event. Shift+close exits fully;
-// normal close hides to tray.
+// normal close hides to tray. The return value follows the Wails convention:
+// returning true prevents the default close (keeping the app alive in tray),
+// returning false allows the window to close normally.
 func (a *App) beforeClose(ctx context.Context) bool {
 	if isShiftHeld() {
 		systray.Quit()
 		os.Exit(0)
-		return false
+		return false // allow close (unreachable after os.Exit, but semantically correct)
 	}
 	wailsRuntime.WindowHide(a.ctx)
-	return true // prevent close → hide to tray
+	return true // prevent close — hide to tray instead
 }
 
+// ShowWindow brings the dashboard window to the foreground. It blocks on the
+// ready channel to prevent a nil-context panic if called before Wails startup
+// completes (e.g. from a tray callback or /api/show during early init).
 func (a *App) ShowWindow() {
-	<-a.ready // wait for Wails to be initialized
+	<-a.ready
 	wailsRuntime.WindowShow(a.ctx)
 }
 
+// MinimizeWindow minimizes the dashboard window to the taskbar.
 func (a *App) MinimizeWindow() {
 	<-a.ready
 	wailsRuntime.WindowMinimise(a.ctx)
 }
 
+// QuitApp fully exits the application by tearing down the system tray and
+// terminating the process. Called from the dashboard's Quit button.
 func (a *App) QuitApp() {
 	systray.Quit()
 	os.Exit(0)

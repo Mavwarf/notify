@@ -1,3 +1,4 @@
+// Package voice manages an AI-generated speech cache using OpenAI's TTS API.
 package voice
 
 import (

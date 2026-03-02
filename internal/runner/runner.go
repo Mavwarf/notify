@@ -1,3 +1,4 @@
+// Package runner executes notification pipeline steps in sequence.
 package runner
 
 import (
@@ -176,16 +177,17 @@ func matchHours(spec string, now time.Time) bool {
 }
 
 // Execute runs the given steps (already filtered by the caller).
-// Steps that don't use the audio pipeline (toast, etc.) are fired in
-// parallel at the start. Audio-pipeline steps (sound, say) run
-// sequentially in order.
+// Remote steps (discord, slack, telegram, webhook, mqtt, toast, plugin) are
+// fired in parallel via goroutines so network latency doesn't serialize.
+// Audio steps (sound, say) run sequentially to avoid overlapping playback
+// on the local speaker. Both groups execute concurrently with each other.
 func Execute(steps []config.Step, defaultVolume int, creds config.Credentials, vars tmpl.Vars, desktop *int) error {
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var parallelErrs []error
 
-	// Launch non-sequential steps in parallel immediately.
+	// Launch non-sequential (remote/network) steps in parallel immediately.
 	for i, step := range steps {
 		if sequential(step.Type) {
 			continue
@@ -229,6 +231,10 @@ func Execute(steps []config.Step, defaultVolume int, creds config.Credentials, v
 // replaced in tests to avoid real audio/network calls.
 var stepExec = execStep
 
+// execStep dispatches a single step to the appropriate notification backend
+// based on its type (sound, say, toast, discord, slack, telegram, webhook, etc.).
+// Template variables are expanded just before delivery. Remote steps use
+// retryOnce to tolerate transient network failures.
 func execStep(step config.Step, defaultVolume int, creds config.Credentials, vars tmpl.Vars, desktop *int) error {
 	vol := defaultVolume
 	if step.Volume != nil {
@@ -240,6 +246,8 @@ func execStep(step config.Step, defaultVolume int, creds config.Credentials, var
 		return audio.Play(step.Sound, float64(vol)/100.0)
 	case "say":
 		text := tmpl.Expand(step.Text, vars)
+		// Fail-open voice cache: if the cache can't be opened or has no entry
+		// for this text, fall through to system TTS rather than returning an error.
 		if cache, err := voice.OpenCache(); err == nil {
 			if wavPath, ok := cache.Lookup(text); ok {
 				return audio.Play(wavPath, float64(vol)/100.0)
@@ -279,6 +287,9 @@ func execStep(step config.Step, defaultVolume int, creds config.Credentials, var
 		return retryOnce(func() error { return telegram.SendAudio(creds.TelegramToken, creds.TelegramChatID, wavPath, text) })
 	case "telegram_voice":
 		text := tmpl.Expand(step.Text, vars)
+		// Two temp files are created: WAV (from TTS) and OGG (converted for Telegram).
+		// Each needs its own deferred cleanup. wavCleanup may be a no-op if using
+		// a cached AI voice file; the OGG is always a fresh temp file.
 		wavPath, wavCleanup, err := ttsToTempFile("notify-tgvoice-*.wav", text)
 		if err != nil {
 			return fmt.Errorf("telegram_voice: %w", err)
@@ -312,6 +323,8 @@ func execStep(step config.Step, defaultVolume int, creds config.Credentials, var
 		if step.QoS != nil {
 			qos = byte(*step.QoS)
 		}
+		// Client ID includes PID to ensure unique IDs when multiple notify
+		// instances publish simultaneously (MQTT brokers reject duplicate IDs).
 		return retryOnce(func() error {
 			return mqtt.Publish(step.Broker, fmt.Sprintf("notify-%d", os.Getpid()), step.Topic, msg, qos, step.Retain, creds.MQTTUsername, creds.MQTTPassword)
 		})
