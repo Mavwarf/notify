@@ -857,8 +857,8 @@ func handleProtocolURI(uri string) {
 		fatal("missing desktop parameter in URI")
 	}
 	d, err := strconv.Atoi(dStr)
-	if err != nil || d < 1 || d > 4 {
-		fatal("desktop must be 1-4, got %q", dStr)
+	if err != nil || d < 1 {
+		fatal("desktop must be a positive integer, got %q", dStr)
 	}
 	// Detach from the console window before switching. Without this,
 	// Windows refocuses the console when this process exits, snapping

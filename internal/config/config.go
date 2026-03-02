@@ -19,6 +19,18 @@ const DefaultAFKThreshold = 300
 // DefaultVolume is the default playback volume (0-100).
 const DefaultVolume = 100
 
+// DefaultMaxDesktops is the default upper bound for the virtual desktop index.
+const DefaultMaxDesktops = 4
+
+// MaxDesktops returns the effective desktop limit from config, falling back
+// to DefaultMaxDesktops.
+func (o *Options) MaxDesktopsLimit() int {
+	if o.MaxDesktops > 0 {
+		return o.MaxDesktops
+	}
+	return DefaultMaxDesktops
+}
+
 // Voice generation defaults.
 const (
 	DefaultVoiceName  = "nova"
@@ -59,7 +71,8 @@ type Options struct {
 	HeartbeatSeconds    int               `json:"heartbeat_seconds,omitempty"`
 	ShellHookThreshold  int               `json:"shell_hook_threshold,omitempty"`
 	Storage             string            `json:"storage,omitempty"`        // "sqlite" (default) or "file"
-	RetentionDays       int               `json:"retention_days,omitempty"` // 0 = keep forever, >0 = auto-prune
+	RetentionDays       int               `json:"retention_days,omitempty"`  // 0 = keep forever, >0 = auto-prune
+	MaxDesktops         int               `json:"max_desktops,omitempty"`   // 0 = default (4)
 	Voice               VoiceConfig       `json:"openai_voice,omitempty"`
 	Credentials         Credentials       `json:"credentials,omitempty"`
 }
@@ -285,8 +298,9 @@ func Validate(cfg Config) error {
 
 	// Per-profile checks.
 	for pName, profile := range cfg.Profiles {
-		if profile.Desktop != nil && (*profile.Desktop < 1 || *profile.Desktop > 4) {
-			errs = append(errs, fmt.Sprintf("profiles.%s: desktop must be 1-4, got %d", pName, *profile.Desktop))
+		maxD := cfg.Options.MaxDesktopsLimit()
+		if profile.Desktop != nil && (*profile.Desktop < 1 || *profile.Desktop > maxD) {
+			errs = append(errs, fmt.Sprintf("profiles.%s: desktop must be 1-%d, got %d", pName, maxD, *profile.Desktop))
 		}
 	}
 

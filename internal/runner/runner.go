@@ -311,7 +311,7 @@ func execStep(step config.Step, defaultVolume int, creds config.Credentials, var
 			qos = byte(*step.QoS)
 		}
 		return retryOnce(func() error {
-			return mqtt.Publish(step.Broker, "notify", step.Topic, msg, qos, step.Retain, creds.MQTTUsername, creds.MQTTPassword)
+			return mqtt.Publish(step.Broker, fmt.Sprintf("notify-%d", os.Getpid()), step.Topic, msg, qos, step.Retain, creds.MQTTUsername, creds.MQTTPassword)
 		})
 	default:
 		return fmt.Errorf("unknown step type: %q", step.Type)

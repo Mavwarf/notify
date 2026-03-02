@@ -155,9 +155,8 @@ Additional step types beyond `discord`, `slack`, and `telegram`:
   `SetRetention` call before `OpenDefault` in `cmd/notify-app/main.go`.
 - ~~**`fmt.Sscanf` silently swallows port errors in notify-app**~~ —
   fixed: uses `strconv.Atoi` with error check now.
-- **MQTT client ID always `"notify"`** — two concurrent MQTT steps to the
-  same broker cause client eviction. Should use a unique ID per connection
-  (e.g. PID or random suffix). `internal/runner/runner.go:314`
+- ~~**MQTT client ID always `"notify"`**~~ — fixed: uses `notify-{pid}`
+  for unique client IDs per process.
 - **`historyCmd` reads raw file format, not Store API** — the default
   `notify history N` path uses `ReadContent()` + string split instead of
   `eventlog.Entries()`. Works via a SQLiteStore shim today but will break
@@ -171,9 +170,8 @@ Additional step types beyond `discord`, `slack`, and `telegram`:
   three-part versions and `go mod tidy` sets it canonically.
 - ~~**`gapThreshold` duplicated**~~ — fixed: exported as
   `eventlog.GapThreshold`, dashboard references it.
-- **Desktop limit `4` hardcoded in 3 places** — `main.go:860`,
-  `config.go:289`, and toast string. Windows supports up to 20 virtual
-  desktops. Should be a single named constant.
+- ~~**Desktop limit `4` hardcoded in 3 places**~~ — fixed: extracted
+  `DefaultMaxDesktops` constant + configurable `max_desktops` option.
 - **Various magic numbers** — SSE ticker `2s`, retry delay `2s`, protocol
   sleep `200ms`, default ports `8080`/`8811`, date sentinels `2000`/`2099`.
   Should be named constants.
