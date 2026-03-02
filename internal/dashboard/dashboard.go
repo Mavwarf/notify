@@ -176,18 +176,18 @@ func Serve(cfg config.Config, configPath string, port int, open bool, showFn fun
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/", handleIndex)
-	mux.HandleFunc("/api/config", handleConfig(cfg))
+	mux.HandleFunc("/api/config", handleConfig(configPath, cfg))
 	mux.HandleFunc("/api/history", handleHistory)
 	mux.HandleFunc("/api/summary", handleSummary)
 	mux.HandleFunc("/api/events", handleEvents)
-	mux.HandleFunc("/api/test", handleTest(cfg))
-	mux.HandleFunc("/api/credentials", handleCredentials(cfg))
+	mux.HandleFunc("/api/test", handleTest(configPath, cfg))
+	mux.HandleFunc("/api/credentials", handleCredentials(configPath, cfg))
 	mux.HandleFunc("/api/watch", handleWatch)
 	mux.HandleFunc("/api/stats", handleStats)
 	mux.HandleFunc("/api/voice", handleVoice)
 	mux.HandleFunc("/api/voice/play/", handleVoicePlay)
 	mux.HandleFunc("/api/silent", handleSilent)
-	mux.HandleFunc("/api/trigger", handleTrigger(cfg))
+	mux.HandleFunc("/api/trigger", handleTrigger(configPath, cfg))
 	if showFn != nil {
 		mux.HandleFunc("/api/show", func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != http.MethodPost {
@@ -276,8 +276,21 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-func handleConfig(cfg config.Config) http.HandlerFunc {
+// loadCfg reloads the config from disk; on any error it returns fallback.
+func loadCfg(configPath string, fallback config.Config) config.Config {
+	if configPath == "" {
+		return fallback
+	}
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return fallback
+	}
+	return cfg
+}
+
+func handleConfig(configPath string, fallback config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		cfg := loadCfg(configPath, fallback)
 		redacted := redactConfig(cfg)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(redacted)
@@ -417,8 +430,9 @@ func handleEvents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handleTest(cfg config.Config) http.HandlerFunc {
+func handleTest(configPath string, fallback config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		cfg := loadCfg(configPath, fallback)
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
@@ -1066,8 +1080,9 @@ type triggerResponse struct {
 	Error     string `json:"error,omitempty"`
 }
 
-func handleTrigger(cfg config.Config) http.HandlerFunc {
+func handleTrigger(configPath string, fallback config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		cfg := loadCfg(configPath, fallback)
 		w.Header().Set("Content-Type", "application/json")
 
 		var req triggerRequest
@@ -1251,8 +1266,9 @@ var credentialRequirements = map[string][]string{
 	"telegram_voice": {"telegram_token", "telegram_chat_id"},
 }
 
-func handleCredentials(cfg config.Config) http.HandlerFunc {
+func handleCredentials(configPath string, fallback config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		cfg := loadCfg(configPath, fallback)
 		names := make([]string, 0, len(cfg.Profiles))
 		for name := range cfg.Profiles {
 			names = append(names, name)

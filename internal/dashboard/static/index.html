@@ -1080,6 +1080,10 @@ tr:hover td { background: var(--bg3); }
       document.getElementById('panel-' + name).classList.add('active');
       history.replaceState(null, '', '#' + name);
     }
+    // Reload config from disk when switching to tabs that depend on it.
+    if (name === 'config' || name === 'test') {
+      loadConfig();
+    }
   }
 
   tabs.forEach(tab => {

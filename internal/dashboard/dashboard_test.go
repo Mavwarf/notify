@@ -103,7 +103,7 @@ func TestHandleIndex404(t *testing.T) {
 
 func TestHandleConfigRedacted(t *testing.T) {
 	cfg := testConfig()
-	handler := handleConfig(cfg)
+	handler := handleConfig("", cfg)
 
 	req := httptest.NewRequest("GET", "/api/config", nil)
 	w := httptest.NewRecorder()
@@ -186,7 +186,7 @@ func TestHandleHistory(t *testing.T) {
 
 func TestHandleTestEndpoint(t *testing.T) {
 	cfg := testConfig()
-	handler := handleTest(cfg)
+	handler := handleTest("", cfg)
 
 	body := `{"profile":"notify","action":"ready"}`
 	req := httptest.NewRequest("POST", "/api/test", strings.NewReader(body))
@@ -227,7 +227,7 @@ func TestHandleTestEndpoint(t *testing.T) {
 
 func TestHandleTestAllActions(t *testing.T) {
 	cfg := testConfig()
-	handler := handleTest(cfg)
+	handler := handleTest("", cfg)
 
 	// Empty action = show all actions for profile.
 	body := `{"profile":"notify","action":""}`
@@ -254,7 +254,7 @@ func TestHandleTestAllActions(t *testing.T) {
 
 func TestHandleTestFallback(t *testing.T) {
 	cfg := testConfig()
-	handler := handleTest(cfg)
+	handler := handleTest("", cfg)
 
 	// "nonexistent" profile with action "ready" — should fall back to default
 	// profile. Since testConfig has no "default" profile, Resolve returns
@@ -277,7 +277,7 @@ func TestHandleTestFallback(t *testing.T) {
 			},
 		},
 	}
-	handler2 := handleTest(cfg)
+	handler2 := handleTest("", cfg)
 
 	body2 := `{"profile":"unknown","action":"ready"}`
 	req2 := httptest.NewRequest("POST", "/api/test", strings.NewReader(body2))
@@ -309,7 +309,7 @@ func TestHandleTestFallback(t *testing.T) {
 
 func TestHandleTestMethodNotAllowed(t *testing.T) {
 	cfg := testConfig()
-	handler := handleTest(cfg)
+	handler := handleTest("", cfg)
 
 	req := httptest.NewRequest("GET", "/api/test", nil)
 	w := httptest.NewRecorder()
@@ -621,7 +621,7 @@ func TestHandleWatchEmpty(t *testing.T) {
 
 func TestHandleCredentials(t *testing.T) {
 	cfg := testConfig()
-	handler := handleCredentials(cfg)
+	handler := handleCredentials("", cfg)
 
 	req := httptest.NewRequest("GET", "/api/credentials", nil)
 	w := httptest.NewRecorder()
@@ -731,7 +731,7 @@ func TestHandleCredentialsMissing(t *testing.T) {
 			},
 		},
 	}
-	handler := handleCredentials(cfg)
+	handler := handleCredentials("", cfg)
 
 	req := httptest.NewRequest("GET", "/api/credentials", nil)
 	w := httptest.NewRecorder()
