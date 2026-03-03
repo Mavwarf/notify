@@ -410,6 +410,7 @@ func startupCmd(configPath string, port int, open bool) {
 
 // dashboardCmd starts the local web dashboard on the given port.
 func dashboardCmd(configPath string, port int, open bool) {
+	dashboard.Version = version
 	cfg, err := loadAndValidate(configPath)
 	if err != nil {
 		fatal("%v", err)

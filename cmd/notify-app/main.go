@@ -78,6 +78,8 @@ func main() {
 	eventlog.OpenDefault(cfg.Options.Storage)
 	defer eventlog.Close()
 
+	dashboard.Version = version
+
 	// Start the existing dashboard HTTP server in the background.
 	go func() {
 		if err := dashboard.Serve(cfg, cfgPath, port, false, app.ShowWindow, app.MinimizeWindow, app.QuitApp, setAlwaysOnTop); err != nil {

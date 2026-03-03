@@ -30,6 +30,9 @@ import (
 //go:embed static/index.html
 var staticFS embed.FS
 
+// Version is the build version string, set by the caller before Serve().
+var Version = "dev"
+
 // JSON response types used by API handlers.
 
 type jsonEntry struct {
@@ -350,8 +353,9 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
+	html := strings.Replace(string(data), "{{version}}", Version, 1)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write(data)
+	w.Write([]byte(html))
 }
 
 // loadCfg reloads the config from disk; on any error it returns fallback.
