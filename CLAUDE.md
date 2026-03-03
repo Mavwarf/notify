@@ -29,7 +29,7 @@ Follow the established pattern:
 2. Add to `validStepTypes` in `internal/config/config.go`
 3. Add required-field validation in `Validate()`
 4. Add dispatch case in `internal/runner/runner.go`
-5. Add step detail case in `internal/eventlog/eventlog.go`
+5. Add `StepSummary` case in `internal/eventlog/eventlog.go`
 6. Update `Step` struct comment listing all types
 
 ## Conventions

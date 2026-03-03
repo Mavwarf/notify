@@ -106,11 +106,16 @@ cmd/
     voice.go             Voice subcommands: generate, test, play, list, clear, stats
     init.go              Interactive config generation (notify init)
     shellhook.go         Shell hook install/uninstall subcommand
+    notify-config.example.json  Example config file
   notify-app/
     main.go              Wails desktop app entry point
     app.go               App lifecycle (startup/shutdown)
     tray.go              System tray icon and menu
-    notify-config.example.json  Example config file
+    geometry.go          Window geometry persistence
+    shift_windows.go     Shift key detection (Win32 GetAsyncKeyState)
+    shift_other.go       Non-Windows stub
+    topmost_windows.go   Always-on-top toggle (Win32)
+    topmost_other.go     Non-Windows stub
 internal/
   audio/
     sounds.go            Generated sound definitions and PCM synthesis
@@ -165,6 +170,8 @@ internal/
     summary.go           Shared aggregation: groups, hourly, time spent, block filtering
   httputil/
     snippet.go           Shared HTTP response body snippet for error messages
+  icon/
+    icon.go              Shared icon drawing (orange circle + white "N")
   tmpl/
     tmpl.go              Template variable expansion ({profile}, {command}, etc.)
   shell/
