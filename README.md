@@ -230,7 +230,7 @@ notify help                            # Show help
 | `--volume`, `-v`   | Override volume, 0-100 (default: config or 100) |
 | `--config`, `-c`   | Path to notify-config.json               |
 | `--match`, `-M`    | Select action by output pattern: `--match <pattern> <action>` (repeatable, `run`/`pipe` mode) |
-| `--log`, `-L`      | Write invocation to notify.log         |
+| `--log`, `-L`      | Write invocation to event log          |
 | `--echo`, `-E`     | Print summary of steps that ran        |
 | `--cooldown`, `-C` | Enable per-action cooldown (rate limiting) |
 | `--heartbeat`, `-H` | Periodic notification during `run` (e.g. `5m`, `2m30s`) |
@@ -1161,7 +1161,7 @@ notify boss ready                 # Sound + speech + toast notification
 notify boss done,attention        # Run "done" then "attention" from boss
 notify -v 50 ready                # Run at 50% volume
 notify -c myconfig.json dev done  # Use a specific config file
-notify --log ready                # Log this invocation to notify.log
+notify --log ready                # Log this invocation to event log
 notify --echo ready               # Print summary: "notify: sound, say, toast"
 notify --cooldown ready           # Enable cooldown for this invocation
 notify --delay 5m ready           # Remind me in 5 minutes

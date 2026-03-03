@@ -170,7 +170,7 @@ Additional step types beyond `discord`, `slack`, and `telegram`:
   `DefaultMaxDesktops` constant + configurable `max_desktops` option.
 - ~~**Various magic numbers**~~ — fixed: named constants for retry delay,
   SSE interval, default ports; comments on date sentinels and protocol sleep.
-- **`dashboard.go` is 1361 lines** — HTTP handlers, aggregation logic,
+- **`dashboard.go` is ~1460 lines** — HTTP handlers, aggregation logic,
   browser launch, and credential redaction all in one file. Aggregation
   functions (~250 lines) could move to a separate file.
 
