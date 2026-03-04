@@ -902,7 +902,7 @@ func computeTimeSpentRange(entries []eventlog.Entry, start, end time.Time, loc *
 	return watchTimeSpent{Profiles: tps, Total: total}
 }
 
-// handleWatch returns the Watch tab payload: summary counts, time breakdown, and
+// handleWatch returns the Summary, Breakdown, and Time Spent tabs payload: summary counts, time breakdown, and
 // estimated time spent, scoped to a date range (?date=YYYY-MM-DD&range=day|week|month|year|total).
 func handleWatch(w http.ResponseWriter, r *http.Request) {
 	entries, _ := eventlog.Entries(0)

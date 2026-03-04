@@ -1257,21 +1257,23 @@ for spotting your most active working hours. Press `x` or `Esc` to exit.
 ### Web dashboard
 
 `notify dashboard` starts a local web UI on `http://127.0.0.1:8080` with
-six tabs (linkable via URL hash, e.g. `/#watch`):
+eight tabs (linkable via URL hash, e.g. `/#summary`):
 
-- **Watch** (default) — mirrors terminal `history watch`: summary table with
-  profile/action counts, percentages, skipped, and "New" deltas since page load,
-  donut charts showing notification share and time distribution per profile,
-  approximate time spent per profile (gap-based estimation with 5-minute
-  threshold), plus a breakdown table with bar chart and activity timeline
-  heatmap — updates in real time via SSE (summary and charts refresh
-  automatically when new events arrive). A compact
-  log stats line at the bottom shows the active storage backend (SQLite or File),
-  total entries, file size, and date range.
-  Range selector buttons (Day/Week/Month/Year/Total) switch between time ranges;
-  the breakdown adapts automatically (hours for day, days for week/month,
-  months for year/total). Arrow buttons navigate by the selected range unit.
-  The "New" column only appears when viewing today in day mode
+- **Summary** (default) — profile/action counts table with percentages, skipped,
+  and "New" deltas since page load, plus a donut chart showing notification share.
+  Updates in real time via SSE. The "New" column only appears when viewing today
+  in day mode
+- **Breakdown** — hourly/daily/monthly breakdown table with bar chart and
+  activity timeline heatmap displayed side by side below. Adapts automatically
+  (hours for day, days for week/month, months for year/total)
+- **Time Spent** — approximate time spent per profile (gap-based estimation with
+  5-minute threshold) with a donut chart showing time distribution per project
+
+All three tabs share a date navigation bar with range selector buttons
+(Day/Week/Month/Year/Total) and arrow navigation. A compact log stats line in
+the footer shows the active storage backend (SQLite or File), total entries,
+file size, and date range.
+
 - **History** — live-updating table of notification events, fed by SSE.
   An activity chart shows stacked daily bars (green = runs, yellow = skipped)
   with hover tooltips; hidden for hour-based ranges.
@@ -1297,7 +1299,7 @@ six tabs (linkable via URL hash, e.g. `/#watch`):
 Profile names are clickable everywhere — click one to open a detail modal
 showing its full step pipeline (dry-run) and credential health status.
 
-Keyboard shortcuts: `1`–`6` switch tabs, left/right arrows navigate Watch
+Keyboard shortcuts: `1`–`8` switch tabs, left/right arrows navigate
 periods, `t` jumps to today, `d`/`w`/`m`/`y`/`a` switch range
 (day/week/month/year/all), `s` toggles screenshot mode (replaces profile names
 with fake ones for privacy-safe screenshots). A theme button in the header

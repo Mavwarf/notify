@@ -2,6 +2,7 @@
 
 ## Features
 
+- Dashboard tab split — Summary, Breakdown, and Time Spent are now separate tabs with dedicated content; date nav lives inside each panel; scrollbar anchored to window edge *(Mar 04)*
 - Window geometry persistence for `notify-app` — saves window position and size on close, restores on next launch *(Mar 02)*
 - Codebase documentation — package-level doc comments, function docs, and inline explanations across 43 Go source files covering non-obvious logic, Win32 APIs, audio math, and design decisions *(Mar 02)*
 - Always on top — pin button in the dashboard header toggles the window to stay above all other windows; state persists across restarts via localStorage *(Mar 02)*
@@ -77,6 +78,25 @@
 - Multi-step notification pipelines: sound, speech, toast *(Feb 19)*
 
 ---
+
+## 2026-03-04
+
+### Dashboard tab split
+
+The previous Summary tab has been split into three dedicated tabs:
+
+- **Summary** — profile/action counts table with donut chart (50% larger)
+- **Breakdown** — hourly/daily/monthly breakdown table with bar chart and
+  activity timeline heatmap side by side below the table
+- **Time Spent** — approximate time per profile with matching donut chart,
+  section titles aligned horizontally
+
+The date navigation bar now lives inside each panel's client area rather than
+floating between the tab bar and content, giving it the correct panel background
+color. The page scrollbar is anchored to the right window edge (fixed header and
+footer stay in place). All panels use uniform border-radius so switching tabs no
+longer causes horizontal jumps. The dashboard now has 8 tabs with keyboard
+shortcuts 1–8.
 
 ## 2026-03-02
 
