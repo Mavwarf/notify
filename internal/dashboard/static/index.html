@@ -223,6 +223,7 @@ header .status .dot {
   transition: all 0.15s;
 }
 
+.tab-gap { margin-left: 12px; }
 .tab:hover { color: var(--fg); background: var(--bg3); }
 .tab.active { color: var(--accent); background: var(--bg3); border-color: var(--accent); }
 
@@ -813,7 +814,12 @@ tr:hover td { background: var(--bg3); }
 
 .theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
 
-.screenshot-badge {
+.header-badges {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.header-badge {
   font-size: 11px;
   color: var(--yellow);
   border: 1px solid var(--yellow);
@@ -821,10 +827,8 @@ tr:hover td { background: var(--bg3); }
   padding: 1px 8px;
   opacity: 0.7;
   display: none;
-  margin-left: auto;
 }
-.screenshot-badge.visible { display: inline-block; }
-.screenshot-badge:not(.visible) ~ .theme-toggle { margin-left: auto; }
+.header-badge.visible { display: inline-block; }
 
 /* Profile detail modal */
 .modal-backdrop {
@@ -920,7 +924,10 @@ tr:hover td { background: var(--bg3); }
   <header>
     <h1>notify dashboard</h1>
     <div class="status"><span class="dot" id="sse-dot"></span><span id="sse-status">connecting...</span></div>
-    <span id="screenshot-badge" class="screenshot-badge">screenshot</span>
+    <div class="header-badges">
+      <span id="screenshot-badge" class="header-badge">screenshot</span>
+      <span id="focus-badge" class="header-badge">expanded</span>
+    </div>
     <button class="theme-toggle" id="theme-toggle" title="Toggle theme"></button>
     <div class="window-controls" id="window-controls" style="display:none">
       <button class="win-btn win-btn-pin" id="pin-btn" onclick="togglePin()" title="Pin on top">&#128204;</button>
@@ -930,7 +937,7 @@ tr:hover td { background: var(--bg3); }
   </header>
   <div style="font-size:12px;color:var(--fg-dim);display:flex;justify-content:space-between">
     <span class="silent-badge" id="silent-badge">Silent until <span id="silent-badge-time"></span></span>
-    <span class="shortcuts-hint">Keys: 1-8 tabs, arrows nav, t today, d/w/m/y/a range, s screenshot</span>
+    <span class="shortcuts-hint">Keys: 1-8 tabs, arrows nav, t today, d/w/m/y/a range, s screenshot, x focus</span>
   </div>
 </div>
 <div class="scroll-area">
@@ -940,11 +947,11 @@ tr:hover td { background: var(--bg3); }
     <button class="tab active" data-panel="summary">Summary</button>
     <button class="tab" data-panel="breakdown">Breakdown</button>
     <button class="tab" data-panel="timespent">Time Spent</button>
-    <button class="tab" data-panel="history">History</button>
+    <button class="tab tab-gap" data-panel="silent">Silent</button>
+    <button class="tab tab-gap" data-panel="history">History</button>
     <button class="tab" data-panel="config">Config</button>
-    <button class="tab" data-panel="test">Test</button>
+    <button class="tab" data-panel="test">Dry Run</button>
     <button class="tab" data-panel="voice">Voice</button>
-    <button class="tab" data-panel="silent">Silent</button>
   </div>
 
   <div class="panel" id="panel-history">
@@ -1166,6 +1173,24 @@ tr:hover td { background: var(--bg3); }
   }
   updateScreenshotBadge();
 
+  // ---- Focus mode ----
+  var focusMode = localStorage.getItem('notify-focus') !== 'off';
+  var focusTabs = ['history', 'config', 'test', 'voice'];
+
+  function updateFocusTabs() {
+    document.getElementById('focus-badge').classList.toggle('visible', !focusMode);
+    tabs.forEach(function(t) {
+      if (focusTabs.indexOf(t.dataset.panel) !== -1) {
+        t.style.display = focusMode ? 'none' : '';
+      }
+    });
+    // If active tab is now hidden, switch to summary
+    var act = document.querySelector('.tab.active');
+    if (focusMode && act && focusTabs.indexOf(act.dataset.panel) !== -1) {
+      switchTab('summary');
+    }
+  }
+
   // ---- Tab switching ----
   const tabs = document.querySelectorAll('.tab');
   const panels = document.querySelectorAll('.panel');
@@ -1203,6 +1228,7 @@ tr:hover td { background: var(--bg3); }
   if (hash && document.getElementById('panel-' + hash)) {
     switchTab(hash);
   }
+  updateFocusTabs();
 
   // ---- Helper ----
   function formatTime(iso) {
@@ -2656,8 +2682,15 @@ tr:hover td { background: var(--bg3); }
     populateTestDropdowns();
   }
 
+  // ---- Focus toggle ----
+  function toggleFocus() {
+    focusMode = !focusMode;
+    localStorage.setItem('notify-focus', focusMode ? 'on' : 'off');
+    updateFocusTabs();
+  }
+
   // ---- Keyboard shortcuts ----
-  const tabNames = ['summary', 'breakdown', 'timespent', 'history', 'config', 'test', 'voice', 'silent'];
+  const tabNames = ['summary', 'breakdown', 'timespent', 'silent', 'history', 'config', 'test', 'voice'];
 
   function activeTab() {
     const active = document.querySelector('.tab.active');
@@ -2685,6 +2718,13 @@ tr:hover td { background: var(--bg3); }
     // S: toggle screenshot mode
     if (e.key === 's' || e.key === 'S') {
       toggleScreenshot();
+      e.preventDefault();
+      return;
+    }
+
+    // X: toggle focus mode
+    if (e.key === 'x' || e.key === 'X') {
+      toggleFocus();
       e.preventDefault();
       return;
     }

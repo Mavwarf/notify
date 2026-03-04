@@ -1282,7 +1282,7 @@ file size, and date range.
   CSV and JSON export buttons download the filtered entries as a file
 - **Config** — credential health panel showing ok/missing status per profile,
   plus read-only JSON view of your config (credentials redacted)
-- **Test** — dry-run interface: pick a profile and action, see which steps
+- **Dry Run** — dry-run interface: pick a profile and action, see which steps
   would run without actually sending anything. The profile dropdown includes
   both config profiles and profiles extracted from the last 48h of log entries.
   Unknown profiles fall back to the `default` profile (same as the CLI).
@@ -1296,13 +1296,18 @@ file size, and date range.
   custom duration input, and disable button. A status badge appears next to
   the tab bar whenever silent mode is active
 
+Tabs are grouped visually: [Summary, Breakdown, Time Spent], [Silent],
+[History, Config, Dry Run, Voice]. **Focus mode** (on by default) hides the
+last four tabs for a cleaner view; press `x` to toggle — an "expanded" badge
+appears in the header when all tabs are shown.
+
 Profile names are clickable everywhere — click one to open a detail modal
 showing its full step pipeline (dry-run) and credential health status.
 
 Keyboard shortcuts: `1`–`8` switch tabs, left/right arrows navigate
 periods, `t` jumps to today, `d`/`w`/`m`/`y`/`a` switch range
 (day/week/month/year/all), `s` toggles screenshot mode (replaces profile names
-with fake ones for privacy-safe screenshots). A theme button in the header
+with fake ones for privacy-safe screenshots), `x` toggles focus mode. A theme button in the header
 cycles through 6 color schemes (Dark, Light, Nord, Dracula, Solarized Dark,
 Gruvbox Dark) and persists your preference via `localStorage`.
 
