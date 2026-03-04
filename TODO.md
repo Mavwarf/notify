@@ -162,6 +162,26 @@ Additional step types beyond `discord`, `slack`, and `telegram`:
 
 ### Maintainability
 
+- **`TitleCase` corrupts multibyte UTF-8** (`internal/tmpl/tmpl.go:79`) —
+  `strings.ToUpper(s[:1])` slices by byte, not rune. Profile names starting
+  with non-ASCII characters (e.g. "München") get corrupted. Fix: use
+  `[]rune` slicing.
+- **Error discarded in SQLite migration** (`internal/eventlog/sqlitestore.go:598`) —
+  `eventID, _ := res.LastInsertId()` silently ignores the error. If it fails,
+  step_details get associated with wrong events. The non-migration path at
+  line 148 correctly checks the error.
+- **Step type comment incomplete** (`internal/config/config.go:215`) —
+  Lists 10 types but code validates 12. Missing: `discord_voice`,
+  `telegram_audio`, `telegram_voice`.
+- **Stale keyboard shortcut comment** (`index.html:2711`) — says "1-6"
+  but code handles 1-8.
+- **Hard-coded modal backdrop color** (`index.html:837`) —
+  `rgba(0,0,0,0.55)` should use a CSS variable for theme consistency.
+- **Version not HTML-escaped** (`internal/dashboard/dashboard.go:356`) —
+  `Version` is injected raw into HTML. Low risk but `html.EscapeString()`
+  would be defensive.
+- **Large `main()` function** (`cmd/notify/main.go:81-268`, 188 lines) —
+  flag parsing (lines 100-189) could be extracted to a `parseFlags()` helper.
 - ~~**`go 1.24.0` in go.mod**~~ — false positive; Go 1.21+ allows
   three-part versions and `go mod tidy` sets it canonically.
 - ~~**`gapThreshold` duplicated**~~ — fixed: exported as
