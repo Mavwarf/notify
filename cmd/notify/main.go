@@ -980,8 +980,8 @@ Commands:
   shell-hook status      Check if shell hook is installed
   play [sound|file.wav]  Preview a built-in sound or WAV file (no args lists built-ins)
   test [profile]         Dry-run: show what would happen without sending
-  dashboard [--port N]   Local web UI with watch (day/week/month/year/total), history,
-           [--open]      config, test, voice, silent tabs. --open for chromeless window
+  dashboard [--port N]   Local web UI with 8 tabs: summary, breakdown, time spent,
+           [--open]      silent, history, config, dry run, voice. --open for chromeless window
                          Includes /api/trigger REST endpoint for HTTP-based notifications
   startup [--port N]     Register notify:// protocol + start dashboard (combines
           [--open]       "protocol register" and "dashboard" into one command)

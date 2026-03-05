@@ -48,7 +48,7 @@ go install github.com/Mavwarf/notify/cmd/notify@latest
 
 - **Written in Go** for easy cross-compilation and single-binary distribution.
 - **Config-driven** — define notification pipelines as JSON. Each action
-  combines sound, speech, toast, Discord, Slack, Telegram, and webhook steps.
+  combines sound, speech, toast, Discord, Slack, Telegram, webhook, plugin, and MQTT steps.
 - **Built-in sounds** — 7 generated tones (success, error, warning, etc.)
   created programmatically as sine-wave patterns. Also supports custom WAV files.
 - **Text-to-speech** — uses OS-native TTS engines
@@ -124,6 +124,7 @@ internal/
     config.go            Config loading, validation, and profile/action resolution
   dashboard/
     dashboard.go         Web dashboard HTTP server, API handlers, SSE
+    watch.go             Watch tab types and computation (range, breakdown, time spent)
     static/index.html    Embedded frontend (HTML + inline CSS + JS)
   cooldown/
     cooldown.go          Per-action rate limiting with file-based state

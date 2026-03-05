@@ -19,7 +19,7 @@ When adding or changing user-facing features, update all of these together:
 
 Follow the established pattern:
 1. Add field to `Options` struct in `internal/config/config.go`
-2. In `cmd/notify/main.go`: add flag var, parse in flag switch, add `shouldX()` helper
+2. In `cmd/notify/main.go`: add field to `parsedFlags`, parse in `parseFlags()` switch, add `shouldX()` helper
 3. Wire into both `runAction` and `runWrapped` (they must stay in sync)
 4. Add to `printUsage()` Options section
 

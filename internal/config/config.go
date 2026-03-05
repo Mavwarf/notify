@@ -214,7 +214,7 @@ type Action struct {
 type Step struct {
 	Type    string            `json:"type"`              // "sound" | "say" | "toast" | "discord" | "discord_voice" | "slack" | "telegram" | "telegram_audio" | "telegram_voice" | "webhook" | "plugin" | "mqtt"
 	Sound   string            `json:"sound,omitempty"`   // type=sound
-	Text    string            `json:"text,omitempty"`    // type=say, discord, discord_voice, slack, telegram, telegram_audio, webhook, plugin, mqtt
+	Text    string            `json:"text,omitempty"`    // type=say, discord, discord_voice, slack, telegram, telegram_audio, telegram_voice, webhook, plugin, mqtt
 	Title   string            `json:"title,omitempty"`   // type=toast
 	Message string            `json:"message,omitempty"` // type=toast
 	URL     string            `json:"url,omitempty"`     // type=webhook
