@@ -613,19 +613,19 @@ func setupTestStore(t *testing.T, content string) func() {
 	return func() { eventlog.Default = orig }
 }
 
-func logContent(t *testing.T) string {
-	t.Helper()
-	fs := eventlog.Default.(*eventlog.FileStore)
-	// Read via the Entries method to verify; but we also need raw file
-	// content for some checks — use the path field indirectly via Clear/Entries.
-	entries, err := fs.Entries(0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var buf strings.Builder
-	for _, e := range entries {
-		fmt.Fprintf(&buf, "%s %s/%s\n", e.Time.Format(time.RFC3339), e.Profile, e.Action)
-	}
+// captureStdout runs fn while capturing os.Stdout. Returns the captured
+// output. Uses defer to restore stdout even if fn panics.
+func captureStdout(fn func()) string {
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { os.Stdout = old }()
+
+	fn()
+
+	w.Close()
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
 	return buf.String()
 }
 
@@ -645,19 +645,7 @@ func TestHistoryExport(t *testing.T) {
 	restore := setupTestStore(t, content)
 	defer restore()
 
-	// Capture stdout.
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	historyExport(nil) // all days
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := buf.String()
+	output := captureStdout(func() { historyExport(nil) })
 
 	// Should be valid JSON array.
 	var entries []struct {
@@ -687,18 +675,7 @@ func TestHistoryExportEmpty(t *testing.T) {
 	restore := setupTestStore(t, "")
 	defer restore()
 
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	historyExport(nil)
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := strings.TrimSpace(buf.String())
+	output := strings.TrimSpace(captureStdout(func() { historyExport(nil) }))
 
 	if output != "[]" {
 		t.Errorf("expected \"[]\", got %q", output)
@@ -720,22 +697,12 @@ func TestHistoryExportWithDays(t *testing.T) {
 	restore := setupTestStore(t, content)
 	defer restore()
 
-	stdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	historyExport([]string{"3"}) // last 3 days
-
-	w.Close()
-	os.Stdout = stdout
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	output := captureStdout(func() { historyExport([]string{"3"}) })
 
 	var entries []struct {
 		Profile string `json:"profile"`
 	}
-	if err := json.Unmarshal(buf.Bytes(), &entries); err != nil {
+	if err := json.Unmarshal([]byte(output), &entries); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
 	// Only the recent entry should appear.
@@ -766,20 +733,9 @@ func TestHistoryClear(t *testing.T) {
 		t.Fatal("expected entries before clear")
 	}
 
-	// Capture stdout (historyClear prints "Log cleared.").
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	historyClear()
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	if !strings.Contains(buf.String(), "Log cleared") {
-		t.Errorf("expected 'Log cleared' message, got %q", buf.String())
+	output := captureStdout(func() { historyClear() })
+	if !strings.Contains(output, "Log cleared") {
+		t.Errorf("expected 'Log cleared' message, got %q", output)
 	}
 
 	// Verify log is empty.
@@ -806,18 +762,7 @@ func TestHistoryClean(t *testing.T) {
 	restore := setupTestStore(t, content)
 	defer restore()
 
-	stdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	historyClean([]string{"7"}) // keep last 7 days
-
-	w.Close()
-	os.Stdout = stdout
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := buf.String()
+	output := captureStdout(func() { historyClean([]string{"7"}) })
 
 	if !strings.Contains(output, "Removed") {
 		t.Errorf("expected 'Removed' message, got %q", output)
@@ -844,14 +789,7 @@ func TestHistoryCleanNoArgs(t *testing.T) {
 	restore := setupTestStore(t, content)
 	defer restore()
 
-	stdout := os.Stdout
-	_, w, _ := os.Pipe()
-	os.Stdout = w
-
-	historyClean(nil) // no args → calls historyClear
-
-	w.Close()
-	os.Stdout = stdout
+	captureStdout(func() { historyClean(nil) })
 
 	entries, _ := eventlog.Entries(0)
 	if len(entries) != 0 {
@@ -878,18 +816,7 @@ func TestHistoryRemove(t *testing.T) {
 	restore := setupTestStore(t, content)
 	defer restore()
 
-	stdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	historyRemove([]string{"remove"})
-
-	w.Close()
-	os.Stdout = stdout
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := buf.String()
+	output := captureStdout(func() { historyRemove([]string{"remove"}) })
 
 	if !strings.Contains(output, "Removed") || !strings.Contains(output, "remove") {
 		t.Errorf("expected removal message for \"remove\", got %q", output)
@@ -917,18 +844,7 @@ func TestHistoryRemoveNotFound(t *testing.T) {
 	restore := setupTestStore(t, content)
 	defer restore()
 
-	stdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	historyRemove([]string{"nonexistent"})
-
-	w.Close()
-	os.Stdout = stdout
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := buf.String()
+	output := captureStdout(func() { historyRemove([]string{"nonexistent"}) })
 
 	if !strings.Contains(output, "No entries found") {
 		t.Errorf("expected 'No entries found' message, got %q", output)

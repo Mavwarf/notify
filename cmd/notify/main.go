@@ -100,7 +100,7 @@ func parseFlags(args []string) parsedFlags {
 	const defaultPort = 8080
 	f := parsedFlags{volume: -1, port: defaultPort}
 
-	filtered := args[:0]
+	filtered := make([]string, 0, len(args))
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "--volume", "-v":

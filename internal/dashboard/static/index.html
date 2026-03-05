@@ -2454,9 +2454,9 @@ tr:hover td { background: var(--bg3); }
       wrap.querySelectorAll('.donut-segment').forEach(function(seg) {
         seg.addEventListener('mouseenter', function() {
           var detail = seg.getAttribute('data-detail');
-          tip.innerHTML = '<strong>' + seg.getAttribute('data-name') + '</strong><br>' +
-            seg.getAttribute('data-total') + ' (' + seg.getAttribute('data-pct') + '%)' +
-            (detail ? '<br>' + detail : '');
+          tip.innerHTML = '<strong>' + esc(seg.getAttribute('data-name')) + '</strong><br>' +
+            esc(seg.getAttribute('data-total')) + ' (' + esc(seg.getAttribute('data-pct')) + '%)' +
+            (detail ? '<br>' + esc(detail) : '');
           tip.style.display = 'block';
           seg._origOpacity = seg.style.opacity || seg.getAttribute('opacity') || '1';
           seg.style.opacity = '1';

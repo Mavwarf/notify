@@ -217,30 +217,23 @@ Additional step types beyond `discord`, `slack`, and `telegram`:
 
 #### Should fix
 
-- **DST off-by-one in day-based bucket index** (`internal/dashboard/watch.go:165`)
-  — `int(localDay.Sub(start).Hours() / 24)` returns 0 on spring-forward days
-  (23h midnight-to-midnight). Use `math.Round` or calendar-day arithmetic.
-- **Unused `logContent` helper** (`cmd/notify/history_test.go:616`) — dead code,
-  defined but never called.
-- **`os.Stdout` not defer-guarded in history tests** (`cmd/notify/history_test.go`)
-  — if a tested function panics, stdout stays redirected for remaining tests.
-  Use `defer func() { os.Stdout = old }()`.
-- **`filtered := args[:0]` reuses backing array** (`cmd/notify/main.go:103`) —
-  `append` overwrites `args` elements not yet consumed. Works today but fragile;
-  safer: `make([]string, 0, len(args))`.
+- ~~**DST off-by-one in day-based bucket index** (`internal/dashboard/watch.go:165`)~~
+  — fixed: uses `math.Round` for day-based bucket index calculation.
+- ~~**Unused `logContent` helper** (`cmd/notify/history_test.go:616`)~~ — fixed:
+  removed dead code.
+- ~~**`os.Stdout` not defer-guarded in history tests** (`cmd/notify/history_test.go`)~~
+  — fixed: extracted `captureStdout` helper with defer-based restoration.
+- ~~**`filtered := args[:0]` reuses backing array** (`cmd/notify/main.go:103`)~~ —
+  fixed: uses `make([]string, 0, len(args))`.
 
 #### Nice to have
 
-- **Donut tooltip innerHTML without re-escaping** (`index.html:2457`) —
-  `getAttribute('data-name')` inserted via innerHTML. Safe today (data is
-  `esc()`'d at write time) but wrapping in `esc()` at read time would be
-  defense-in-depth.
-- **Missing `charset=utf-8` on JSON responses** (`dashboard.go` multiple
-  locations) — `Content-Type: application/json` should include
-  `; charset=utf-8` for non-ASCII profile names.
-- **FileStore has no file locking** (`internal/eventlog/filestore.go`) —
-  concurrent writes rely on OS-level `O_APPEND` atomicity. SQLite (now
-  default) doesn't have this issue.
+- ~~**Donut tooltip innerHTML without re-escaping** (`index.html:2457`)~~ —
+  fixed: `esc()` wraps all `getAttribute` calls in tooltip innerHTML.
+- ~~**Missing `charset=utf-8` on JSON responses** (`dashboard.go` multiple
+  locations)~~ — fixed: all 12 JSON Content-Type headers include `; charset=utf-8`.
+- ~~**FileStore has no file locking** (`internal/eventlog/filestore.go`)~~ —
+  documented: added comment noting the limitation and recommending SQLiteStore.
 
 ### CI/CD
 

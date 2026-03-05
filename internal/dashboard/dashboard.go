@@ -320,7 +320,7 @@ func handleConfig(configPath string, fallback config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cfg := loadCfg(configPath, fallback)
 		redacted := redactConfig(cfg)
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		json.NewEncoder(w).Encode(redacted)
 	}
 }
@@ -350,7 +350,7 @@ func handleHistory(w http.ResponseWriter, r *http.Request) {
 		out[i] = entryToJSON(e)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(out)
 }
 
@@ -396,7 +396,7 @@ func handleSummary(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(out)
 }
 
@@ -572,7 +572,7 @@ func handleTest(configPath string, fallback config.Config) http.HandlerFunc {
 			results = append(results, ar)
 		}
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		json.NewEncoder(w).Encode(results)
 	}
 }
@@ -683,7 +683,7 @@ func handleWatch(w http.ResponseWriter, r *http.Request) {
 	// Build approximate time spent.
 	resp.TimeSpent = computeTimeSpentRange(entries, start, end, loc)
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(resp)
 }
 
@@ -709,7 +709,7 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 		stats.NewestEntry = entries[len(entries)-1].Time.Format(time.RFC3339)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(stats)
 }
 
@@ -724,7 +724,7 @@ func handleVoice(w http.ResponseWriter, r *http.Request) {
 
 	lines, _ := eventlog.VoiceLines(days)
 	if len(lines) == 0 {
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		json.NewEncoder(w).Encode(voiceResponse{Lines: []voiceLine{}, Total: 0})
 		return
 	}
@@ -762,7 +762,7 @@ func handleVoice(w http.ResponseWriter, r *http.Request) {
 		out[i] = vl
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(voiceResponse{Lines: out, Total: total})
 }
 
@@ -815,7 +815,7 @@ func handleSilent(w http.ResponseWriter, r *http.Request) {
 			resp.Active = true
 			resp.Until = &s
 		}
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		json.NewEncoder(w).Encode(resp)
 
 	case http.MethodPost:
@@ -847,7 +847,7 @@ func handleSilent(w http.ResponseWriter, r *http.Request) {
 			resp.Active = true
 			resp.Until = &s
 		}
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		json.NewEncoder(w).Encode(resp)
 
 	default:
@@ -879,7 +879,7 @@ type triggerResponse struct {
 func handleTrigger(configPath string, fallback config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cfg := loadCfg(configPath, fallback)
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 		var req triggerRequest
 		if r.Method == http.MethodPost {
@@ -1131,7 +1131,7 @@ func handleCredentials(configPath string, fallback config.Config) http.HandlerFu
 			result = []profileCreds{}
 		}
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		json.NewEncoder(w).Encode(result)
 	}
 }

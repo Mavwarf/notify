@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"time"
 
@@ -160,9 +161,10 @@ func computeBreakdown(entries []eventlog.Entry, start, end time.Time, rangeType 
 			// Month-based: months since start year-month
 			return (local.Year()-start.Year())*12 + int(local.Month()) - int(start.Month())
 		case "week", "month":
-			// Day-based: days since start
+			// Day-based: calendar days since start. Using math.Round avoids
+			// off-by-one errors on DST transition days (23h or 25h spans).
 			localDay := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc)
-			return int(localDay.Sub(start).Hours() / 24)
+			return int(math.Round(localDay.Sub(start).Hours() / 24))
 		default:
 			return local.Hour()
 		}

@@ -13,6 +13,9 @@ import (
 )
 
 // FileStore implements Store using a flat log file.
+// Note: FileStore has no file locking. Concurrent writes from multiple
+// processes rely on OS-level O_APPEND atomicity. Use SQLiteStore (the
+// default) for guaranteed concurrent safety.
 type FileStore struct {
 	path string
 }
