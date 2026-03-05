@@ -212,7 +212,7 @@ func computeBreakdown(entries []eventlog.Entry, start, end time.Time, rangeType 
 	case "week":
 		startIdx = 0
 		dur := end.Sub(start)
-		endIdx = int(dur.Hours() / 24)
+		endIdx = int(math.Round(dur.Hours() / 24))
 	case "month":
 		startIdx = 0
 		endIdx = end.Day() - 1

@@ -617,7 +617,10 @@ func setupTestStore(t *testing.T, content string) func() {
 // output. Uses defer to restore stdout even if fn panics.
 func captureStdout(fn func()) string {
 	old := os.Stdout
-	r, w, _ := os.Pipe()
+	r, w, err := os.Pipe()
+	if err != nil {
+		panic("os.Pipe: " + err.Error())
+	}
 	os.Stdout = w
 	defer func() { os.Stdout = old }()
 
