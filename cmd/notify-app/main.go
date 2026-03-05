@@ -17,6 +17,7 @@ import (
 )
 
 var version = "dev"
+var buildDate = "unknown"
 
 // main launches the Wails desktop app that wraps the notification dashboard
 // in a native WebView2 window with a system tray icon.
@@ -79,6 +80,7 @@ func main() {
 	defer eventlog.Close()
 
 	dashboard.Version = version
+	dashboard.BuildDate = buildDate
 
 	// Start the existing dashboard HTTP server in the background.
 	go func() {

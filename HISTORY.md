@@ -2,6 +2,7 @@
 
 ## Features
 
+- Dashboard build info — footer shows build date, time (UTC), and version in the bottom-right corner *(Mar 05)*
 - Dashboard tab split — Summary, Breakdown, and Time Spent are now separate tabs with focus mode, tab grouping, and scrollbar anchored to window edge *(Mar 04)*
 - Window geometry persistence for `notify-app` — saves window position and size on close, restores on next launch *(Mar 02)*
 - Codebase documentation — package-level doc comments, function docs, and inline explanations across 43 Go source files covering non-obvious logic, Win32 APIs, audio math, and design decisions *(Mar 02)*
@@ -76,6 +77,18 @@
 - Template variables: `{profile}`, `{command}`, `{duration}` *(Feb 20)*
 - Opt-in event logging *(Feb 20)*
 - Multi-step notification pipelines: sound, speech, toast *(Feb 19)*
+
+---
+
+## 2026-03-05
+
+### Dashboard build info
+
+The status-bar footer now shows the build date, time (UTC), and version in the
+bottom-right corner (e.g. "Mar 05, 2026 · 11:32 UTC · v0.3.4"). The build
+timestamp is injected via `-ldflags` at compile time; dev builds without ldflags
+show just the version. Also added the missing `-X main.buildDate` flag to the
+`build-app` job in the release workflow.
 
 ---
 

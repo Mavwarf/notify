@@ -34,6 +34,10 @@ var staticFS embed.FS
 // Version is the build version string, set by the caller before Serve().
 var Version = "dev"
 
+// BuildDate is the build timestamp string (e.g. "2026-03-05T14:30:00Z"),
+// set by the caller before Serve().
+var BuildDate = "unknown"
+
 // JSON response types used by API handlers.
 
 type jsonEntry struct {
@@ -296,6 +300,7 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	html := strings.Replace(string(data), "{{version}}", template.HTMLEscapeString(Version), 1)
+	html = strings.Replace(html, "{{buildDate}}", template.HTMLEscapeString(BuildDate), 1)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(html))
 }

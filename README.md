@@ -1273,7 +1273,8 @@ eight tabs (linkable via URL hash, e.g. `/#summary`):
 All three tabs share a date navigation bar with range selector buttons
 (Day/Week/Month/Year/Total) and arrow navigation. A compact log stats line in
 the footer shows the active storage backend (SQLite or File), total entries,
-file size, and date range.
+file size, and date range. The build date, time (UTC), and version are shown in
+the footer's right corner.
 
 - **History** — live-updating table of notification events, fed by SSE.
   An activity chart shows stacked daily bars (green = runs, yellow = skipped)

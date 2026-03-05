@@ -1105,7 +1105,7 @@ tr:hover td { background: var(--bg3); }
 <div class="status-bar">
   <span>By <a href="https://mavwarf.netlify.app/" target="_blank" rel="noopener" style="color:var(--fg)">Thomas H&auml;user</a> &middot; <a href="https://github.com/Mavwarf/notify" target="_blank" rel="noopener" style="color:var(--cyan)">GitHub</a> &middot; <a href="https://github.com/Mavwarf/notify/wiki" target="_blank" rel="noopener" style="color:var(--cyan)">Wiki</a></span>
   <span id="footer-stats"></span>
-  <span>{{version}}</span>
+  <span id="footer-build" data-version="{{version}}" data-build="{{buildDate}}"></span>
 </div>
 <div class="toast-container" id="toast-container"></div>
 <div class="modal-backdrop" id="modal-backdrop" style="display:none">
@@ -2214,6 +2214,23 @@ tr:hover td { background: var(--bg3); }
     el.textContent = text;
   }
 
+  function renderFooterBuild() {
+    var el = document.getElementById('footer-build');
+    var ver = el.getAttribute('data-version') || 'dev';
+    var raw = el.getAttribute('data-build') || '';
+    var parts = [];
+    if (raw && raw !== 'unknown') {
+      var d = new Date(raw);
+      if (!isNaN(d.getTime())) {
+        var month = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()];
+        parts.push(month + ' ' + pad2(d.getUTCDate()) + ', ' + d.getUTCFullYear());
+        parts.push(pad2(d.getUTCHours()) + ':' + pad2(d.getUTCMinutes()) + ' UTC');
+      }
+    }
+    parts.push(ver);
+    el.textContent = parts.join(' \u00b7 ');
+  }
+
   function fmtNum(n) {
     if (n < 1000) return String(n);
     return n.toLocaleString('de-DE');
@@ -2896,6 +2913,7 @@ tr:hover td { background: var(--bg3); }
   // ---- Init ----
   loadHistory();
   loadSummary();
+  renderFooterBuild();
   loadStats().then(function() { renderFooterStats(); loadWatch(); });
   loadConfig();
   loadVoice();
