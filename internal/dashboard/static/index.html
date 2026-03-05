@@ -834,7 +834,7 @@ tr:hover td { background: var(--bg3); }
 .modal-backdrop {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.55);
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
   z-index: 900;
   display: flex;
   align-items: center;
@@ -2708,7 +2708,7 @@ tr:hover td { background: var(--bg3); }
     const tag = e.target.tagName.toLowerCase();
     if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
 
-    // 1-6: switch tabs
+    // 1-8: switch tabs
     if (e.key >= '1' && e.key <= '8') {
       switchTab(tabNames[parseInt(e.key) - 1]);
       e.preventDefault();

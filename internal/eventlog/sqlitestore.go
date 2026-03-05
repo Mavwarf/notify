@@ -595,7 +595,10 @@ func (s *SQLiteStore) migrateFromFile(logPath string) error {
 				return fmt.Errorf("migrate event: %w", err)
 			}
 
-			eventID, _ := res.LastInsertId()
+			eventID, err := res.LastInsertId()
+			if err != nil {
+				return fmt.Errorf("migrate last insert id: %w", err)
+			}
 			if kind == KindExecution {
 				lastExecID = eventID
 			}

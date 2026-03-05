@@ -162,26 +162,22 @@ Additional step types beyond `discord`, `slack`, and `telegram`:
 
 ### Maintainability
 
-- **`TitleCase` corrupts multibyte UTF-8** (`internal/tmpl/tmpl.go:79`) —
-  `strings.ToUpper(s[:1])` slices by byte, not rune. Profile names starting
-  with non-ASCII characters (e.g. "München") get corrupted. Fix: use
-  `[]rune` slicing.
-- **Error discarded in SQLite migration** (`internal/eventlog/sqlitestore.go:598`) —
-  `eventID, _ := res.LastInsertId()` silently ignores the error. If it fails,
-  step_details get associated with wrong events. The non-migration path at
-  line 148 correctly checks the error.
-- **Step type comment incomplete** (`internal/config/config.go:215`) —
-  Lists 10 types but code validates 12. Missing: `discord_voice`,
-  `telegram_audio`, `telegram_voice`.
-- **Stale keyboard shortcut comment** (`index.html:2711`) — says "1-6"
-  but code handles 1-8.
-- **Hard-coded modal backdrop color** (`index.html:837`) —
-  `rgba(0,0,0,0.55)` should use a CSS variable for theme consistency.
-- **Version not HTML-escaped** (`internal/dashboard/dashboard.go:356`) —
-  `Version` is injected raw into HTML. Low risk but `html.EscapeString()`
-  would be defensive.
-- **Large `main()` function** (`cmd/notify/main.go:81-268`, 188 lines) —
-  flag parsing (lines 100-189) could be extracted to a `parseFlags()` helper.
+- ~~**`TitleCase` corrupts multibyte UTF-8** (`internal/tmpl/tmpl.go:79`)~~ —
+  fixed: uses `[]rune` slicing instead of byte slicing.
+- ~~**Error discarded in SQLite migration** (`internal/eventlog/sqlitestore.go:598`)~~ —
+  fixed: `LastInsertId()` error is now checked and returned.
+- ~~**Step type comment incomplete** (`internal/config/config.go:215`)~~ —
+  false positive: the `Type` field comment already lists all 12 types.
+- ~~**Stale keyboard shortcut comment** (`index.html:2711`)~~ —
+  fixed: comment updated from "1-6" to "1-8".
+- ~~**Hard-coded modal backdrop color** (`index.html:837`)~~ —
+  fixed: uses `color-mix(in srgb, var(--bg) 80%, transparent)` for theme
+  consistency.
+- ~~**Version not HTML-escaped** (`internal/dashboard/dashboard.go:356`)~~ —
+  fixed: uses `template.HTMLEscapeString()`.
+- ~~**Large `main()` function** (`cmd/notify/main.go:81-268`, 188 lines)~~ —
+  fixed: extracted `parseFlags()` function and `parsedFlags` struct;
+  `main()` is now ~50 lines (dispatch only).
 - ~~**`go 1.24.0` in go.mod**~~ — false positive; Go 1.21+ allows
   three-part versions and `go mod tidy` sets it canonically.
 - ~~**`gapThreshold` duplicated**~~ — fixed: exported as
@@ -190,9 +186,10 @@ Additional step types beyond `discord`, `slack`, and `telegram`:
   `DefaultMaxDesktops` constant + configurable `max_desktops` option.
 - ~~**Various magic numbers**~~ — fixed: named constants for retry delay,
   SSE interval, default ports; comments on date sentinels and protocol sleep.
-- **`dashboard.go` is ~1460 lines** — HTTP handlers, aggregation logic,
-  browser launch, and credential redaction all in one file. Aggregation
-  functions (~250 lines) could move to a separate file.
+- ~~**`dashboard.go` is ~1460 lines**~~ — fixed: extracted watch types and
+  computation functions (`computeRange`, `formatRangeLabel`,
+  `computeBreakdown`, `computeTimeSpentRange`) into `watch.go` (~340 lines);
+  `dashboard.go` is now ~1140 lines.
 
 ### UX
 

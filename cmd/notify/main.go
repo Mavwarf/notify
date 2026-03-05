@@ -76,27 +76,30 @@ func fatal(format string, args ...any) {
 	os.Exit(1)
 }
 
-// main is the entry point. It manually parses flags and dispatches to
-// subcommands or the notification pipeline (runAction / runWrapped / runPipe).
-func main() {
-	args := os.Args[1:]
-	volume := -1
-	configPath := ""
-	logFlag := false
-	echoFlag := false
-	cooldownFlag := false
-	heartbeatSec := 0
-	const defaultPort = 8080
-	port := defaultPort
-	openFlag := false
-	protocolURI := ""
-	var delayDur time.Duration
-	var atTime string
-	var matches []matchPair
+// parsedFlags holds the result of CLI flag parsing.
+type parsedFlags struct {
+	volume       int
+	configPath   string
+	logFlag      bool
+	echoFlag     bool
+	cooldownFlag bool
+	heartbeatSec int
+	port         int
+	openFlag     bool
+	protocolURI  string
+	delayDur     time.Duration
+	atTime       string
+	matches      []matchPair
+	args         []string // positional arguments after flag extraction
+}
 
-	// Manual flag-parsing loop: flag.Parse stops at the first non-flag argument,
-	// but we need flags to appear after positional args (e.g. "notify run boss -L -- cmd")
-	// and we must route the first positional arg to a subcommand dispatcher.
+// parseFlags extracts CLI flags from args, returning structured flags and
+// the remaining positional arguments. Flags can appear anywhere — before,
+// after, or between positional args (e.g. "notify run boss -L -- cmd").
+func parseFlags(args []string) parsedFlags {
+	const defaultPort = 8080
+	f := parsedFlags{volume: -1, port: defaultPort}
+
 	filtered := args[:0]
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
@@ -106,36 +109,36 @@ func main() {
 				if err != nil || v < 0 || v > 100 {
 					fatal("volume must be a number between 0 and 100")
 				}
-				volume = v
+				f.volume = v
 				i++
 			} else {
 				fatal("--volume requires a value (0-100)")
 			}
 		case "--config", "-c":
 			if i+1 < len(args) {
-				configPath = args[i+1]
+				f.configPath = args[i+1]
 				i++
 			} else {
 				fatal("--config requires a file path")
 			}
 		case "--match", "-M":
 			if i+2 < len(args) {
-				matches = append(matches, matchPair{pattern: args[i+1], action: args[i+2]})
+				f.matches = append(f.matches, matchPair{pattern: args[i+1], action: args[i+2]})
 				i += 2
 			} else {
 				fatal("--match requires <pattern> <action>")
 			}
 		case "--log", "-L":
-			logFlag = true
+			f.logFlag = true
 		case "--echo", "-E":
-			echoFlag = true
+			f.echoFlag = true
 		case "--cooldown", "-C":
-			cooldownFlag = true
+			f.cooldownFlag = true
 		case "--open", "-O":
-			openFlag = true
+			f.openFlag = true
 		case "--protocol":
 			if i+1 < len(args) {
-				protocolURI = args[i+1]
+				f.protocolURI = args[i+1]
 				i++
 			} else {
 				fatal("--protocol requires a URI")
@@ -146,7 +149,7 @@ func main() {
 				if err != nil || v < 1 || v > 65535 {
 					fatal("port must be a number between 1 and 65535")
 				}
-				port = v
+				f.port = v
 				i++
 			} else {
 				fatal("--port requires a value (1-65535)")
@@ -157,9 +160,9 @@ func main() {
 				if err != nil || d <= 0 {
 					fatal("--heartbeat requires a positive duration (e.g. 5m, 2m30s)")
 				}
-				heartbeatSec = int(d.Seconds())
-				if heartbeatSec == 0 {
-					heartbeatSec = 1 // sub-second rounds up to 1s
+				f.heartbeatSec = int(d.Seconds())
+				if f.heartbeatSec == 0 {
+					f.heartbeatSec = 1 // sub-second rounds up to 1s
 				}
 				i++
 			} else {
@@ -171,14 +174,14 @@ func main() {
 				if err != nil || d <= 0 {
 					fatal("--delay requires a positive duration (e.g. 5s, 10m, 1h)")
 				}
-				delayDur = d
+				f.delayDur = d
 				i++
 			} else {
 				fatal("--delay requires a duration (e.g. 5s, 10m, 1h)")
 			}
 		case "--at", "-A":
 			if i+1 < len(args) {
-				atTime = args[i+1]
+				f.atTime = args[i+1]
 				i++
 			} else {
 				fatal("--at requires a time (e.g. 14:30, 2:30PM)")
@@ -187,13 +190,21 @@ func main() {
 			filtered = append(filtered, args[i])
 		}
 	}
+	f.args = filtered
+	return f
+}
+
+// main is the entry point. It parses flags and dispatches to subcommands
+// or the notification pipeline (runAction / runWrapped / runPipe).
+func main() {
+	f := parseFlags(os.Args[1:])
 
 	// Initialize storage backend from config. This is the first of potentially
 	// multiple config loads — loadAndValidate is called again in each subcommand
 	// because it validates and may print warnings. This early load only reads
 	// the storage backend and retention settings needed for eventlog init.
 	storage := ""
-	if cfg, err := config.Load(configPath); err == nil {
+	if cfg, err := config.Load(f.configPath); err == nil {
 		storage = cfg.Options.Storage
 		eventlog.SetRetention(cfg.Options.RetentionDays)
 	}
@@ -201,69 +212,69 @@ func main() {
 	defer eventlog.Close()
 
 	// Handle --protocol activation (from toast click).
-	if protocolURI != "" {
-		handleProtocolURI(protocolURI)
+	if f.protocolURI != "" {
+		handleProtocolURI(f.protocolURI)
 		return
 	}
 
-	if len(filtered) < 1 {
+	if len(f.args) < 1 {
 		printUsage()
 		os.Exit(1)
 	}
 
-	switch filtered[0] {
+	switch f.args[0] {
 	case "help", "-h", "--help":
 		printUsage()
 	case "version", "-V", "--version":
 		printVersion()
 	case "list", "-l", "--list":
-		listProfiles(configPath)
+		listProfiles(f.configPath)
 	case "test":
-		dryRun(filtered[1:], configPath)
+		dryRun(f.args[1:], f.configPath)
 	case "play":
-		playCmd(filtered[1:], volume)
+		playCmd(f.args[1:], f.volume)
 	case "voice":
-		voiceCmd(filtered[1:], configPath)
+		voiceCmd(f.args[1:], f.configPath)
 	case "history":
-		historyCmd(filtered[1:])
+		historyCmd(f.args[1:])
 	case "dashboard":
-		dashboardCmd(configPath, port, openFlag)
+		dashboardCmd(f.configPath, f.port, f.openFlag)
 	case "startup":
-		startupCmd(configPath, port, openFlag)
+		startupCmd(f.configPath, f.port, f.openFlag)
 	case "init":
-		initCmd(filtered[1:], configPath)
+		initCmd(f.args[1:], f.configPath)
 	case "config":
-		configCmd(filtered[1:], configPath)
+		configCmd(f.args[1:], f.configPath)
 	case "autostart":
 		arg := ""
-		if len(filtered) > 1 {
-			arg = filtered[1]
+		if len(f.args) > 1 {
+			arg = f.args[1]
 		}
 		autostartCmd(arg)
 	case "protocol":
-		protocolCmd(filtered[1:])
+		protocolCmd(f.args[1:])
 	case "send":
-		opts := runOpts{Volume: volume, Log: logFlag, Echo: echoFlag}
-		sendCmd(filtered[1:], configPath, opts)
+		opts := runOpts{Volume: f.volume, Log: f.logFlag, Echo: f.echoFlag}
+		sendCmd(f.args[1:], f.configPath, opts)
 	case "silent":
-		silentCmd(filtered[1:], configPath, logFlag)
+		silentCmd(f.args[1:], f.configPath, f.logFlag)
 	case "run":
-		opts := runOpts{Volume: volume, Log: logFlag, Echo: echoFlag, Cooldown: cooldownFlag}
-		runWrapped(filtered[1:], configPath, opts, matches, heartbeatSec)
+		opts := runOpts{Volume: f.volume, Log: f.logFlag, Echo: f.echoFlag, Cooldown: f.cooldownFlag}
+		runWrapped(f.args[1:], f.configPath, opts, f.matches, f.heartbeatSec)
 	case "watch":
-		opts := runOpts{Volume: volume, Log: logFlag, Echo: echoFlag, Cooldown: cooldownFlag}
-		watchCmd(filtered[1:], configPath, opts)
+		opts := runOpts{Volume: f.volume, Log: f.logFlag, Echo: f.echoFlag, Cooldown: f.cooldownFlag}
+		watchCmd(f.args[1:], f.configPath, opts)
 	case "shell-hook":
-		shellHookCmd(filtered[1:], configPath)
+		shellHookCmd(f.args[1:], f.configPath)
 	case "_hook":
-		opts := runOpts{Volume: volume, Log: logFlag, Echo: echoFlag, Cooldown: cooldownFlag}
-		hookCmd(filtered[1:], configPath, opts)
+		opts := runOpts{Volume: f.volume, Log: f.logFlag, Echo: f.echoFlag, Cooldown: f.cooldownFlag}
+		hookCmd(f.args[1:], f.configPath, opts)
 	case "pipe":
-		opts := runOpts{Volume: volume, Log: logFlag, Echo: echoFlag, Cooldown: cooldownFlag}
-		runPipe(filtered[1:], configPath, opts, matches)
+		opts := runOpts{Volume: f.volume, Log: f.logFlag, Echo: f.echoFlag, Cooldown: f.cooldownFlag}
+		runPipe(f.args[1:], f.configPath, opts, f.matches)
 	default:
-		opts := runOpts{Volume: volume, Log: logFlag, Echo: echoFlag, Cooldown: cooldownFlag, Delay: delayDur, AtTime: atTime}
-		runAction(filtered, configPath, opts)
+		opts := runOpts{Volume: f.volume, Log: f.logFlag, Echo: f.echoFlag, Cooldown: f.cooldownFlag, Delay: f.delayDur, AtTime: f.atTime}
+		runAction(f.args, f.configPath, opts)
 	}
 }
 

@@ -71,10 +71,11 @@ func HasDynamic(text string) bool {
 	return false
 }
 
-// TitleCase uppercases the first byte of s.
+// TitleCase uppercases the first rune of s.
 func TitleCase(s string) string {
 	if s == "" {
 		return s
 	}
-	return strings.ToUpper(s[:1]) + s[1:]
+	r := []rune(s)
+	return strings.ToUpper(string(r[:1])) + string(r[1:])
 }

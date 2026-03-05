@@ -11,6 +11,8 @@ func TestTitleCase(t *testing.T) {
 		{"Boss", "Boss"},
 		{"default", "Default"},
 		{"a", "A"},
+		{"münchen", "München"},
+		{"über", "Über"},
 	}
 	for _, tt := range tests {
 		if got := TitleCase(tt.in); got != tt.want {
