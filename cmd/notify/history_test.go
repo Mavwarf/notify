@@ -1,7 +1,11 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -590,5 +594,349 @@ func TestColorPadL(t *testing.T) {
 	plain := strings.ReplaceAll(strings.ReplaceAll(got, "\033[36m", ""), "\033[0m", "")
 	if plain != "    hi" {
 		t.Errorf("colorPadL visible content = %q, want \"    hi\"", plain)
+	}
+}
+
+// --- helper: set up a temporary FileStore as eventlog.Default ---
+
+func setupTestStore(t *testing.T, content string) func() {
+	t.Helper()
+	dir := t.TempDir()
+	logFile := filepath.Join(dir, "notify.log")
+	if content != "" {
+		if err := os.WriteFile(logFile, []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	orig := eventlog.Default
+	eventlog.Default = eventlog.NewFileStore(logFile)
+	return func() { eventlog.Default = orig }
+}
+
+func logContent(t *testing.T) string {
+	t.Helper()
+	fs := eventlog.Default.(*eventlog.FileStore)
+	// Read via the Entries method to verify; but we also need raw file
+	// content for some checks — use the path field indirectly via Clear/Entries.
+	entries, err := fs.Entries(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf strings.Builder
+	for _, e := range entries {
+		fmt.Fprintf(&buf, "%s %s/%s\n", e.Time.Format(time.RFC3339), e.Profile, e.Action)
+	}
+	return buf.String()
+}
+
+// --- historyExport ---
+
+func TestHistoryExport(t *testing.T) {
+	now := time.Now()
+	ts := now.Format(time.RFC3339)
+	content := fmt.Sprintf(`%s  profile=app  action=done  steps=sound  afk=false
+%s    step[1] sound  sound=success
+
+%s  profile=ci  action=fail  steps=toast  afk=false
+%s    step[1] toast  text="Build failed"
+
+`, ts, ts, ts, ts)
+
+	restore := setupTestStore(t, content)
+	defer restore()
+
+	// Capture stdout.
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	historyExport(nil) // all days
+
+	w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	output := buf.String()
+
+	// Should be valid JSON array.
+	var entries []struct {
+		Time    string `json:"time"`
+		Profile string `json:"profile"`
+		Action  string `json:"action"`
+		Kind    string `json:"kind"`
+	}
+	if err := json.Unmarshal([]byte(output), &entries); err != nil {
+		t.Fatalf("invalid JSON: %v\noutput: %s", err, output)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries))
+	}
+	if entries[0].Profile != "app" || entries[0].Action != "done" {
+		t.Errorf("entry[0] = %s/%s, want app/done", entries[0].Profile, entries[0].Action)
+	}
+	if entries[1].Profile != "ci" || entries[1].Action != "fail" {
+		t.Errorf("entry[1] = %s/%s, want ci/fail", entries[1].Profile, entries[1].Action)
+	}
+	if entries[0].Kind != "execution" {
+		t.Errorf("entry[0].Kind = %q, want \"execution\"", entries[0].Kind)
+	}
+}
+
+func TestHistoryExportEmpty(t *testing.T) {
+	restore := setupTestStore(t, "")
+	defer restore()
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	historyExport(nil)
+
+	w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	output := strings.TrimSpace(buf.String())
+
+	if output != "[]" {
+		t.Errorf("expected \"[]\", got %q", output)
+	}
+}
+
+func TestHistoryExportWithDays(t *testing.T) {
+	now := time.Now()
+	ts := now.Format(time.RFC3339)
+	old := now.AddDate(0, 0, -10).Format(time.RFC3339)
+	content := fmt.Sprintf(`%s  profile=old  action=stale  steps=sound  afk=false
+%s    step[1] sound  sound=default
+
+%s  profile=new  action=fresh  steps=sound  afk=false
+%s    step[1] sound  sound=default
+
+`, old, old, ts, ts)
+
+	restore := setupTestStore(t, content)
+	defer restore()
+
+	stdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	historyExport([]string{"3"}) // last 3 days
+
+	w.Close()
+	os.Stdout = stdout
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+
+	var entries []struct {
+		Profile string `json:"profile"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &entries); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	// Only the recent entry should appear.
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry (recent only), got %d", len(entries))
+	}
+	if entries[0].Profile != "new" {
+		t.Errorf("expected profile \"new\", got %q", entries[0].Profile)
+	}
+}
+
+// --- historyClear ---
+
+func TestHistoryClear(t *testing.T) {
+	now := time.Now()
+	ts := now.Format(time.RFC3339)
+	content := fmt.Sprintf(`%s  profile=app  action=done  steps=sound  afk=false
+%s    step[1] sound  sound=success
+
+`, ts, ts)
+
+	restore := setupTestStore(t, content)
+	defer restore()
+
+	// Verify entries exist before clear.
+	entries, _ := eventlog.Entries(0)
+	if len(entries) == 0 {
+		t.Fatal("expected entries before clear")
+	}
+
+	// Capture stdout (historyClear prints "Log cleared.").
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	historyClear()
+
+	w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	if !strings.Contains(buf.String(), "Log cleared") {
+		t.Errorf("expected 'Log cleared' message, got %q", buf.String())
+	}
+
+	// Verify log is empty.
+	entries, _ = eventlog.Entries(0)
+	if len(entries) != 0 {
+		t.Errorf("expected 0 entries after clear, got %d", len(entries))
+	}
+}
+
+// --- historyClean ---
+
+func TestHistoryClean(t *testing.T) {
+	now := time.Now()
+	ts := now.Format(time.RFC3339)
+	old := now.AddDate(0, 0, -30).Format(time.RFC3339)
+	content := fmt.Sprintf(`%s  profile=ancient  action=old  steps=sound  afk=false
+%s    step[1] sound  sound=default
+
+%s  profile=recent  action=new  steps=sound  afk=false
+%s    step[1] sound  sound=default
+
+`, old, old, ts, ts)
+
+	restore := setupTestStore(t, content)
+	defer restore()
+
+	stdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	historyClean([]string{"7"}) // keep last 7 days
+
+	w.Close()
+	os.Stdout = stdout
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	output := buf.String()
+
+	if !strings.Contains(output, "Removed") {
+		t.Errorf("expected 'Removed' message, got %q", output)
+	}
+
+	// Only recent entry should remain.
+	entries, _ := eventlog.Entries(0)
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry after clean, got %d", len(entries))
+	}
+	if entries[0].Profile != "recent" {
+		t.Errorf("expected profile \"recent\", got %q", entries[0].Profile)
+	}
+}
+
+func TestHistoryCleanNoArgs(t *testing.T) {
+	now := time.Now()
+	ts := now.Format(time.RFC3339)
+	content := fmt.Sprintf(`%s  profile=app  action=done  steps=sound  afk=false
+%s    step[1] sound  sound=success
+
+`, ts, ts)
+
+	restore := setupTestStore(t, content)
+	defer restore()
+
+	stdout := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+
+	historyClean(nil) // no args → calls historyClear
+
+	w.Close()
+	os.Stdout = stdout
+
+	entries, _ := eventlog.Entries(0)
+	if len(entries) != 0 {
+		t.Errorf("expected 0 entries after clean with no args, got %d", len(entries))
+	}
+}
+
+// --- historyRemove ---
+
+func TestHistoryRemove(t *testing.T) {
+	now := time.Now()
+	ts := now.Format(time.RFC3339)
+	content := fmt.Sprintf(`%s  profile=keep  action=done  steps=sound  afk=false
+%s    step[1] sound  sound=success
+
+%s  profile=remove  action=done  steps=sound  afk=false
+%s    step[1] sound  sound=success
+
+%s  profile=keep  action=alert  steps=toast  afk=false
+%s    step[1] toast  text="Alert"
+
+`, ts, ts, ts, ts, ts, ts)
+
+	restore := setupTestStore(t, content)
+	defer restore()
+
+	stdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	historyRemove([]string{"remove"})
+
+	w.Close()
+	os.Stdout = stdout
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	output := buf.String()
+
+	if !strings.Contains(output, "Removed") || !strings.Contains(output, "remove") {
+		t.Errorf("expected removal message for \"remove\", got %q", output)
+	}
+
+	entries, _ := eventlog.Entries(0)
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries after remove, got %d", len(entries))
+	}
+	for _, e := range entries {
+		if e.Profile == "remove" {
+			t.Error("profile \"remove\" should have been removed")
+		}
+	}
+}
+
+func TestHistoryRemoveNotFound(t *testing.T) {
+	now := time.Now()
+	ts := now.Format(time.RFC3339)
+	content := fmt.Sprintf(`%s  profile=app  action=done  steps=sound  afk=false
+%s    step[1] sound  sound=success
+
+`, ts, ts)
+
+	restore := setupTestStore(t, content)
+	defer restore()
+
+	stdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	historyRemove([]string{"nonexistent"})
+
+	w.Close()
+	os.Stdout = stdout
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	output := buf.String()
+
+	if !strings.Contains(output, "No entries found") {
+		t.Errorf("expected 'No entries found' message, got %q", output)
+	}
+
+	// Original entry should still exist.
+	entries, _ := eventlog.Entries(0)
+	if len(entries) != 1 {
+		t.Errorf("expected 1 entry unchanged, got %d", len(entries))
 	}
 }

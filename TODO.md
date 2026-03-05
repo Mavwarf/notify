@@ -204,7 +204,10 @@ Additional step types beyond `discord`, `slack`, and `telegram`:
 - ~~`internal/desktop/`~~ — fixed: stub tests for non-Windows API surface.
 - ~~`internal/icon/`~~ — fixed: smoke tests for `Draw(64)`, orange fill,
   transparent corners.
-- `cmd/notify/history.go` — export, clean, remove, clear, watch untested
+- ~~`cmd/notify/history.go` — export, clean, remove, clear, watch untested~~ —
+  fixed: tests for `historyExport` (all/empty/filtered), `historyClear`,
+  `historyClean` (with days/no args), `historyRemove` (found/not found).
+  `historyWatch` is interactive (raw terminal mode) and not unit-testable.
 - ~~`cmd/notify/init.go`~~ — fixed: tests for `buildInitConfig` and
   `writeConfig` (minimal, all channels, extra profiles, overwrite).
 - ~~`internal/dashboard/`~~ — fixed: trigger endpoint (missing action, bad
