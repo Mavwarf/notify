@@ -1310,8 +1310,8 @@ Keyboard shortcuts: `1`–`8` switch tabs, left/right arrows navigate
 periods, `t` jumps to today, `d`/`w`/`m`/`y`/`a` switch range
 (day/week/month/year/all), `s` toggles screenshot mode (replaces profile names
 with fake ones for privacy-safe screenshots), `x` toggles focus mode. A theme button in the header
-cycles through 6 color schemes (Dark, Light, Nord, Dracula, Solarized Dark,
-Gruvbox Dark) and persists your preference via `localStorage`.
+opens a color picker with 37 themes in three columns (Dark, Warm, Light) —
+hover to preview, click to apply. Your choice persists via `localStorage`.
 
 ```bash
 notify dashboard              # default port 8080
@@ -1365,10 +1365,10 @@ A native desktop window for the dashboard using Wails v2 and the OS webview
 (WebView2 on Windows). No bundled Chromium, no address bar — just the dashboard
 in a proper native window with SSE live updates.
 
-The app lives in the system tray. Closing the window hides it to the notification
-area — the dashboard server keeps running. Double-click the tray icon or use
-"Open Dashboard" from the tray menu to bring it back. Shift+close or "Quit"
-from the tray menu fully exits. Launching again while an instance is running
+The app lives in the system tray. The minimize button (−) hides the window to
+the tray — the dashboard server keeps running. Double-click the tray icon or use
+"Open Dashboard" from the tray menu to bring it back. Closing the window (×) or
+"Quit" from the tray menu fully exits. Launching again while an instance is running
 brings the existing window to front. Use `notify autostart on` to launch
 automatically on Windows login. The header includes a pin button (📌) to toggle
 always-on-top mode — the window stays above all other windows. The state persists

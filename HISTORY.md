@@ -2,6 +2,8 @@
 
 ## Features
 
+- Theme picker — 37 color themes in a 3-column dropdown (Dark, Warm, Light) with hover preview, replacing the old 6-theme cycle button *(Mar 31)*
+- Window controls — close (×) always exits, minimize (−) hides to tray; removes Shift+close requirement *(Mar 31)*
 - Dashboard build info — footer shows build date, time (UTC), and version in the bottom-right corner *(Mar 05)*
 - Dashboard tab split — Summary, Breakdown, and Time Spent are now separate tabs with focus mode, tab grouping, and scrollbar anchored to window edge *(Mar 04)*
 - Window geometry persistence for `notify-app` — saves window position and size on close, restores on next launch *(Mar 02)*
@@ -11,7 +13,7 @@
 - Configurable desktop limit (`max_desktops`) — raise the virtual desktop upper bound beyond the default of 4 *(Mar 02)*
 - Autostart command (`notify autostart`) — enable/disable launching `notify-app` on Windows login via Registry Run key *(Mar 01)*
 - Single-instance detection for `notify-app` — launching again brings existing window to front instead of starting a duplicate *(Mar 01)*
-- System tray for `notify-app` — lives in the notification area; closing the window hides to tray, double-click or menu to reopen, Shift+close or Quit to exit *(Mar 01)*
+- System tray for `notify-app` — lives in the notification area; minimize hides to tray, double-click or menu to reopen, close or Quit to exit *(Mar 01)*
 - Release binaries for `notify-app` — Windows amd64, macOS amd64, macOS arm64 added to GitHub Actions release workflow *(Feb 27)*
 - Log retention (`retention_days`) — automatic cleanup of old event log entries after every write; off by default (0 = keep forever) *(Feb 27)*
 - Scheduled reminders (`--delay`, `--at`) — fire a notification after a delay or at a specific time; foreground sleep, cancellable with Ctrl+C *(Feb 27)*
@@ -77,6 +79,27 @@
 - Template variables: `{profile}`, `{command}`, `{duration}` *(Feb 20)*
 - Opt-in event logging *(Feb 20)*
 - Multi-step notification pipelines: sound, speech, toast *(Feb 19)*
+
+---
+
+## 2026-03-31
+
+### Theme picker
+
+The old theme cycle button (click to rotate through 6 themes) is replaced with a
+dropdown color picker. 37 themes organized in three columns — Dark (14), Warm
+(11), Light (12). Hover previews the theme live; click applies and closes the
+picker. Themes ported from the places app for consistency across tools.
+
+### Window controls
+
+Simplified `notify-app` window behavior:
+
+- **Close (×)** — always fully exits the application (window + tray + process)
+- **Minimize (−)** — hides the window to the system tray
+
+Previously, close hid to tray and required Shift+close to actually exit. The
+Shift key detection (`shift_windows.go`, `shift_other.go`) is now dead code.
 
 ---
 

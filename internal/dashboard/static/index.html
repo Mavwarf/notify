@@ -17,77 +17,225 @@
   --red: #f7768e;
   --cyan: #7dcfff;
   --border: #3b4261;
+  --shadow: rgba(0,0,0,0.3);
   --font: "Cascadia Code", "Fira Code", "JetBrains Mono", "Consolas", monospace;
 }
 
 [data-theme="light"] {
-  --bg: #f5f5f5;
-  --bg2: #ffffff;
-  --bg3: #e8e8ec;
-  --fg: #1a1b26;
-  --fg-dim: #6b7280;
-  --accent: #2563eb;
-  --green: #16a34a;
-  --yellow: #ca8a04;
-  --red: #dc2626;
-  --cyan: #0891b2;
-  --border: #d1d5db;
+  --bg: #f5f5f5; --bg2: #ffffff; --bg3: #e8e8ec;
+  --fg: #1a1b26; --fg-dim: #6b7280; --accent: #2563eb;
+  --green: #16a34a; --yellow: #ca8a04; --red: #dc2626;
+  --cyan: #0891b2; --border: #d1d5db; --shadow: rgba(0,0,0,0.12);
 }
-
 [data-theme="nord"] {
-  --bg: #2e3440;
-  --bg2: #3b4252;
-  --bg3: #434c5e;
-  --fg: #d8dee9;
-  --fg-dim: #7b88a1;
-  --accent: #88c0d0;
-  --green: #a3be8c;
-  --yellow: #ebcb8b;
-  --red: #bf616a;
-  --cyan: #8fbcbb;
-  --border: #4c566a;
+  --bg: #2e3440; --bg2: #3b4252; --bg3: #434c5e;
+  --fg: #d8dee9; --fg-dim: #7b88a1; --accent: #88c0d0;
+  --green: #a3be8c; --yellow: #ebcb8b; --red: #bf616a;
+  --cyan: #8fbcbb; --border: #4c566a; --shadow: rgba(0,0,0,0.3);
 }
-
 [data-theme="dracula"] {
-  --bg: #282a36;
-  --bg2: #343746;
-  --bg3: #3e4154;
-  --fg: #f8f8f2;
-  --fg-dim: #6272a4;
-  --accent: #bd93f9;
-  --green: #50fa7b;
-  --yellow: #f1fa8c;
-  --red: #ff5555;
-  --cyan: #8be9fd;
-  --border: #44475a;
+  --bg: #282a36; --bg2: #343746; --bg3: #3e4154;
+  --fg: #f8f8f2; --fg-dim: #6272a4; --accent: #bd93f9;
+  --green: #50fa7b; --yellow: #f1fa8c; --red: #ff5555;
+  --cyan: #8be9fd; --border: #44475a; --shadow: rgba(0,0,0,0.3);
 }
-
 [data-theme="solarized"] {
-  --bg: #002b36;
-  --bg2: #073642;
-  --bg3: #0a3f4c;
-  --fg: #839496;
-  --fg-dim: #586e75;
-  --accent: #268bd2;
-  --green: #859900;
-  --yellow: #b58900;
-  --red: #dc322f;
-  --cyan: #2aa198;
-  --border: #1a4f5c;
+  --bg: #002b36; --bg2: #073642; --bg3: #0a3f4c;
+  --fg: #839496; --fg-dim: #586e75; --accent: #268bd2;
+  --green: #859900; --yellow: #b58900; --red: #dc322f;
+  --cyan: #2aa198; --border: #1a4f5c; --shadow: rgba(0,0,0,0.3);
 }
-
 [data-theme="gruvbox"] {
-  --bg: #282828;
-  --bg2: #3c3836;
-  --bg3: #504945;
-  --fg: #ebdbb2;
-  --fg-dim: #928374;
-  --accent: #fe8019;
-  --green: #b8bb26;
-  --yellow: #fabd2f;
-  --red: #fb4934;
-  --cyan: #8ec07c;
-  --border: #665c54;
+  --bg: #282828; --bg2: #3c3836; --bg3: #504945;
+  --fg: #ebdbb2; --fg-dim: #928374; --accent: #fe8019;
+  --green: #b8bb26; --yellow: #fabd2f; --red: #fb4934;
+  --cyan: #8ec07c; --border: #665c54; --shadow: rgba(0,0,0,0.3);
+}
+[data-theme="catppuccin"] {
+  --bg: #1e1e2e; --bg2: #313244; --bg3: #45475a;
+  --fg: #cdd6f4; --fg-dim: #6c7086; --accent: #89b4fa;
+  --green: #a6e3a1; --yellow: #f9e2af; --red: #f38ba8;
+  --cyan: #94e2d5; --border: #585b70; --shadow: rgba(0,0,0,0.3);
+}
+[data-theme="onedark"] {
+  --bg: #282c34; --bg2: #2c313c; --bg3: #353b45;
+  --fg: #abb2bf; --fg-dim: #636d83; --accent: #61afef;
+  --green: #98c379; --yellow: #e5c07b; --red: #e06c75;
+  --cyan: #56b6c2; --border: #3e4452; --shadow: rgba(0,0,0,0.3);
+}
+[data-theme="rosepine"] {
+  --bg: #191724; --bg2: #1f1d2e; --bg3: #26233a;
+  --fg: #e0def4; --fg-dim: #6e6a86; --accent: #c4a7e7;
+  --green: #9ccfd8; --yellow: #f6c177; --red: #eb6f92;
+  --cyan: #9ccfd8; --border: #393552; --shadow: rgba(0,0,0,0.3);
+}
+[data-theme="kanagawa"] {
+  --bg: #1f1f28; --bg2: #2a2a37; --bg3: #363646;
+  --fg: #dcd7ba; --fg-dim: #727169; --accent: #7e9cd8;
+  --green: #98bb6c; --yellow: #e6c384; --red: #c34043;
+  --cyan: #7fb4ca; --border: #54546d; --shadow: rgba(0,0,0,0.3);
+}
+[data-theme="everforest"] {
+  --bg: #2d353b; --bg2: #343f44; --bg3: #3d484d;
+  --fg: #d3c6aa; --fg-dim: #859289; --accent: #a7c080;
+  --green: #a7c080; --yellow: #dbbc7f; --red: #e67e80;
+  --cyan: #83c092; --border: #4f585e; --shadow: rgba(0,0,0,0.3);
+}
+[data-theme="monokai"] {
+  --bg: #272822; --bg2: #2e2f2a; --bg3: #3e3d32;
+  --fg: #f8f8f2; --fg-dim: #75715e; --accent: #66d9ef;
+  --green: #a6e22e; --yellow: #e6db74; --red: #f92672;
+  --cyan: #66d9ef; --border: #49483e; --shadow: rgba(0,0,0,0.3);
+}
+[data-theme="tokyo-night"] {
+  --bg: #1a1b26; --bg2: #1f2335; --bg3: #292e42;
+  --fg: #c0caf5; --fg-dim: #565f89; --accent: #7aa2f7;
+  --green: #9ece6a; --yellow: #e0af68; --red: #f7768e;
+  --cyan: #7dcfff; --border: #3b4261; --shadow: rgba(0,0,0,0.4);
+}
+[data-theme="high-contrast"] {
+  --bg: #000000; --bg2: #0a0a0a; --bg3: #1a1a1a;
+  --fg: #ffffff; --fg-dim: #999999; --accent: #00bfff;
+  --green: #00ff7f; --yellow: #ffdd00; --red: #ff3333;
+  --cyan: #00ffff; --border: #444444; --shadow: rgba(0,0,0,0.6);
+}
+[data-theme="github-dark"] {
+  --bg: #0d1117; --bg2: #161b22; --bg3: #21262d;
+  --fg: #e6edf3; --fg-dim: #7d8590; --accent: #58a6ff;
+  --green: #3fb950; --yellow: #d29922; --red: #f85149;
+  --cyan: #58a6ff; --border: #30363d; --shadow: rgba(0,0,0,0.4);
+}
+[data-theme="github-light"] {
+  --bg: #ffffff; --bg2: #f6f8fa; --bg3: #eaeef2;
+  --fg: #1f2328; --fg-dim: #656d76; --accent: #0969da;
+  --green: #1a7f37; --yellow: #9a6700; --red: #cf222e;
+  --cyan: #0969da; --border: #d0d7de; --shadow: rgba(0,0,0,0.08);
+}
+[data-theme="night-owl"] {
+  --bg: #011627; --bg2: #0b2942; --bg3: #13344f;
+  --fg: #d6deeb; --fg-dim: #637777; --accent: #82aaff;
+  --green: #22da6e; --yellow: #ecc48d; --red: #ef5350;
+  --cyan: #7fdbca; --border: #1d3b53; --shadow: rgba(0,0,0,0.5);
+}
+[data-theme="cobalt2"] {
+  --bg: #193549; --bg2: #1f4662; --bg3: #245578;
+  --fg: #e1efff; --fg-dim: #6699cc; --accent: #ffc600;
+  --green: #3ad900; --yellow: #ffc600; --red: #ff628c;
+  --cyan: #80fcff; --border: #2a5a7b; --shadow: rgba(0,0,0,0.4);
+}
+[data-theme="horizon"] {
+  --bg: #1c1e26; --bg2: #232530; --bg3: #2e303e;
+  --fg: #d5d8da; --fg-dim: #6c6f93; --accent: #e95678;
+  --green: #27d796; --yellow: #fab795; --red: #e95678;
+  --cyan: #25b0bc; --border: #383b50; --shadow: rgba(0,0,0,0.4);
+}
+[data-theme="high-contrast-light"] {
+  --bg: #ffffff; --bg2: #f5f5f5; --bg3: #e0e0e0;
+  --fg: #000000; --fg-dim: #555555; --accent: #0050a0;
+  --green: #006b00; --yellow: #8a6900; --red: #cc0000;
+  --cyan: #005f87; --border: #999999; --shadow: rgba(0,0,0,0.15);
+}
+[data-theme="ayu-dark"] {
+  --bg: #0b0e14; --bg2: #11151c; --bg3: #1a1f29;
+  --fg: #bfbdb6; --fg-dim: #565b66; --accent: #e6b450;
+  --green: #7fd962; --yellow: #e6b450; --red: #d95757;
+  --cyan: #73b8ff; --border: #2a2f3a; --shadow: rgba(0,0,0,0.5);
+}
+[data-theme="ayu-light"] {
+  --bg: #fafafa; --bg2: #f0f0f0; --bg3: #e7e8e9;
+  --fg: #575f66; --fg-dim: #abb0b6; --accent: #f2ae49;
+  --green: #86b300; --yellow: #f2ae49; --red: #e65050;
+  --cyan: #399ee6; --border: #d9d8d7; --shadow: rgba(0,0,0,0.08);
+}
+[data-theme="synthwave"] {
+  --bg: #2b213a; --bg2: #34294f; --bg3: #3e3158;
+  --fg: #f0e8ff; --fg-dim: #8b7baa; --accent: #ff7edb;
+  --green: #72f1b8; --yellow: #fede5d; --red: #fe4450;
+  --cyan: #36f9f6; --border: #504073; --shadow: rgba(0,0,0,0.4);
+}
+[data-theme="poimandres"] {
+  --bg: #1b1e28; --bg2: #1f2330; --bg3: #272b3b;
+  --fg: #e4f0fb; --fg-dim: #506477; --accent: #add7ff;
+  --green: #5de4c7; --yellow: #fffac2; --red: #d0679d;
+  --cyan: #89ddff; --border: #303340; --shadow: rgba(0,0,0,0.4);
+}
+[data-theme="vesper"] {
+  --bg: #101010; --bg2: #1a1a1a; --bg3: #232323;
+  --fg: #d4d4d4; --fg-dim: #6b6b6b; --accent: #ffc799;
+  --green: #99ffe4; --yellow: #ffc799; --red: #ff8080;
+  --cyan: #99ffe4; --border: #2a2a2a; --shadow: rgba(0,0,0,0.5);
+}
+[data-theme="palenight"] {
+  --bg: #292d3e; --bg2: #2f3344; --bg3: #373c52;
+  --fg: #a6accd; --fg-dim: #676e95; --accent: #82aaff;
+  --green: #c3e88d; --yellow: #ffcb6b; --red: #f07178;
+  --cyan: #89ddff; --border: #3c4158; --shadow: rgba(0,0,0,0.3);
+}
+[data-theme="flexoki-dark"] {
+  --bg: #100f0f; --bg2: #1c1b1a; --bg3: #282726;
+  --fg: #cecdc3; --fg-dim: #878580; --accent: #da702c;
+  --green: #879a39; --yellow: #d0a215; --red: #af3029;
+  --cyan: #3aa99f; --border: #343331; --shadow: rgba(0,0,0,0.5);
+}
+[data-theme="flexoki-light"] {
+  --bg: #fffcf0; --bg2: #f2f0e5; --bg3: #e6e4d9;
+  --fg: #100f0f; --fg-dim: #878580; --accent: #da702c;
+  --green: #879a39; --yellow: #d0a215; --red: #af3029;
+  --cyan: #3aa99f; --border: #cecdc3; --shadow: rgba(0,0,0,0.08);
+}
+[data-theme="catppuccin-latte"] {
+  --bg: #eff1f5; --bg2: #e6e9ef; --bg3: #dce0e8;
+  --fg: #4c4f69; --fg-dim: #8c8fa1; --accent: #1e66f5;
+  --green: #40a02b; --yellow: #df8e1d; --red: #d20f39;
+  --cyan: #179299; --border: #ccd0da; --shadow: rgba(0,0,0,0.1);
+}
+[data-theme="rosepine-dawn"] {
+  --bg: #faf4ed; --bg2: #fffaf3; --bg3: #f2e9e1;
+  --fg: #575279; --fg-dim: #9893a5; --accent: #907aa9;
+  --green: #56949f; --yellow: #ea9d34; --red: #b4637a;
+  --cyan: #56949f; --border: #dfdad9; --shadow: rgba(0,0,0,0.08);
+}
+[data-theme="everforest-light"] {
+  --bg: #fdf6e3; --bg2: #f4f0d9; --bg3: #edebd0;
+  --fg: #5c6a72; --fg-dim: #939f91; --accent: #8da101;
+  --green: #8da101; --yellow: #dfa000; --red: #f85552;
+  --cyan: #35a77c; --border: #d5d6c8; --shadow: rgba(0,0,0,0.08);
+}
+[data-theme="solarized-light"] {
+  --bg: #fdf6e3; --bg2: #eee8d5; --bg3: #e4ddc8;
+  --fg: #657b83; --fg-dim: #93a1a1; --accent: #268bd2;
+  --green: #859900; --yellow: #b58900; --red: #dc322f;
+  --cyan: #2aa198; --border: #d3cbab; --shadow: rgba(0,0,0,0.08);
+}
+[data-theme="zenburn"] {
+  --bg: #3f3f3f; --bg2: #4f4f4f; --bg3: #5f5f5f;
+  --fg: #dcdccc; --fg-dim: #7f9f7f; --accent: #8cd0d3;
+  --green: #7f9f7f; --yellow: #f0dfaf; --red: #cc9393;
+  --cyan: #93e0e3; --border: #6f6f6f; --shadow: rgba(0,0,0,0.3);
+}
+[data-theme="material"] {
+  --bg: #263238; --bg2: #2c3b41; --bg3: #37474f;
+  --fg: #eeffff; --fg-dim: #546e7a; --accent: #82aaff;
+  --green: #c3e88d; --yellow: #ffcb6b; --red: #f07178;
+  --cyan: #89ddff; --border: #37474f; --shadow: rgba(0,0,0,0.3);
+}
+[data-theme="one-light"] {
+  --bg: #fafafa; --bg2: #f0f0f0; --bg3: #e5e5e6;
+  --fg: #383a42; --fg-dim: #a0a1a7; --accent: #4078f2;
+  --green: #50a14f; --yellow: #c18401; --red: #e45649;
+  --cyan: #0184bc; --border: #d3d3d4; --shadow: rgba(0,0,0,0.08);
+}
+[data-theme="quiet-light"] {
+  --bg: #f5f5f5; --bg2: #ebebeb; --bg3: #e0e0e0;
+  --fg: #333333; --fg-dim: #aaaaaa; --accent: #4b69c6;
+  --green: #7a9f37; --yellow: #c4a500; --red: #c4001e;
+  --cyan: #0094c2; --border: #d4d4d4; --shadow: rgba(0,0,0,0.08);
+}
+[data-theme="alabaster"] {
+  --bg: #f7f7f7; --bg2: #efefef; --bg3: #e6e6e6;
+  --fg: #434343; --fg-dim: #999999; --accent: #007acc;
+  --green: #448c27; --yellow: #cb9000; --red: #aa3731;
+  --cyan: #0083b2; --border: #d9d9d9; --shadow: rgba(0,0,0,0.06);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -797,22 +945,57 @@ tr:hover td { background: var(--bg3); }
   to { opacity: 0; }
 }
 
-.theme-toggle {
+.theme-more {
   background: transparent;
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--fg-dim);
   cursor: pointer;
   font-size: 13px;
-  height: 32px;
-  padding: 0 10px;
+  font-family: var(--font);
+  height: 24px;
+  width: 24px;
   display: flex;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
   transition: color 0.15s, border-color 0.15s;
+  position: relative;
 }
-
-.theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
+.theme-more:hover { color: var(--accent); border-color: var(--accent); }
+.theme-picker {
+  display: none;
+  position: absolute;
+  top: 28px;
+  right: 0;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 0;
+  z-index: 300;
+  box-shadow: 0 4px 12px var(--shadow);
+  min-width: 160px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.theme-picker.open { display: block; }
+.theme-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  cursor: pointer;
+  font-size: 0.82em;
+  color: var(--fg);
+  white-space: nowrap;
+  background: none;
+  border: none;
+  width: 100%;
+  font-family: var(--font);
+  text-align: left;
+}
+.theme-picker-item:hover { background: var(--bg3); }
+.theme-picker-item.active { color: var(--accent); }
+.theme-picker-check { width: 16px; text-align: center; }
 
 .header-badges {
   display: flex;
@@ -928,10 +1111,10 @@ tr:hover td { background: var(--bg3); }
       <span id="screenshot-badge" class="header-badge">screenshot</span>
       <span id="focus-badge" class="header-badge">expanded</span>
     </div>
-    <button class="theme-toggle" id="theme-toggle" title="Toggle theme"></button>
+    <button class="theme-more" id="theme-more" onclick="toggleThemePicker()" title="Color theme"><div class="theme-picker" id="theme-picker"></div>&#127912;</button>
     <div class="window-controls" id="window-controls" style="display:none">
       <button class="win-btn win-btn-pin" id="pin-btn" onclick="togglePin()" title="Pin on top">&#128204;</button>
-      <button class="win-btn" onclick="minimizeWindow()" title="Minimize">&minus;</button>
+      <button class="win-btn" onclick="minimizeWindow()" title="Minimize to tray">&minus;</button>
       <button class="win-btn win-btn-quit" onclick="quitApp()" title="Quit">&times;</button>
     </div>
   </header>
@@ -1120,33 +1303,95 @@ tr:hover td { background: var(--bg3); }
 
 <script>
 (function() {
-  // ---- Theme cycle ----
+  // ---- Theme picker ----
   var THEMES = [
-    { name: 'dark',      icon: '\u263D', label: 'Dark' },
-    { name: 'light',     icon: '\u2600', label: 'Light' },
-    { name: 'nord',      icon: '\u2744', label: 'Nord' },
-    { name: 'dracula',   icon: '\u2605', label: 'Dracula' },
-    { name: 'solarized', icon: '\u25D0', label: 'Solarized' },
-    { name: 'gruvbox',   icon: '\u25A3', label: 'Gruvbox' },
+    { name: 'high-contrast',  icon: '\u25C9', label: 'High Contrast',   cat: 'dark' },
+    { name: 'ayu-dark',       icon: '\u2600', label: 'Ayu Dark',        cat: 'dark' },
+    { name: 'flexoki-dark',   icon: '\u270E', label: 'Flexoki',         cat: 'dark' },
+    { name: 'vesper',         icon: '\u2B50', label: 'Vesper',          cat: 'dark' },
+    { name: 'github-dark',    icon: '\uD83D\uDCBB', label: 'GitHub Dark', cat: 'dark' },
+    { name: 'night-owl',      icon: '\uD83E\uDD89', label: 'Night Owl',  cat: 'dark' },
+    { name: 'cobalt2',        icon: '\uD83D\uDCA0', label: 'Cobalt2',    cat: 'dark' },
+    { name: 'rosepine',       icon: '\u2740', label: 'Ros\u00e9 Pine',   cat: 'dark' },
+    { name: 'dark',           icon: '\u263D', label: 'Dark',             cat: 'dark' },
+    { name: 'tokyo-night',    icon: '\uD83C\uDF03', label: 'Tokyo Night', cat: 'dark' },
+    { name: 'poimandres',     icon: '\u261B', label: 'Poimandres',       cat: 'dark' },
+    { name: 'horizon',        icon: '\uD83C\uDF05', label: 'Horizon',    cat: 'dark' },
+    { name: 'catppuccin',     icon: '\u2615', label: 'Catppuccin',       cat: 'dark' },
+    { name: 'kanagawa',       icon: '\u2307', label: 'Kanagawa',         cat: 'dark' },
+    { name: 'material',       icon: '\u25FC', label: 'Material',         cat: 'warm' },
+    { name: 'monokai',        icon: '\u25B6', label: 'Monokai',          cat: 'warm' },
+    { name: 'gruvbox',        icon: '\u25A3', label: 'Gruvbox',          cat: 'warm' },
+    { name: 'dracula',        icon: '\u2605', label: 'Dracula',          cat: 'warm' },
+    { name: 'onedark',        icon: '\u25C6', label: 'One Dark',         cat: 'warm' },
+    { name: 'synthwave',      icon: '\uD83D\uDCFB', label: 'Synthwave',  cat: 'warm' },
+    { name: 'palenight',      icon: '\u263E', label: 'Palenight',        cat: 'warm' },
+    { name: 'solarized',      icon: '\u25D0', label: 'Solarized',        cat: 'warm' },
+    { name: 'everforest',     icon: '\u2618', label: 'Everforest',       cat: 'warm' },
+    { name: 'nord',           icon: '\u2744', label: 'Nord',             cat: 'warm' },
+    { name: 'zenburn',        icon: '\u2622', label: 'Zenburn',          cat: 'warm' },
+    { name: 'light',               icon: '\u2600', label: 'Light',             cat: 'light' },
+    { name: 'high-contrast-light', icon: '\u25C9', label: 'High Contrast',     cat: 'light' },
+    { name: 'github-light',        icon: '\uD83D\uDCBB', label: 'GitHub Light', cat: 'light' },
+    { name: 'catppuccin-latte',    icon: '\u2615', label: 'Catppuccin Latte',   cat: 'light' },
+    { name: 'rosepine-dawn',       icon: '\u2740', label: 'Ros\u00e9 Dawn',     cat: 'light' },
+    { name: 'everforest-light',    icon: '\u2618', label: 'Everforest Light',   cat: 'light' },
+    { name: 'flexoki-light',       icon: '\u270E', label: 'Flexoki Light',      cat: 'light' },
+    { name: 'solarized-light',     icon: '\u25D0', label: 'Solarized Light',    cat: 'light' },
+    { name: 'one-light',           icon: '\u25C6', label: 'One Light',          cat: 'light' },
+    { name: 'quiet-light',         icon: '\u25EF', label: 'Quiet Light',        cat: 'light' },
+    { name: 'alabaster',           icon: '\u25FB', label: 'Alabaster',          cat: 'light' },
+    { name: 'ayu-light',           icon: '\u2600', label: 'Ayu Light',          cat: 'light' },
   ];
-  var themeToggle = document.getElementById('theme-toggle');
+  var THEME_CATS = [
+    { key: 'dark',  label: 'Dark' },
+    { key: 'warm',  label: 'Warm' },
+    { key: 'light', label: 'Light' },
+  ];
   var savedTheme = localStorage.getItem('notify-theme');
   var themeIdx = Math.max(0, THEMES.findIndex(function(t) { return t.name === savedTheme; }));
   document.documentElement.dataset.theme = THEMES[themeIdx].name;
 
-  function updateToggleIcon() {
-    var t = THEMES[themeIdx];
-    themeToggle.textContent = t.icon + ' ' + t.label;
-    themeToggle.title = 'Theme: ' + t.label + ' (click to cycle)';
-  }
-  updateToggleIcon();
-
-  themeToggle.addEventListener('click', function() {
-    themeIdx = (themeIdx + 1) % THEMES.length;
+  function applyTheme(idx) {
+    themeIdx = idx;
     document.documentElement.dataset.theme = THEMES[themeIdx].name;
     localStorage.setItem('notify-theme', THEMES[themeIdx].name);
-    updateToggleIcon();
     switchTab(activeTab());
+  }
+
+  window.toggleThemePicker = function() {
+    var picker = document.getElementById('theme-picker');
+    var isOpen = picker.classList.toggle('open');
+    if (!isOpen) return;
+    var html = '<div style="display:flex;gap:0">';
+    THEME_CATS.forEach(function(cat, ci) {
+      html += '<div style="flex:1;' + (ci > 0 ? 'border-left:1px solid var(--border)' : '') + '">';
+      html += '<div style="padding:5px 12px 2px;font-size:0.75em;color:var(--fg-dim);text-transform:uppercase;letter-spacing:0.5px">' + cat.label + '</div>';
+      THEMES.forEach(function(t, i) {
+        if (t.cat !== cat.key) return;
+        html += '<button class="theme-picker-item' + (i === themeIdx ? ' active' : '') + '" onclick="pickTheme(' + i + ')" onmouseenter="previewTheme(' + i + ')" onmouseleave="previewTheme(' + themeIdx + ')">' +
+          '<span class="theme-picker-check">' + (i === themeIdx ? '\u2713' : '') + '</span>' +
+          t.icon + ' ' + t.label + '</button>';
+      });
+      html += '</div>';
+    });
+    html += '</div>';
+    picker.innerHTML = html;
+  };
+
+  window.previewTheme = function(idx) {
+    document.documentElement.dataset.theme = THEMES[idx].name;
+  };
+
+  window.pickTheme = function(idx) {
+    document.getElementById('theme-picker').classList.remove('open');
+    applyTheme(idx);
+  };
+
+  document.addEventListener('click', function(e) {
+    var picker = document.getElementById('theme-picker');
+    var btn = document.getElementById('theme-more');
+    if (!btn.contains(e.target)) picker.classList.remove('open');
   });
 
   // ---- Screenshot mode ----

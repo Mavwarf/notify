@@ -46,19 +46,12 @@ func (a *App) saveWindowGeometry() {
 	saveGeometry(&WindowGeometry{X: x, Y: y, Width: w, Height: h})
 }
 
-// beforeClose intercepts the window close event. Shift+close exits fully;
-// normal close hides to tray. The return value follows the Wails convention:
-// returning true prevents the default close (keeping the app alive in tray),
-// returning false allows the window to close normally.
+// beforeClose intercepts the window close event and exits the application.
 func (a *App) beforeClose(ctx context.Context) bool {
 	a.saveWindowGeometry()
-	if isShiftHeld() {
-		systray.Quit()
-		os.Exit(0)
-		return false // allow close (unreachable after os.Exit, but semantically correct)
-	}
-	wailsRuntime.WindowHide(a.ctx)
-	return true // prevent close — hide to tray instead
+	systray.Quit()
+	os.Exit(0)
+	return false
 }
 
 // ShowWindow brings the dashboard window to the foreground. It blocks on the
@@ -69,10 +62,10 @@ func (a *App) ShowWindow() {
 	wailsRuntime.WindowShow(a.ctx)
 }
 
-// MinimizeWindow minimizes the dashboard window to the taskbar.
+// MinimizeWindow hides the dashboard window to the system tray.
 func (a *App) MinimizeWindow() {
 	<-a.ready
-	wailsRuntime.WindowMinimise(a.ctx)
+	wailsRuntime.WindowHide(a.ctx)
 }
 
 // QuitApp fully exits the application by tearing down the system tray and
