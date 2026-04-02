@@ -139,6 +139,7 @@ func Serve(cfg config.Config, configPath string, port int, open bool, showFn, mi
 	mux.HandleFunc("/api/stats", handleStats)
 	mux.HandleFunc("/api/voice", handleVoice)
 	mux.HandleFunc("/api/voice/play/", handleVoicePlay)
+	mux.HandleFunc("/api/voice/generate", handleVoiceGenerate(configPath, cfg))
 	mux.HandleFunc("/api/silent", handleSilent)
 	mux.HandleFunc("/api/trigger", handleTrigger(configPath, cfg))
 	mux.HandleFunc("/api/preferences", handlePreferences(configPath))
@@ -830,6 +831,116 @@ func handleVoicePlay(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "audio/wav")
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	w.Write(data)
+}
+
+// handleVoiceGenerate generates missing AI voice cache entries and streams
+// progress as SSE events. Each generated voice sends a JSON event with the
+// text, status, and size. Uses min_uses=1 so all known texts are included.
+func handleVoiceGenerate(configPath string, fallback config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		cfg := loadCfg(configPath, fallback)
+
+		voiceName := cfg.Options.Voice.Voice
+		if voiceName == "" {
+			voiceName = config.DefaultVoiceName
+		}
+		model := cfg.Options.Voice.Model
+		if model == "" {
+			model = config.DefaultVoiceModel
+		}
+		speed := cfg.Options.Voice.Speed
+		if speed == 0 {
+			speed = config.DefaultVoiceSpeed
+		}
+		apiKey := cfg.Options.Credentials.OpenAIAPIKey
+		if apiKey == "" {
+			http.Error(w, "openai_api_key not configured", http.StatusBadRequest)
+			return
+		}
+
+		lines, _ := eventlog.VoiceLines(0)
+		if len(lines) == 0 {
+			http.Error(w, "no voice data", http.StatusNotFound)
+			return
+		}
+
+		cache, err := voice.OpenCache()
+		if err != nil {
+			http.Error(w, "opening voice cache: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Collect uncached, non-dynamic texts.
+		type candidate struct {
+			text  string
+			count int
+		}
+		var toGen []candidate
+		for _, l := range lines {
+			if tmpl.HasDynamic(l.Text) {
+				continue
+			}
+			if _, ok := cache.Lookup(l.Text); ok {
+				continue
+			}
+			toGen = append(toGen, candidate{l.Text, l.Count})
+		}
+		sort.Slice(toGen, func(i, j int) bool { return toGen[i].count > toGen[j].count })
+
+		if len(toGen) == 0 {
+			http.Error(w, "all voices already cached", http.StatusOK)
+			return
+		}
+
+		// Stream progress as SSE.
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "streaming not supported", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+
+		type progressEvent struct {
+			Index int    `json:"index"`
+			Total int    `json:"total"`
+			Text  string `json:"text"`
+			OK    bool   `json:"ok"`
+			Error string `json:"error,omitempty"`
+			Size  int    `json:"size,omitempty"`
+		}
+
+		sendEvent := func(evt progressEvent) {
+			data, _ := json.Marshal(evt)
+			fmt.Fprintf(w, "data: %s\n\n", data)
+			flusher.Flush()
+		}
+
+		for i, c := range toGen {
+			if i > 0 {
+				time.Sleep(21 * time.Second)
+			}
+			wavData, err := voice.Generate(apiKey, model, voiceName, c.text, speed)
+			if err != nil {
+				sendEvent(progressEvent{Index: i + 1, Total: len(toGen), Text: c.text, OK: false, Error: err.Error()})
+				continue
+			}
+			if err := cache.Add(c.text, voiceName, wavData); err != nil {
+				sendEvent(progressEvent{Index: i + 1, Total: len(toGen), Text: c.text, OK: false, Error: err.Error()})
+				continue
+			}
+			sendEvent(progressEvent{Index: i + 1, Total: len(toGen), Text: c.text, OK: true, Size: len(wavData)})
+		}
+
+		fmt.Fprintf(w, "data: {\"done\":true}\n\n")
+		flusher.Flush()
+	}
 }
 
 type silentResponse struct {

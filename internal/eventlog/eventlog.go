@@ -129,9 +129,7 @@ func VoiceLines(days int) ([]VoiceLine, error) { return Default.VoiceLines(days)
 // ReadContent returns the raw log file content.
 func ReadContent() (string, error) { return Default.ReadContent() }
 
-// LogPath returns the log file location:
-//   - Windows: %APPDATA%\notify\notify.log
-//   - Unix:    ~/.config/notify/notify.log
+// LogPath returns the log file location (~/.config/notify/notify.log).
 //
 // This is a variable so tests can override it.
 var LogPath = func() string {

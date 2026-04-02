@@ -39,15 +39,10 @@ func AtomicWrite(path string, data []byte) error {
 	return nil
 }
 
-// DataDir returns the platform-specific data directory for notify:
-//   - Windows: %APPDATA%\notify
-//   - Unix:    ~/.config/notify
+// DataDir returns the data directory for notify: ~/.config/notify
 //
-// Falls back to os.TempDir()/notify if neither is available.
+// Falls back to os.TempDir()/notify if the home directory cannot be determined.
 func DataDir() string {
-	if appdata := os.Getenv("APPDATA"); appdata != "" {
-		return filepath.Join(appdata, AppDirName)
-	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return filepath.Join(os.TempDir(), AppDirName)

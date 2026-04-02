@@ -33,7 +33,7 @@ kubectl rollout status deploy/api; notify done
 Download the latest binary for your platform from
 [GitHub Releases](https://github.com/Mavwarf/notify/releases).
 Place the binary somewhere on your `PATH` and copy
-`notify-config.example.json` as `notify-config.json` next to it.
+`notify-config.example.json` as `~/.config/notify/notify-config.json`.
 
 On Linux, audio playback requires ALSA: `sudo apt install libasound2`
 (or equivalent for your distro).
@@ -252,9 +252,8 @@ notify help                            # Show help
 `notify` looks for `notify-config.json` in this order:
 
 1. `--config <path>` (explicit)
-2. `notify-config.json` next to the binary
-3. `~/.config/notify/notify-config.json` (Linux/macOS) or `%APPDATA%\notify\notify-config.json` (Windows)
-4. **Built-in defaults** — if no config file exists, `notify` uses a built-in `default` profile with four actions (`ready`, `error`, `done`, `attention`) using local sound + speech. No setup needed for basic usage.
+2. `~/.config/notify/notify-config.json`
+3. **Built-in defaults** — if no config file exists, `notify` uses a built-in `default` profile with four actions (`ready`, `error`, `done`, `attention`) using local sound + speech. No setup needed for basic usage.
 
 ### Config format
 
@@ -738,8 +737,8 @@ The `notify test` dry-run shows voice source per voice step:
 `(ai: nova)` for cached, `(system tts)` for uncached, `(system tts, dynamic)`
 for messages with runtime variables.
 
-Cache location: `~/.config/notify/voice-cache/` (or `%APPDATA%\notify\voice-cache\`
-on Windows). Files are named by SHA-256 hash of the text.
+Cache location: `~/.config/notify/voice-cache/`. Files are named by SHA-256 hash
+of the text.
 
 ### AFK detection
 
@@ -1220,8 +1219,8 @@ notify silent off                 # Disable silent mode
 Event logging is opt-in. Enable it with `--log` (or `-L`) on the command
 line, or set `"log": true` in the config `"config"` block. When enabled,
 each invocation is stored in the event log — by default a SQLite database
-(`notify.db`) in the notify data directory (`%APPDATA%\notify\` on Windows,
-`~/.config/notify/` on Linux/macOS). Set `"storage": "file"` in config to
+(`notify.db`) in the notify data directory (`~/.config/notify/`).
+Set `"storage": "file"` in config to
 use the legacy flat file (`notify.log`) instead. Only steps that actually ran
 are logged (steps filtered out by AFK detection are omitted). The logical
 format of each entry is:
@@ -1292,24 +1291,27 @@ the footer's right corner.
 - **Voice** — say-step text frequencies from the event log, with rank, count,
   percentage, and text columns. A time-range dropdown filters by all time, 7,
   30, or 90 days. Pre-generated AI voice entries show a play button to preview
-  the cached WAV directly in the browser
+  the cached WAV directly in the browser. A "Generate missing" button generates
+  all uncached voice lines via the OpenAI TTS API with live progress toasts
 - **Silent** — view and control silent mode from the dashboard. Shows current
   status with countdown timer, quick-set buttons (15m, 30m, 1h, 2h, 4h),
   custom duration input, and disable button. A status badge appears next to
   the tab bar whenever silent mode is active
 
 Tabs are grouped visually: [Summary, Breakdown, Time Spent], [Silent],
-[History, Config, Dry Run, Voice]. **Focus mode** (on by default) hides the
-last four tabs for a cleaner view; press `x` to toggle — an "expanded" badge
-appears in the header when all tabs are shown.
+[History, Config, Dry Run, Voice]. **Compact mode** (on by default) hides the
+last four tabs for a cleaner view; press `F3` to toggle or use the preferences
+menu — an "expanded" badge appears in the header when all tabs are shown.
 
 Profile names are clickable everywhere — click one to open a detail modal
 showing its full step pipeline (dry-run) and credential health status.
 
 Keyboard shortcuts: `1`–`8` switch tabs, left/right arrows navigate
 periods, `t` jumps to today, `d`/`w`/`m`/`y`/`a` switch range
-(day/week/month/year/all), `s` toggles screenshot mode (replaces profile names
-with fake ones for privacy-safe screenshots), `x` toggles focus mode. A theme button in the header
+(day/week/month/year/all), `F2` toggles screenshot mode (replaces profile names
+with fake ones for privacy-safe screenshots), `F3` toggles compact mode. A preferences
+button (gear icon) provides quick access to compact mode and config file location.
+A theme button in the header
 opens a color picker with 37 themes in three columns (Dark, Warm, Light) —
 hover to preview, click to apply. Your choice persists via `localStorage`.
 
@@ -1424,8 +1426,7 @@ Set a global default duration in `"config"`, and optionally override per-action:
 In the example above, `ready` uses the global 30s default while `error` overrides
 to 10s. If the same `profile/action` was triggered within the cooldown window,
 the invocation exits immediately — no sound, no speech, no toast.
-Cooldown state is stored in `%APPDATA%\notify\cooldown.json` (Windows)
-or `~/.config/notify/cooldown.json` (Linux/macOS). Missing or corrupt
+Cooldown state is stored in `~/.config/notify/cooldown.json`. Missing or corrupt
 state files are treated as "not on cooldown" (fail-open).
 
 ### Silent mode
@@ -1450,7 +1451,7 @@ disabling silent mode is also logged.
 `notify test` shows silent status in its output.
 
 Silent state is stored in `silent.json` in the notify data directory
-(`%APPDATA%\notify\` on Windows, `~/.config/notify/` on Linux/macOS).
+(`~/.config/notify/`).
 If the file is missing, corrupt, or the time has passed, notify treats
 it as not silent (fail-open).
 

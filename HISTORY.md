@@ -2,10 +2,14 @@
 
 ## Features
 
+- Dashboard voice generation — "Generate missing" button in Voice tab generates all uncached voice lines via OpenAI TTS with live progress toasts *(Apr 02)*
+- Dashboard preferences — gear button in header with config file path, edit button, and compact mode toggle *(Apr 02)*
+- Compact mode — renamed from "focus mode"; toggle via F3 or preferences menu *(Apr 02)*
+- Unified data directory — all data now lives in `~/.config/notify/`; removed "next to binary" config lookup and `%APPDATA%` preference *(Apr 02)*
 - Theme picker — 37 color themes in a 3-column dropdown (Dark, Warm, Light) with hover preview, replacing the old 6-theme cycle button *(Mar 31)*
 - Window controls — close (×) always exits, minimize (−) hides to tray; removes Shift+close requirement *(Mar 31)*
 - Dashboard build info — footer shows build date, time (UTC), and version in the bottom-right corner *(Mar 05)*
-- Dashboard tab split — Summary, Breakdown, and Time Spent are now separate tabs with focus mode, tab grouping, and scrollbar anchored to window edge *(Mar 04)*
+- Dashboard tab split — Summary, Breakdown, and Time Spent are now separate tabs with compact mode, tab grouping, and scrollbar anchored to window edge *(Mar 04)*
 - Window geometry persistence for `notify-app` — saves window position and size on close, restores on next launch *(Mar 02)*
 - Codebase documentation — package-level doc comments, function docs, and inline explanations across 43 Go source files covering non-obvious logic, Win32 APIs, audio math, and design decisions *(Mar 02)*
 - Always on top — pin button in the dashboard header toggles the window to stay above all other windows; state persists across restarts via localStorage *(Mar 02)*
@@ -79,6 +83,38 @@
 - Template variables: `{profile}`, `{command}`, `{duration}` *(Feb 20)*
 - Opt-in event logging *(Feb 20)*
 - Multi-step notification pipelines: sound, speech, toast *(Feb 19)*
+
+---
+
+## 2026-04-02
+
+### Dashboard preferences
+
+A gear button (⚙) in the dashboard header opens a preferences dropdown with two
+sections: **View** (compact mode toggle) and **Config** (resolved config file
+path with an "Edit config" button that opens the file in the system editor).
+
+### Compact mode (renamed from focus mode)
+
+"Focus mode" is now called "compact mode" throughout. The `F3` keyboard shortcut
+and a toggle in the preferences menu control it. Old `notify-focus` localStorage
+key auto-migrates to `notify-compact`.
+
+### Unified data directory
+
+All data files (config, database, voice cache, cooldown, silent state, icon,
+window geometry) now live under `~/.config/notify/`. The previous "next to
+binary" config search and Windows `%APPDATA%` preference have been removed.
+Config resolution is now: `--config <path>` → `~/.config/notify/notify-config.json`
+→ built-in defaults.
+
+### Dashboard voice generation
+
+A "Generate missing" button in the Voice tab generates all uncached, non-dynamic
+voice lines via the OpenAI TTS API. Progress streams as SSE events — each
+generated voice shows a toast with the text and file size. The button shows
+real-time progress (`Generating 3/7...`) and refreshes the voice table on
+completion. Uses 21-second delay between API calls for rate limiting.
 
 ---
 

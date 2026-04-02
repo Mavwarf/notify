@@ -536,35 +536,27 @@ func DefaultConfig() Config {
 	}
 }
 
-// FindPath resolves the config file path using the same resolution order
-// as Load. Returns the resolved path or an error if no config file is found.
+// FindPath resolves the config file path. It checks, in order:
+//  1. explicitPath (if non-empty, from --config flag)
+//  2. ~/.config/notify/notify-config.json
+//
+// Returns the resolved path or an error if no config file is found.
 func FindPath(explicitPath string) (string, error) {
 	if explicitPath != "" {
 		return explicitPath, nil
 	}
 
-	// Next to binary
-	exe, err := os.Executable()
-	if err == nil {
-		p := filepath.Join(filepath.Dir(exe), paths.ConfigFileName)
-		if _, err := os.Stat(p); err == nil {
-			return p, nil
-		}
-	}
-
-	// User config directory
 	p := filepath.Join(paths.DataDir(), paths.ConfigFileName)
 	if _, err := os.Stat(p); err == nil {
 		return p, nil
 	}
 
-	return "", fmt.Errorf("no notify-config.json found (use --config to specify a path)")
+	return "", fmt.Errorf("no notify-config.json found (create %s or use --config)", filepath.Join(paths.DataDir(), paths.ConfigFileName))
 }
 
-// Load reads and parses a config file. It tries, in order:
-//  1. explicitPath (if non-empty)
-//  2. notify-config.json next to the running binary
-//  3. ~/.config/notify/notify-config.json
+// Load reads and parses a config file. It checks, in order:
+//  1. explicitPath (if non-empty, from --config flag)
+//  2. ~/.config/notify/notify-config.json
 //
 // When no config file is found and explicitPath is empty, Load returns
 // DefaultConfig() so that basic commands work without any setup.

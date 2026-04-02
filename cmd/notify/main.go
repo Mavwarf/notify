@@ -1012,9 +1012,8 @@ Commands:
 
 Config resolution:
   1. --config <path>              (explicit)
-  2. notify-config.json next to binary   (portable)
-  3. ~/.config/notify/notify-config.json (user default)
-  4. Built-in defaults            (zero-config: ready, error, done, attention)
+  2. ~/.config/notify/notify-config.json (default)
+  3. Built-in defaults            (zero-config: ready, error, done, attention)
 
 Profile auto-selection:
   When profile is omitted, match rules select a profile by working

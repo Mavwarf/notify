@@ -889,10 +889,13 @@ func TestHandleVoiceEmpty(t *testing.T) {
 func withTempAppdata(t *testing.T) {
 	t.Helper()
 	dir := t.TempDir()
-	orig := os.Getenv("APPDATA")
-	os.Setenv("APPDATA", dir)
+	origHome := os.Getenv("HOME")
+	origUserProfile := os.Getenv("USERPROFILE")
+	os.Setenv("HOME", dir)
+	os.Setenv("USERPROFILE", dir)
 	t.Cleanup(func() {
-		os.Setenv("APPDATA", orig)
+		os.Setenv("HOME", origHome)
+		os.Setenv("USERPROFILE", origUserProfile)
 	})
 }
 

@@ -22,27 +22,14 @@ func TestCooldownKey(t *testing.T) {
 	}
 }
 
-func TestDataDirUsesAPPDATA(t *testing.T) {
-	orig := os.Getenv("APPDATA")
-	t.Cleanup(func() { os.Setenv("APPDATA", orig) })
-
-	os.Setenv("APPDATA", "/fake/appdata")
+func TestDataDirUsesHomeConfig(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("cannot determine home directory")
+	}
 	got := DataDir()
-	want := filepath.Join("/fake/appdata", AppDirName)
+	want := filepath.Join(home, ".config", AppDirName)
 	if got != want {
 		t.Errorf("DataDir() = %q, want %q", got, want)
-	}
-}
-
-func TestDataDirFallsBackWithoutAPPDATA(t *testing.T) {
-	orig := os.Getenv("APPDATA")
-	t.Cleanup(func() { os.Setenv("APPDATA", orig) })
-
-	os.Unsetenv("APPDATA")
-	got := DataDir()
-
-	// Should use ~/.config/notify or temp dir — either way must end with "notify".
-	if filepath.Base(got) != AppDirName {
-		t.Errorf("DataDir() = %q, expected base dir %q", got, AppDirName)
 	}
 }
