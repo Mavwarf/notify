@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/Mavwarf/notify/internal/config"
+	"github.com/Mavwarf/notify/internal/paths"
 	"github.com/Mavwarf/notify/internal/cooldown"
 	"github.com/Mavwarf/notify/internal/eventlog"
 	"github.com/Mavwarf/notify/internal/idle"
@@ -144,6 +145,7 @@ func Serve(cfg config.Config, configPath string, port int, open bool, showFn, mi
 	mux.HandleFunc("/api/trigger", handleTrigger(configPath, cfg))
 	mux.HandleFunc("/api/preferences", handlePreferences(configPath))
 	mux.HandleFunc("/api/edit-config", handleEditConfig(configPath))
+	mux.HandleFunc("/api/open-config-dir", handleOpenConfigDir)
 
 	// App-mode-only endpoints: registered only when the corresponding callback
 	// is non-nil. The CLI passes nil for all callbacks, so these routes simply
@@ -316,6 +318,16 @@ func handleEditConfig(configPath string) http.HandlerFunc {
 		go openSystemBrowser(p)
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+// handleOpenConfigDir opens the notify data directory in the system file manager.
+func handleOpenConfigDir(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	go openSystemBrowser(paths.DataDir())
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func handleIndex(w http.ResponseWriter, r *http.Request) {

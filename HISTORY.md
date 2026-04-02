@@ -92,7 +92,8 @@
 
 A gear button (⚙) in the dashboard header opens a preferences dropdown with two
 sections: **View** (compact mode toggle) and **Config** (resolved config file
-path with an "Edit config" button that opens the file in the system editor).
+path, an "Edit config" button that opens the file in the system editor, and an
+"Open config folder" button that opens `~/.config/notify/` in the file manager).
 
 ### Compact mode (renamed from focus mode)
 

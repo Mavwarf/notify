@@ -1310,8 +1310,8 @@ Keyboard shortcuts: `1`–`8` switch tabs, left/right arrows navigate
 periods, `t` jumps to today, `d`/`w`/`m`/`y`/`a` switch range
 (day/week/month/year/all), `F2` toggles screenshot mode (replaces profile names
 with fake ones for privacy-safe screenshots), `F3` toggles compact mode. A preferences
-button (gear icon) provides quick access to compact mode and config file location.
-A theme button in the header
+button (gear icon) provides quick access to compact mode, config file location,
+and a button to open the config folder in the file manager. A theme button in the header
 opens a color picker with 37 themes in three columns (Dark, Warm, Light) —
 hover to preview, click to apply. Your choice persists via `localStorage`.
 
