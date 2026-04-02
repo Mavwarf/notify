@@ -1109,16 +1109,17 @@ tr:hover td { background: var(--bg3); }
     <div class="status"><span class="dot" id="sse-dot"></span><span id="sse-status">connecting...</span></div>
     <div class="header-badges">
       <span id="screenshot-badge" class="header-badge">screenshot</span>
-      <span id="focus-badge" class="header-badge">expanded</span>
+      <span id="compact-badge" class="header-badge">expanded</span>
     </div>
     <button class="theme-more" id="theme-more" onclick="toggleThemePicker()" title="Color theme"><div class="theme-picker" id="theme-picker"></div>&#127912;</button>
+    <button class="theme-more" id="prefs-btn" onclick="togglePrefs()" title="Preferences"><div class="theme-picker" id="prefs-picker"></div>&#9881;</button>
     <div class="window-controls" id="window-controls" style="display:none">
       <button class="win-btn win-btn-pin" id="pin-btn" onclick="togglePin()" title="Pin on top">&#128204;</button>
     </div>
   </header>
   <div style="font-size:12px;color:var(--fg-dim);display:flex;justify-content:space-between">
     <span class="silent-badge" id="silent-badge">Silent until <span id="silent-badge-time"></span></span>
-    <span class="shortcuts-hint">Keys: 1-8 tabs, arrows nav, t today, d/w/m/y/a range, F2 screenshot, F3 focus</span>
+    <span class="shortcuts-hint">Keys: 1-8 tabs, arrows nav, t today, d/w/m/y/a range, F2 screenshot, F3 compact</span>
   </div>
 </div>
 <div class="scroll-area">
@@ -1390,7 +1391,38 @@ tr:hover td { background: var(--bg3); }
     var picker = document.getElementById('theme-picker');
     var btn = document.getElementById('theme-more');
     if (!btn.contains(e.target)) picker.classList.remove('open');
+    var prefsPicker = document.getElementById('prefs-picker');
+    var prefsBtn = document.getElementById('prefs-btn');
+    if (!prefsBtn.contains(e.target)) prefsPicker.classList.remove('open');
   });
+
+  // ---- Preferences ----
+  var prefsConfigPath = '';
+
+  window.togglePrefs = function() {
+    var picker = document.getElementById('prefs-picker');
+    var isOpen = picker.classList.toggle('open');
+    if (!isOpen) return;
+    picker.innerHTML =
+      '<div style="padding:5px 12px 2px;font-size:0.75em;color:var(--fg-dim);text-transform:uppercase;letter-spacing:0.5px">View</div>' +
+      '<button class="theme-picker-item" onclick="toggleCompact();togglePrefs();">Compact mode: ' + (compactMode ? 'on' : 'off') + '</button>' +
+      '<div style="padding:8px 12px 2px;font-size:0.75em;color:var(--fg-dim);text-transform:uppercase;letter-spacing:0.5px;border-top:1px solid var(--border);margin-top:4px">Config</div>' +
+      '<div style="padding:4px 12px;font-size:0.82em;color:var(--fg);white-space:nowrap">' +
+        (prefsConfigPath ? esc(prefsConfigPath) : '<span style="color:var(--fg-dim)">using built-in defaults</span>') +
+      '</div>' +
+      (prefsConfigPath ? '<button class="theme-picker-item" onclick="editConfig()">Edit config</button>' : '');
+  }
+
+  window.editConfig = function() {
+    document.getElementById('prefs-picker').classList.remove('open');
+    fetch('/api/edit-config', {method: 'POST'}).catch(function() {});
+  }
+
+  function loadPreferences() {
+    fetch('/api/preferences').then(function(r) { return r.json(); }).then(function(d) {
+      prefsConfigPath = d.config_path || '';
+    }).catch(function() {});
+  }
 
   // ---- Screenshot mode ----
   var screenshotMode = localStorage.getItem('notify-screenshot') === 'on';
@@ -1416,20 +1448,26 @@ tr:hover td { background: var(--bg3); }
   }
   updateScreenshotBadge();
 
-  // ---- Focus mode ----
-  var focusMode = localStorage.getItem('notify-focus') !== 'off';
-  var focusTabs = ['history', 'config', 'test', 'voice'];
+  // ---- Compact mode ----
+  var compactMode = localStorage.getItem('notify-compact') !== 'off';
+  // Migrate old localStorage key
+  if (localStorage.getItem('notify-compact') === null && localStorage.getItem('notify-focus') !== null) {
+    compactMode = localStorage.getItem('notify-focus') !== 'off';
+    localStorage.setItem('notify-compact', compactMode ? 'on' : 'off');
+    localStorage.removeItem('notify-focus');
+  }
+  var compactTabs = ['history', 'config', 'test', 'voice'];
 
-  function updateFocusTabs() {
-    document.getElementById('focus-badge').classList.toggle('visible', !focusMode);
+  function updateCompactTabs() {
+    document.getElementById('compact-badge').classList.toggle('visible', !compactMode);
     tabs.forEach(function(t) {
-      if (focusTabs.indexOf(t.dataset.panel) !== -1) {
-        t.style.display = focusMode ? 'none' : '';
+      if (compactTabs.indexOf(t.dataset.panel) !== -1) {
+        t.style.display = compactMode ? 'none' : '';
       }
     });
     // If active tab is now hidden, switch to summary
     var act = document.querySelector('.tab.active');
-    if (focusMode && act && focusTabs.indexOf(act.dataset.panel) !== -1) {
+    if (compactMode && act && compactTabs.indexOf(act.dataset.panel) !== -1) {
       switchTab('summary');
     }
   }
@@ -1471,7 +1509,7 @@ tr:hover td { background: var(--bg3); }
   if (hash && document.getElementById('panel-' + hash)) {
     switchTab(hash);
   }
-  updateFocusTabs();
+  updateCompactTabs();
 
   // ---- Helper ----
   function formatTime(iso) {
@@ -2942,11 +2980,11 @@ tr:hover td { background: var(--bg3); }
     populateTestDropdowns();
   }
 
-  // ---- Focus toggle ----
-  function toggleFocus() {
-    focusMode = !focusMode;
-    localStorage.setItem('notify-focus', focusMode ? 'on' : 'off');
-    updateFocusTabs();
+  // ---- Compact toggle ----
+  window.toggleCompact = function() {
+    compactMode = !compactMode;
+    localStorage.setItem('notify-compact', compactMode ? 'on' : 'off');
+    updateCompactTabs();
   }
 
   // ---- Keyboard shortcuts ----
@@ -2982,9 +3020,9 @@ tr:hover td { background: var(--bg3); }
       return;
     }
 
-    // F3: toggle focus mode
+    // F3: toggle compact mode
     if (e.key === 'F3') {
-      toggleFocus();
+      toggleCompact();
       e.preventDefault();
       return;
     }
@@ -3161,6 +3199,7 @@ tr:hover td { background: var(--bg3); }
   loadConfig();
   loadVoice();
   loadSilent();
+  loadPreferences();
   connectSSE();
 })();
 </script>

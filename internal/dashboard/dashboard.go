@@ -141,6 +141,8 @@ func Serve(cfg config.Config, configPath string, port int, open bool, showFn, mi
 	mux.HandleFunc("/api/voice/play/", handleVoicePlay)
 	mux.HandleFunc("/api/silent", handleSilent)
 	mux.HandleFunc("/api/trigger", handleTrigger(configPath, cfg))
+	mux.HandleFunc("/api/preferences", handlePreferences(configPath))
+	mux.HandleFunc("/api/edit-config", handleEditConfig(configPath))
 
 	// App-mode-only endpoints: registered only when the corresponding callback
 	// is non-nil. The CLI passes nil for all callbacks, so these routes simply
@@ -287,6 +289,32 @@ func openSystemBrowser(url string) {
 		cmd = exec.Command("xdg-open", url)
 	}
 	cmd.Start()
+}
+
+// handlePreferences returns the resolved config file path.
+func handlePreferences(configPath string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		p, _ := config.FindPath(configPath)
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		json.NewEncoder(w).Encode(map[string]string{"config_path": p})
+	}
+}
+
+// handleEditConfig opens the config file in the system's default editor.
+func handleEditConfig(configPath string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		p, err := config.FindPath(configPath)
+		if err != nil {
+			http.Error(w, "no config file found", http.StatusNotFound)
+			return
+		}
+		go openSystemBrowser(p)
+		w.WriteHeader(http.StatusNoContent)
+	}
 }
 
 func handleIndex(w http.ResponseWriter, r *http.Request) {
