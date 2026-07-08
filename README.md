@@ -1292,7 +1292,9 @@ the footer's right corner.
   percentage, and text columns. A time-range dropdown filters by all time, 7,
   30, or 90 days. Pre-generated AI voice entries show a play button to preview
   the cached WAV directly in the browser. A "Generate missing" button generates
-  all uncached voice lines via the OpenAI TTS API with live progress toasts
+  all uncached voice lines via the OpenAI TTS API with live progress toasts.
+  The same action is available as a 🎙 icon in the dashboard header — one click
+  from any tab, works in compact mode without switching tabs
 - **Silent** — view and control silent mode from the dashboard. Shows current
   status with countdown timer, quick-set buttons (15m, 30m, 1h, 2h, 4h),
   custom duration input, and disable button. A status badge appears next to

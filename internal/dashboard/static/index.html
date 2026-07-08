@@ -962,6 +962,9 @@ tr:hover td { background: var(--bg3); }
   position: relative;
 }
 .theme-more:hover { color: var(--accent); border-color: var(--accent); }
+.theme-more.generating { color: var(--accent); border-color: var(--accent); animation: theme-more-pulse 1.2s ease-in-out infinite; }
+.theme-more:disabled { cursor: default; }
+@keyframes theme-more-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
 .theme-picker {
   display: none;
   position: absolute;
@@ -1112,6 +1115,7 @@ tr:hover td { background: var(--bg3); }
       <span id="compact-badge" class="header-badge">expanded</span>
     </div>
     <button class="theme-more" id="theme-more" onclick="toggleThemePicker()" title="Color theme"><div class="theme-picker" id="theme-picker"></div>&#127912;</button>
+    <button class="theme-more" id="voice-gen-header-btn" onclick="voiceGenerateMissing()" title="Generate missing AI voices">&#127897;</button>
     <button class="theme-more" id="prefs-btn" onclick="togglePrefs()" title="Preferences"><div class="theme-picker" id="prefs-picker"></div>&#9881;</button>
     <div class="window-controls" id="window-controls" style="display:none">
       <button class="win-btn win-btn-pin" id="pin-btn" onclick="togglePin()" title="Pin on top">&#128204;</button>
@@ -2969,8 +2973,9 @@ tr:hover td { background: var(--bg3); }
     if (voiceGenerating) return;
     voiceGenerating = true;
     var btn = document.getElementById('voice-generate-btn');
-    btn.disabled = true;
-    btn.textContent = 'Generating...';
+    var headerBtn = document.getElementById('voice-gen-header-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Generating...'; }
+    if (headerBtn) { headerBtn.disabled = true; headerBtn.classList.add('generating'); headerBtn.title = 'Generating voices...'; }
 
     fetch('/api/voice/generate', {method: 'POST'}).then(function(r) {
       if (!r.ok) {
@@ -2997,7 +3002,8 @@ tr:hover td { background: var(--bg3); }
               } else {
                 textToast('[' + evt.index + '/' + evt.total + '] Failed: \u201c' + evt.text + '\u201d \u2014 ' + evt.error, true);
               }
-              btn.textContent = 'Generating ' + evt.index + '/' + evt.total + '...';
+              if (btn) btn.textContent = 'Generating ' + evt.index + '/' + evt.total + '...';
+              if (headerBtn) headerBtn.title = 'Generating voices ' + evt.index + '/' + evt.total + '...';
             } catch(e) {}
           }
           read();
@@ -3008,8 +3014,8 @@ tr:hover td { background: var(--bg3); }
 
     function finish() {
       voiceGenerating = false;
-      btn.disabled = false;
-      btn.textContent = 'Generate missing';
+      if (btn) { btn.disabled = false; btn.textContent = 'Generate missing'; }
+      if (headerBtn) { headerBtn.disabled = false; headerBtn.classList.remove('generating'); headerBtn.title = 'Generate missing AI voices'; }
       loadVoice();
     }
   }

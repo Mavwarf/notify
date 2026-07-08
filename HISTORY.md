@@ -2,6 +2,7 @@
 
 ## Features
 
+- Dashboard voice generation header icon — 🎙 button in the dashboard header triggers "Generate missing" from any tab, works in compact mode; pulses while running with per-file toast progress *(Jul 08)*
 - Dashboard voice generation — "Generate missing" button in Voice tab generates all uncached voice lines via OpenAI TTS with live progress toasts *(Apr 02)*
 - Dashboard preferences — gear button in header with config file path, edit button, and compact mode toggle *(Apr 02)*
 - Compact mode — renamed from "focus mode"; toggle via F3 or preferences menu *(Apr 02)*
@@ -83,6 +84,20 @@
 - Template variables: `{profile}`, `{command}`, `{duration}` *(Feb 20)*
 - Opt-in event logging *(Feb 20)*
 - Multi-step notification pipelines: sound, speech, toast *(Feb 19)*
+
+---
+
+## 2026-07-08
+
+### Dashboard voice generation header icon
+
+A microphone icon (🎙) in the dashboard header triggers voice generation from any
+tab. Useful in compact mode where the Voice tab is hidden by default — no need
+to switch tabs or disable compact mode to kick off a batch. Reuses the same
+`/api/voice/generate` SSE flow as the Voice tab's "Generate missing" button: the
+icon pulses while running, per-file toasts report progress, and both buttons
+(header + tab) stay in sync when either is triggered. Placed between the theme
+picker and the preferences gear in the header.
 
 ---
 
